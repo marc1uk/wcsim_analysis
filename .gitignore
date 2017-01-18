@@ -1,0 +1,16 @@
+#ignore build results
+in/
+out/
+
+#ignore gedit backups
+*~
+
+#ignore build products
+*.d
+*.o
+
+check_against_matts.png
+
+#ignore files that are specific to the location you're building in
+*.pcm
+*.so
