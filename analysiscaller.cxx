@@ -1,3 +1,4 @@
+/* vim:set noexpandtab tabstop=4 wrap */
 #include <thread>         // std::this_thread::sleep_for
 #include <chrono>         // std::chrono::seconds
 #include <time.h>         // clock_t, clock, CLOCKS_PER_SEC
@@ -15,6 +16,6 @@ WCSimAnalysis* analysiscaller(){
 	cout<<"end of DoAnalysis() call"<<endl;
 	//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos
 	//delete theanalysis;
-	return theanalysis;	// keeps the histograms open
+	return theanalysis;											// keeps the histograms open
 
 }

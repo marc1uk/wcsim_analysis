@@ -1,3 +1,4 @@
+/* vim:set noexpandtab tabstop=4 wrap */
 // #######################################################################
 
 // Draw Canvases with Histograms for All Detector Elements

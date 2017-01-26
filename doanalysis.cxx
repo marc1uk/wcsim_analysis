@@ -1,24 +1,25 @@
+/* vim:set noexpandtab tabstop=4 wrap */
 //############################################################################################
 
 // LOOP OVER EVENTS TO DO ANALYSIS
 // ===============================
 void WCSimAnalysis::DoAnalysis(){
 
-	InitEnvironment();	// things like loading the libraries and class header locations
-	LoadInputFiles();	// open input tchain
-	MakePMTmap(); 		// map pmt positions from geometry file (only uses geotree)
-	GetTreeData(); 		// get hit & digit data from file
-	// declare histograms to be filled in loop
-	DefineTankHistos();
-	DefineMRDhistos();
-	DefineVetoHistos();
-	//OpenMRDtrackOutfile();	// open file for writing mrd tracks
+	InitEnvironment();			// things like loading the libraries and class header locations
+	LoadInputFiles();			// open input tchain
+	MakePMTmap(); 				// map pmt positions from geometry file (only uses geotree)
+	GetTreeData(); 				// get branches from tree, get triggers from the first entry
 
 	// Declare loop locals
 	// ===================
 	Int_t eventnum=0;
 	treeNumber=0;
 	maxtrackduration=30.;
+	
+	// Perform Pre-Loop actions
+	DoTankPreLoop();
+	DoMRDpreLoop();
+	DoVetoPreLoop();
 	
 	// Loop over events
 	// ================
@@ -36,39 +37,52 @@ void WCSimAnalysis::DoAnalysis(){
 		atrigm = m->GetTrigger(subtrigger);
 		atrigv = v->GetTrigger(subtrigger);
 		
-		// > TANK ANALYSIS
-		// > =============
-//		int numtanktruehits=0, numtankdigits=0;
-//		DoTankEventwide(numtanktruehits, numtankdigits);
-//		// loop over true hits and digits internally
-//		DoTankTrueHits(numtanktruehits);
-//		DoTankDigitHits(numtankdigits);
+		// TANK ANALYSIS
+		// =============
+		int numtanktruehits=0, numtankdigits=0;
+		// pre hit loop actions
+		DoTankEventwide(numtanktruehits, numtankdigits);
+		// loop over true hits and digits internally
+		DoTankPreHitLoop();
+		DoTankTrueHits();
+		DoTankDigitHits();
+		// post hit loop actions
+		DoTankPostHitLoop();
 		
-		// > MRD ANALYSIS
-		// > ============
+		// MRD ANALYSIS
+		// ============
 		int nummrdtruehits=0, nummrddigits=0;
+		// pre hit loop actions
 		DoMRDeventwide(nummrdtruehits, nummrddigits);
 		// loop over true hits and digits internally
-		DoMRDtrueHits(nummrdtruehits);
-		DoMRDdigitHits(nummrddigits);
+		DoMRDpreHitLoop();
+		DoMRDtrueHits();
+		DoMRDdigitHits();
+		// post hit loop actions
+		DoMRDpostHitLoop();
 		
-		// > VETO ANALYSIS
-		// > =============
-//		int numvetotruehits=0, numvetodigits=0;
-//		DoVetoEventwide(numvetotruehits, numvetodigits);
-//		// loop over true hits and digits internally
-//		DoVetoTrueHits(numvetotruehits);
-//		DoVetoDigitHits(numvetodigits);
+		// VETO ANALYSIS
+		// =============
+		int numvetotruehits=0, numvetodigits=0;
+		// pre hit loop actions
+		DoVetoEventwide(numvetotruehits, numvetodigits);
+		// loop over true hits and digits internally
+		DoVetoPreHitLoop();
+		DoVetoTrueHits();
+		DoVetoDigitHits();
+		// post hit loop actions
+		DoVetoPostHitLoop();
 		
-		// > LOOP TO NEXT EVENT
-		// > ==================
+		// LOOP TO NEXT EVENT
+		// ==================
 		eventnum++;
 	} while (1);
-	
-//	DrawGlobalHistos();
-//	DrawTankHistos();
-//	DrawMRDhistos();
-//	DrawVetoHistos();
 	cout<<"Reached end of TChain"<<endl;
+	
+	DoTankPostLoop();
+	DoMRDpostLoop();
+	DoVetoPostLoop();
+	
+	DrawGlobalHistos(); 	// doesn't fall into any other category.... 
 }
 

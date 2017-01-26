@@ -1,3 +1,4 @@
+/* vim:set noexpandtab tabstop=4 wrap */
 // #######################################################################
 
 // CREATE+OPEN OUTPUT FILE

@@ -1,3 +1,12 @@
+/* vim:set noexpandtab tabstop=4 wrap */
+//############################################################################################
+
+// VETO PRE-EVENT-LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoVetoPreLoop(){
+	DefineVetoHistos();
+}
+
 //############################################################################################
 
 // VETO EVENT-WIDE ACTIONS
@@ -10,9 +19,18 @@ void WCSimAnalysis::DoVetoEventwide(Int_t &numtruehits, Int_t &numdigits){
 
 //############################################################################################
 
+// VETO PRE-HIT-LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoVetoPreHitLoop(){
+// nothing here yet
+}
+
+//############################################################################################
+
 // VETO TRUE HIT ACTIONS
 // ===============================
-void WCSimAnalysis::DoVetoTrueHits(Int_t numtruehits){
+void WCSimAnalysis::DoVetoTrueHits(){
+	Int_t numtruehits = atrigv->GetCherenkovHits()->GetEntries();
 	for(Int_t i=0; i<numtruehits; i++){
 		// retrieve the hit information
 		WCSimRootCherenkovHit* hit = (WCSimRootCherenkovHit*)atrigv->GetCherenkovHits()->At(i);
@@ -31,7 +49,8 @@ void WCSimAnalysis::DoVetoTrueHits(Int_t numtruehits){
 
 // VETO DIGIT ACTIONS
 // ===============================
-void WCSimAnalysis::DoVetoDigitHits(Int_t numdigits){
+void WCSimAnalysis::DoVetoDigitHits(){
+	Int_t numdigits = atrigv->GetCherenkovDigiHits()->GetEntries();
 	for(Int_t i=0; i<numdigits; i++){
 		// retrieve the digit information
 		// ============================
@@ -42,4 +61,20 @@ void WCSimAnalysis::DoVetoDigitHits(Int_t numdigits){
 		// ========================================
 		FillVetoDigiHitsHist(digihit);
 	}
+}
+
+//############################################################################################
+
+// VETO POST-HIT-LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoVetoPostHitLoop(){
+// nothing here yet
+}
+
+//############################################################################################
+
+// VETO POST-EVENT-LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoVetoPostLoop(){
+	DrawVetoHistos();
 }

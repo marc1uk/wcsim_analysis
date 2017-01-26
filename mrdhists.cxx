@@ -1,3 +1,4 @@
+/* vim:set noexpandtab tabstop=4 wrap */
 // #######################################################################
 
 // DEFINING HISTOGRAMS
@@ -46,8 +47,6 @@ void WCSimAnalysis::FillMRDdigiHitsHist(WCSimRootCherenkovDigiHit* digihit){
 	QvsTmrd->Fill(digihit->GetT(), digihit->GetQ());
 	
 	digitTimeDistmrd->Fill(digihit->GetT());
-	mrddigittubesthisevent.push_back(digihit->GetTubeId());
-	mrddigittimesthisevent.push_back(digihit->GetT());
 }
 
 // #######################################################################

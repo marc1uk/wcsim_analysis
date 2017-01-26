@@ -1,5 +1,6 @@
 #ignore build results
 in/
+in_unused/
 out/
 
 #ignore gedit backups
@@ -16,6 +17,6 @@ check_against_matts.png
 *.so
 
 # files to ignore
-	geniefilestuff
-	todo notes
+geniefilestuff
+todo notes
 

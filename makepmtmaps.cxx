@@ -1,3 +1,4 @@
+/* vim:set noexpandtab tabstop=4 wrap */
 //############################################################################################
 
 // PRODUCE MAP OF PMT POSITIONS
@@ -20,53 +21,53 @@ void WCSimAnalysis::MakePMTmap(){
 		// we have some spurious entries? their positions are effectively 0,0,0.. 
 		if(TMath::Abs(thexval)<1.||TMath::Abs(theyval)<1.||TMath::Abs(thezval)<1.){ cout<<"skipping spurious entry"<<endl; continue; }
 		switch(p.GetCylLoc()){
-		  case 0: { // top cap pmt
-		    topcaptubeids.push_back(p.GetTubeNo());
-		    // make a vector of all the pmt positions
-		    topcapxvalsall.push_back(thexval);
-		    topcapzvalsall.push_back(thezval);
-		    // add the position to the vectors if it's a new one
-		    std::vector<double>::iterator it = std::find(topcapxvals.begin(), topcapxvals.end(), thexval);
-		    if(it==topcapxvals.end()){ topcapxvals.push_back(thexval); }
-		    it = std::find(topcapzvals.begin(), topcapzvals.end(), thezval);
-		    if(it==topcapzvals.end()){ topcapzvals.push_back(thezval); }
-		    break;
-		  }
-		  case 1: { // wall pmt
-		    walltubeids.push_back(p.GetTubeNo());
-		    // make a vector of all the pmt positions
-		    thezval -= geo->GetWCOffset(2); // z offset of the tank origin
-		    double thethetaval = TMath::ATan(thexval/thezval);
-		    if(thezval<0.){ (thexval<0.) ? thethetaval+=(2*TMath::Pi()) : thethetaval-=(2*TMath::Pi()); }
-		    wallthetavalsall.push_back(thethetaval);
-		    wallyvalsall.push_back(theyval);
-		    // add the position to the vectors if it's a new one
-		    std::vector<double>::iterator it = std::find(wallyvals.begin(), wallyvals.end(), theyval);
-		    if(it==wallyvals.end()){ wallyvals.push_back(theyval); }
-		    it = std::find(wallthetavals.begin(), wallthetavals.end(), thethetaval);
-		    if(it==wallthetavals.end()){ wallthetavals.push_back(thethetaval); }
-		    break;
-		  }
-		  case 2: { // bottom cap pmt
-		    bottomcaptubeids.push_back(p.GetTubeNo());
-		    // make a vector of all the pmt positions
-		    bottomcapxvalsall.push_back(thexval);
-		    bottomcapzvalsall.push_back(thezval);
-		    // add the position to the vectors if it's a new one
-		    std::vector<double>::iterator it = std::find(bottomcapxvals.begin(), bottomcapxvals.end(), thexval);
-		    if(it==bottomcapxvals.end()){ bottomcapxvals.push_back(thexval); }
-		    it = std::find(bottomcapzvals.begin(), bottomcapzvals.end(), thezval);
-		    if(it==bottomcapzvals.end()){ bottomcapzvals.push_back(thezval); }
-		    break;
-		  }
+			case 0: { // top cap pmt
+				topcaptubeids.push_back(p.GetTubeNo());
+				// make a vector of all the pmt positions
+				topcapxvalsall.push_back(thexval);
+				topcapzvalsall.push_back(thezval);
+				// add the position to the vectors if it's a new one
+				std::vector<double>::iterator it = std::find(topcapxvals.begin(), topcapxvals.end(), thexval);
+				if(it==topcapxvals.end()){ topcapxvals.push_back(thexval); }
+				it = std::find(topcapzvals.begin(), topcapzvals.end(), thezval);
+				if(it==topcapzvals.end()){ topcapzvals.push_back(thezval); }
+				break;
+			}
+			case 1: { // wall pmt
+				walltubeids.push_back(p.GetTubeNo());
+				// make a vector of all the pmt positions
+				thezval -= geo->GetWCOffset(2); // z offset of the tank origin
+				double thethetaval = TMath::ATan(thexval/thezval);
+				if(thezval<0.){ (thexval<0.) ? thethetaval+=(2*TMath::Pi()) : thethetaval-=(2*TMath::Pi()); }
+				wallthetavalsall.push_back(thethetaval);
+				wallyvalsall.push_back(theyval);
+				// add the position to the vectors if it's a new one
+				std::vector<double>::iterator it = std::find(wallyvals.begin(), wallyvals.end(), theyval);
+				if(it==wallyvals.end()){ wallyvals.push_back(theyval); }
+				it = std::find(wallthetavals.begin(), wallthetavals.end(), thethetaval);
+				if(it==wallthetavals.end()){ wallthetavals.push_back(thethetaval); }
+				break;
+			}
+			case 2: { // bottom cap pmt
+				bottomcaptubeids.push_back(p.GetTubeNo());
+				// make a vector of all the pmt positions
+				bottomcapxvalsall.push_back(thexval);
+				bottomcapzvalsall.push_back(thezval);
+				// add the position to the vectors if it's a new one
+				std::vector<double>::iterator it = std::find(bottomcapxvals.begin(), bottomcapxvals.end(), thexval);
+				if(it==bottomcapxvals.end()){ bottomcapxvals.push_back(thexval); }
+				it = std::find(bottomcapzvals.begin(), bottomcapzvals.end(), thezval);
+				if(it==bottomcapzvals.end()){ bottomcapzvals.push_back(thezval); }
+				break;
+			}
 		}
 	}
 	cout<<"    wall PMTs have "<<wallyvals.size()<<" unique y values and "
 			<<wallthetavals.size()<<" unique theta vals"<<endl
-		  <<"    top cap PMTs have "<<topcapxvals.size()<<" unique x values and "
-		  <<topcapzvals.size()<<" unique z values"<<endl
-		  <<"    bottom cap PMTs have "<<bottomcapxvals.size()<<" unique x values and "
-		  <<bottomcapzvals.size()<<" unique z values"<<endl;
+			<<"    top cap PMTs have "<<topcapxvals.size()<<" unique x values and "
+			<<topcapzvals.size()<<" unique z values"<<endl
+			<<"    bottom cap PMTs have "<<bottomcapxvals.size()<<" unique x values and "
+			<<bottomcapzvals.size()<<" unique z values"<<endl;
 	// sort the unique positions into ascending order
 	std::sort(topcapxvals.begin(),topcapxvals.end());
 	std::sort(topcapzvals.begin(),topcapzvals.end());

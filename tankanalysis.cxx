@@ -1,3 +1,12 @@
+/* vim:set noexpandtab tabstop=4 wrap */
+//############################################################################################
+
+// TANK PRE-EVENT-LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoTankPreLoop(){
+	DefineTankHistos();
+}
+
 //############################################################################################
 
 // TANK EVENT-WIDE ACTIONS
@@ -10,9 +19,18 @@ void WCSimAnalysis::DoTankEventwide(Int_t &numtruehits, Int_t &numdigits){
 
 //############################################################################################
 
+// TANK PRE-HIT-LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoTankPreHitLoop(){
+// nothing here yet
+}
+
+//############################################################################################
+
 // TANK TRUE HIT ACTIONS
 // ===============================
-void WCSimAnalysis::DoTankTrueHits(Int_t numtruehits){
+void WCSimAnalysis::DoTankTrueHits(){
+	Int_t numtruehits = atrigt->GetCherenkovHits()->GetEntries();
 	for(Int_t i=0; i<numtruehits; i++){
 		// retrieve the hit information
 		// ============================
@@ -33,7 +51,8 @@ void WCSimAnalysis::DoTankTrueHits(Int_t numtruehits){
 
 // TANK DIGIT ACTIONS
 // ===============================
-void WCSimAnalysis::DoTankDigitHits(Int_t numdigits){
+void WCSimAnalysis::DoTankDigitHits(){
+	Int_t numdigits = atrigt->GetCherenkovDigiHits()->GetEntries();
 	for(Int_t i=0; i<numdigits; i++){
 		// retrieve the digit information
 		// ============================
@@ -44,4 +63,20 @@ void WCSimAnalysis::DoTankDigitHits(Int_t numdigits){
 		// ========================================
 		FillTankDigiHitsHist(digihit);
 	}
+}
+
+//############################################################################################
+
+// TANK POST-HIT-LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoTankPostHitLoop(){
+// nothing here yet
+}
+
+//############################################################################################
+
+// TANK POST-EVENT-LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoTankPostLoop(){
+	DrawTankHistos();
 }

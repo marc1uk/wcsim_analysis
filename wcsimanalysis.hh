@@ -1,3 +1,4 @@
+/* vim:set noexpandtab tabstop=4 wrap */
 #include "TROOT.h"
 #include "TSystem.h"
 #include "TSystemFile.h"
@@ -17,10 +18,10 @@
 #include <vector>
 #include <map>
 #include <string>
-#include <algorithm> // remove and remove_if
+#include <algorithm>	// remove and remove_if
 #include <iostream>
 #include <iomanip>
-#include <fstream> 	//std::ofstream
+#include <fstream> 		//std::ofstream
 #include <stdlib.h>
 // #######################################################################
 // we need to #include all the WCSim headers.
@@ -164,16 +165,32 @@ class WCSimAnalysis : public TObject {
 	void GetTreeData();
 	int LoadTchainEntry(Int_t eventnum);
 	
+	// functions - pre-event-loop analysis initializations
+	void DoTankPreLoop();
+	void DoMRDpreLoop();
+	void DoVetoPreLoop();
+	
 	// functions - event and hit wide loops
+	void DoTankPreHitLoop();
 	void DoTankEventwide(Int_t &numtruehits, Int_t &numdigits);
-	void DoTankTrueHits(Int_t numtruehits);
-	void DoTankDigitHits(Int_t numdigits);
+	void DoTankTrueHits();
+	void DoTankDigitHits();
+	void DoTankPostHitLoop();
+	void DoMRDpreHitLoop();
 	void DoMRDeventwide(Int_t &numtruehits, Int_t &numdigits);
-	void DoMRDtrueHits(Int_t numtruehits);
-	void DoMRDdigitHits(Int_t numdigits);
+	void DoMRDtrueHits();
+	void DoMRDdigitHits();
+	void DoMRDpostHitLoop();
+	void DoVetoPreHitLoop();
 	void DoVetoEventwide(Int_t &numtruehits, Int_t &numdigits);
-	void DoVetoTrueHits(Int_t numtruehits);
-	void DoVetoDigitHits(Int_t numdigits);
+	void DoVetoTrueHits();
+	void DoVetoDigitHits();
+	void DoVetoPostHitLoop();
+	
+	// functions - post-event-loop analysis initializations
+	void DoTankPostLoop();
+	void DoMRDpostLoop();
+	void DoVetoPostLoop();
 	
 	// functions - histogram declaration
 	void DefineTankHistos();
