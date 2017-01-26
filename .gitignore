@@ -14,3 +14,8 @@ check_against_matts.png
 #ignore files that are specific to the location you're building in
 *.pcm
 *.so
+
+# files to ignore
+	geniefilestuff
+	todo notes
+
