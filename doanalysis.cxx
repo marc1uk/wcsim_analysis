@@ -24,11 +24,12 @@ void WCSimAnalysis::DoAnalysis(){
 	// Loop over events
 	// ================
 	cout<<"Looping over entries"<<endl;
-	//for(eventnum=0; eventnum<bp->GetEntries();eventnum++){
+	int breakearlyat=-1;
+	int maxdigits=0;
 	do {
 		// load next entry, including new trees and setting branch addresses when necessary
 		int entryvalid = LoadTchainEntry(eventnum);
-		if(entryvalid==0){ break; }
+		if(entryvalid==0 || eventnum==breakearlyat){ break; }
 		
 		// TODO: should include a loop over subtriggers here
 		Int_t subtrigger=0;
@@ -48,6 +49,8 @@ void WCSimAnalysis::DoAnalysis(){
 		DoTankDigitHits();
 		// post hit loop actions
 		DoTankPostHitLoop();
+		//if(numtankdigits>maxdigits){ maxdigits=numtankdigits; cout<<"maxdigits now "<<maxdigits<<endl; }
+		//if(numtankdigits==79){ cout<<numtankdigits<<" digits in this event"<<endl; break; }
 		
 		// MRD ANALYSIS
 		// ============
@@ -75,6 +78,7 @@ void WCSimAnalysis::DoAnalysis(){
 		
 		// LOOP TO NEXT EVENT
 		// ==================
+		//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos
 		eventnum++;
 	} while (1);
 	cout<<"Reached end of TChain"<<endl;
@@ -83,6 +87,6 @@ void WCSimAnalysis::DoAnalysis(){
 	DoMRDpostLoop();
 	DoVetoPostLoop();
 	
-	DrawGlobalHistos(); 	// doesn't fall into any other category.... 
+//	DrawGlobalHistos(); 	// doesn't fall into any other category.... 
 }
 

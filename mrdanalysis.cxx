@@ -5,7 +5,7 @@
 // ===============================
 void WCSimAnalysis::DoMRDpreLoop(){
 	DefineMRDhistos();
-	//OpenMRDtrackOutfile();	// open file for writing mrd tracks
+	OpenMRDtrackOutfile();	// open file for writing mrd tracks
 }
 
 //############################################################################################
@@ -16,8 +16,6 @@ void WCSimAnalysis::DoMRDeventwide(Int_t &numtruehits, Int_t &numdigits){
 	numtruehits = atrigm->GetCherenkovHits()->GetEntries();
 	numdigits = atrigm->GetCherenkovDigiHits()->GetEntries();
 	FillMRDeventWideHists(numtruehits, numdigits);
-	
-	FindMRDtracksInEvent();
 }
 
 //############################################################################################
@@ -25,7 +23,6 @@ void WCSimAnalysis::DoMRDeventwide(Int_t &numtruehits, Int_t &numdigits){
 // MRD PRE-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoMRDpreHitLoop(){
-// nothing here yet
 }
 
 //############################################################################################
@@ -37,10 +34,10 @@ void WCSimAnalysis::DoMRDtrueHits(){
 	for(Int_t i=0; i<numtruehits; i++){
 		// retrieve the hit information
 		WCSimRootCherenkovHit* hit = (WCSimRootCherenkovHit*)atrigm->GetCherenkovHits()->At(i);
-		//WCSimRootCherenkovHit has methods GetTubeId(), GetTotalPe(int)
+		//WCSimRootCherenkovHit has methods GetTubeId(), GetTotalPe(int). only really need int=0
 
-		// how is HitTimes related? Is it an event-wide? digit wide?....
-		WCSimRootCherenkovHitTime* hittime = (WCSimRootCherenkovHitTime*)atrigm->GetCherenkovHitTimes()->At(i);
+		// HitTimes and Hits are not 1:1 lists; use hit->TotalPe(0) to map from 1 to the other.
+		WCSimRootCherenkovHitTime* hittime = (WCSimRootCherenkovHitTime*)atrigm->GetCherenkovHitTimes()->At(hit->GetTotalPe(0));
 		// WCSimRootCherenkovHitTime has methods GetTruetime() and GetParentID(); 
 		
 		// call functions that use this information
@@ -62,8 +59,6 @@ void WCSimAnalysis::DoMRDdigitHits(){
 
 		// call functions that use this information
 		// ========================================
-		mrddigittubesthisevent.push_back(digihit->GetTubeId());
-		mrddigittimesthisevent.push_back(digihit->GetT());
 		FillMRDdigiHitsHist(digihit);
 	}
 }
@@ -73,7 +68,7 @@ void WCSimAnalysis::DoMRDdigitHits(){
 // MRD POST-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoMRDpostHitLoop(){
-// nothing here yet
+	FindMRDtracksInEvent();
 }
 
 //############################################################################################

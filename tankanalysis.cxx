@@ -22,7 +22,12 @@ void WCSimAnalysis::DoTankEventwide(Int_t &numtruehits, Int_t &numdigits){
 // TANK PRE-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoTankPreHitLoop(){
-// nothing here yet
+	// these histograms become event-scope.
+	if((wallhist->GetEntries()+topcaphist->GetEntries()+bottomcaphist->GetEntries())!=0){
+		topcaphist->Reset();
+		bottomcaphist->Reset();
+		wallhist->Reset();
+	}
 }
 
 //############################################################################################
@@ -35,10 +40,10 @@ void WCSimAnalysis::DoTankTrueHits(){
 		// retrieve the hit information
 		// ============================
 		WCSimRootCherenkovHit* hit = (WCSimRootCherenkovHit*)atrigt->GetCherenkovHits()->At(i);
-		//WCSimRootCherenkovHit has methods GetTubeId(), GetTotalPe(int)
+		//WCSimRootCherenkovHit has methods GetTubeId(), GetTotalPe(int). only really need int=0
 		
-		// how is HitTimes related? Is it an event-wide? digit wide?....
-		WCSimRootCherenkovHitTime* hittime = (WCSimRootCherenkovHitTime*)atrigt->GetCherenkovHitTimes()->At(i);
+		// HitTimes and Hits are not 1:1 lists; use hit->TotalPe(0) to map from 1 to the other.
+		WCSimRootCherenkovHitTime* hittime = (WCSimRootCherenkovHitTime*)atrigt->GetCherenkovHitTimes()->At(hit->GetTotalPe(0));
 		// WCSimRootCherenkovHitTime has methods GetTruetime() and GetParentID(); 
 
 		// call functions that use this information
@@ -70,7 +75,27 @@ void WCSimAnalysis::DoTankDigitHits(){
 // TANK POST-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoTankPostHitLoop(){
-// nothing here yet
+	if(drawtankhistos){ 
+		//DrawTankHistos();
+		if((wallhist->GetEntries()+topcaphist->GetEntries()+bottomcaphist->GetEntries())!=0){
+			wallmapcanv->cd();
+			// for no weighting, no range setting necessary? maybe SetMinimum(0)? all bins always 1???
+			// for weighting by Q, no range setting necessary
+			// for weighting by timing, need to account for 'trigger' offset of 950ns. 
+//			wallhist->SetMaximum(970.);			// for timing - maybe only min necessary
+			wallhist->SetMinimum(950.);
+			wallhist->SetBit(TH1::kNoStats);
+			wallhist->Draw("colz");
+			topcapmapcanv->cd();
+			topcaphist->SetMinimum(950.);
+			topcaphist->SetBit(TH1::kNoStats);
+			topcaphist->Draw("colz");
+			bottomcapmapcanv->cd();
+			bottomcaphist->SetMinimum(950.);
+			bottomcaphist->SetBit(TH1::kNoStats);
+			bottomcaphist->Draw("colz");
+		}
+	}
 }
 
 //############################################################################################

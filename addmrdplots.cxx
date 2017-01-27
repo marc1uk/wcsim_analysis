@@ -1028,8 +1028,8 @@ recotree->ResetBranchAddresses(); // so this MUST be called BEFORE aTrack gets d
 //delete[] aTrack;		// using delete rather than delete[] results in segfault!
 cout<<"exiting"<<endl;
 
-}		
-	
+}
+
 void checkpmtclass(TTree* recotree){
 cout<<"********** STARTING TREE CHECKS **********"<<endl;
 //cMRDTrack* recotracks;
@@ -1322,8 +1322,9 @@ t1.Branch("tracks","std::vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<
 */
 
 // for finding the PMT num for a given Strike. Should filter out noise by finding mode. 
-// note this implementation scans over the array range (not array elements) so will be more efficient for arrays with many
-// elements within short range (6,6,11,5,8,9) but inefficient for sparse large range (1000, 2000, 3000)
+// note this implementation scans over the array range (not array elements) so will be 
+// more efficient for arrays with many elements within short range (6,6,11,5,8,9) but 
+// inefficient for sparse large range (1000, 2000, 3000)
 Int_t findmode(Int_t* arrayin, Int_t arraysize){
     Int_t largestNum = 0, largestCount = 0;
     Int_t* upperLimit = std::max_element(&arrayin[0], &arrayin[arraysize]);

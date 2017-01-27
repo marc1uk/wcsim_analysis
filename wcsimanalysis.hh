@@ -135,7 +135,7 @@ class WCSimAnalysis : public TObject {
 	// MRD TRACK RECONSTRUCTION
 	// ~~~~~~~~~~~~~~~~~~~~~~~~
 	// variables for file writing
-	TFile* outfile=0;
+	TFile* mrdtrackfile=0;
 	TTree* recotree=0;
 	Int_t nummrddigitsthisevent;
 	Int_t nummrdtracksthisevent;
@@ -152,6 +152,12 @@ class WCSimAnalysis : public TObject {
 	// vectors filled in histogram functions, used for track finding
 	std::vector<int> mrddigittubesthisevent;
 	std::vector<double> mrddigittimesthisevent;
+	
+	// DISABLING STUFF
+	// ~~~~~~~~~~~~~~
+	Bool_t drawtankhistos=false;
+	Bool_t drawmrdhistos=false;
+	Bool_t drawvetohistos=false;
 
 	public:
 	// constructor + destructor
@@ -214,10 +220,13 @@ class WCSimAnalysis : public TObject {
 	void DrawMRDhistos();
 	void DrawVetoHistos();
 	void DrawGlobalHistos();
+	
+	// functions - plot styling
+	void ColourPlotStyle();
 
 	// functions - mrd track finding
 	void OpenMRDtrackOutfile();
-	void SplitMrdTracks(std::vector<double> mrddigittimesthisevent);	//TODO: store tubeids as well
+	void SplitMrdTracks();			//TODO: store tubeids as well
 	void FindMRDtracksInEvent();	//TODO: write this
 	
 	// the one that calls all the others
@@ -314,7 +323,7 @@ WCSimAnalysis::~WCSimAnalysis(){
 	// Close output files
 	// TChain* t doesn't need closing...
 	cout<<"closing file"<<endl;
-	if( outfile ) { outfile->Close(); delete outfile; outfile=0; }	// deletes member branches too
+	if( mrdtrackfile ) { mrdtrackfile->Close(); delete mrdtrackfile; mrdtrackfile=0; }	// deletes member branches too
 	cout<<"done with destructor"<<endl;
 }
 
@@ -329,10 +338,12 @@ WCSimAnalysis::~WCSimAnalysis(){
 #include "mrdhists.cxx"
 #include "globalhists.cxx"
 #include "findmrdtracks.cxx"
-#include "doanalysis.cxx"	// main analysis: calls all the above and loops over events
+#include "doanalysis.cxx"		// main analysis: calls all the above and loops over events
 #include "tankanalysis.cxx"
 #include "mrdanalysis.cxx"
 #include "vetoanalysis.cxx"
+#include "MRDStrikeClass.hh"	// basically an extension of a digit, with MRD specific info
+#include "MRDTrackClass.hh"		// a class for defining MRD tracks
 
 //TODO std::string intxnumtotype(gst genieeventasclass){
 

@@ -33,14 +33,16 @@ class cMRDTrack : public TObject {
 	Int_t tanktrackID;	// if this track has been correlated with a track in the tank, store the tank track ID here.
 	
 	// Raw Info:
-	std::vector<cMRDStrike> strikes;			//vector of cMRDStrike class objects. 
-	// strike class objects contain all information derivable from just one strike object - layer number, number and vector of 
-	// PMT hits, which PMTs were hit, hit times, energy depositions, positional error from struck PMTs... 
-	std::vector<Double_t> eDepsInLayers;		// fixed length vector of energy deposited in each layer 
-	Int_t valid;	// are all strikes consistent with one track? -1: u nchecked, 0: inconsistent, 1: consistent
-	Int_t tankconsistency;	// are strikes consistent with associated tank track, if there is one? (-2, no tank track)
+	Int_t event_id;										// event this track was in
+	Int_t subtrigger;									// trigger this track was in
+	std::vector<Int_t> digi_ids;			//vector of digi ids: GetCherenkovDigiHits()->At(digi_ids.at(i))
 	
 	// Calculated Info
+	std::vector<Double_t> eDepsInLayers;		// fixed length vector of energy deposited in each layer 
+	Int_t valid;	// are all strikes consistent with one track? -1: unchecked, 0: inconsistent, 1: consistent
+	Int_t tankconsistency;	// are strikes consistent with associated tank track, if there is one? (-2, no tank track)
+	
+	// Reconstructed Info
 	Int_t particlePID;	// particle type code, based on rate of energy loss, penetration... other?
 	Double_t KEStart;		// projected from energy loss? what about from tank info?
 	Double_t KEEnd;			// projected from energy loss, if possible. (-1; not enough info)
@@ -49,31 +51,26 @@ class cMRDTrack : public TObject {
 	std::map<const char*, double> recovalshoriz, recovalsvert; // has keys "xycrossing", "zcrossing", "angmin" and "angmax"
 	
 	public:
-	// Setters
-	// =======
-	void AppendStrike(cMRDStrike strikein){strikes.push_back(strikein);}
-//void SetTankEntryPoint(ROOT::Math::XYZTVector tankStartin){tankStart = tankStartin;} // entry point derived from a matched tank track
-	void SetparticlePID(Int_t particlePIDin){particlePID = particlePIDin;}		// could also be determined from tank info
-	// void SetKEEnd(Double_t KEEndin){KEEnd = KEEndin;}											// should there be setters for other properties?
-	// void SetKEStart(Double_t KEStartin){KEStart = KEStartin;}
+	// Track Level Setters and Getters
+	// ===============================
+	Int_t GetNumPMTsHit(){return NumPMTshits;}
+	Int_t GetNumLayersHit(){return NumLayersHit;}
+	std::vector<Int_t> GetLayersHit(){return LayersHit;}
+	std::vector<Int_t> GetPMTsHit(){return PMTsHit;}
+	Int_t GetNumDigits(){return digits.size();}
+	WCSimRootCherenkovDigiHit* GetDigit(Int_t i){
+		try{return &(digits.at(i));}
+		catch(const std::out_of_range& oor){return 0;}
+	}
 	
-	// Getters
-	// =======
-	Int_t GetparticlePID(){return particlePID;}				// reconstruct from rate of ionisation...? likelihood? farm out to a function.
+	// Reconstructed Variables
+	Int_t GetparticlePID(){return particlePID;}				// reconstruct from rate of ionisation...? likelihood?
 	Double_t GetKEStart(){return KEStart;}						// reconstruct from rate of energy deposition
 	Double_t GetKEEnd(){return KEEnd;}
 	Double_t GetTotalEdep(){return KEStart-KEEnd;}
 	std::vector<Double_t> GetEdeps(){return eDepsInLayers;}
 	
-	Int_t GetNumStrikes(){return strikes.size();}
-	std::vector<cMRDStrike> GetStrikes(){ return strikes; }
-	cMRDStrike* GetFirstStrike(){return &(strikes.front());}	// should check we have at least one.
-	cMRDStrike* GetLastStrike(){return &(strikes.back());}		// should check we have at least one.
-	cMRDStrike* GetStrike(Int_t i){
-		try{return &(strikes.at(i));}
-		catch(const std::out_of_range& oor){return 0;}
-	}
-	
+	// Geometric Variables
 	std::vector<ROOT::Math::XYZTVector> GetMRDPoints(){return mrdpoints;}
 	Double_t GetPenetration(){return mrdpoints.back().Z()-mrdpoints.front().Z();}
 	ROOT::Math::XYZTVector* GetFirstPoint(){return &(mrdpoints.front());}		// should check we have at least one.
@@ -85,6 +82,39 @@ class cMRDTrack : public TObject {
 	
 	std::map<const char*, double> GetTrackXStats(){ return recovalshoriz; }
 	std::map<const char*, double> GetTrackYStats(){ return recovalsvert; }
+	
+	// Truth Level Info
+	Int_t GetTrueTrack(){return TrueTrack;}	//WCSimRootTrack index (not WCSim TrackID)
+	// if there's a WCSimRootTrack it has a wealth of info - PDG, start+stop vertices, P, M, E...
+	// saved if GetSaveFlag is set in WCSimTrajectory, and for primaries.
+	
+	// Setters
+	void AppendDigit(WCSimRootCherenkovDigiHit digitin){digits.push_back(digitin);}
+	void AppendDigit(thisdigitstime, thisdigitsq, thisdigitstubeid, photontimesinatrack,particleidsinatrack);
+	void SetparticlePID(Int_t particlePIDin){particlePID = particlePIDin;}		// from dE/dx, also tank info?
+	// void SetKEEnd(Double_t KEEndin){KEEnd = KEEndin;}											// setters for other properties?
+	// void SetKEStart(Double_t KEStartin){KEStart = KEStartin;}
+	//void SetTankEntryPoint(ROOT::Math::XYZTVector tankStartin){tankStart = tankStartin;} 
+	// entry point derived from a matched tank track?
+	
+	// Digit Level Setters and Getters
+	// ===============================
+	Int_t GetPMTNumber(Int_t digitnum){return PMTnum.at(digitnum);}
+	Double_t GetTime(Int_t digitnum){return DigitTs.at(digitnum);}
+	Double_t GetCharge(Int_t digitnum){return DigitQs.at(digitnum);}
+	Double_t GetEdeposited(Int_t digitnum){ return PMThitTimes.size()*3;}	//TODO derive from above. units?
+	Int_t GetNumTrueHits(Int_t digitnum){return NumTrueHits.at(digitnum);}	//size of PhotonIds()
+	std::vector<Int_t> GetPhotonIds(Int_t digitnum){return PhotonIds.at(digitnum);}
+	std::vector<Int_t> GetPhotonParents(Int_t digitnum){return PhotonParents.at(digitnum);}
+	std::vector<Double_t> GetPhotonTrueTimes(Int_t digitnum){return PhotonTrueTimes.at(digitnum);}
+	
+	Int_t GetLayerNum(Int_t digitnum){return MRDlayer.at(digitnum);}
+	Int_t GetPaddleNum(Int_t digitnum){return MRDpaddle.at(digitnum);}	// number of paddle within this panel
+	std::pair<Double_t, Double_t> GetXrange(Int_t digitnum){return xrange.at(digitnum);}
+	std::pair<Double_t, Double_t> GetYrange(Int_t digitnum){return yrange.at(digitnum);}
+	std::pair<Double_t, Double_t> GetZrange(Int_t digitnum){return zrange.at(digitnum);}
+	std::pair<Double_t, Double_t> GetTrange(Int_t digitnum){return trange.at(digitnum);}
+
 	
 	public:
 	// Constructors & Destructors
@@ -415,6 +445,95 @@ Bool_t cMRDTrack::CheckIntersection(Int_t layerstart, Int_t layerend, Double_t a
 	cout<<"projected point is "<<yproj<<"; trajectory does not cross"<<endl;
 #endif
 	return false; 
+	}
+}
+
+void cMRDTrack::CalculateDigitInfo(){
+	cMRDdigit(std::vector<Double_t> PMThitTimesin, Int_t PMTnumin) : MRDlayer(-1), MRDpaddle(-1), eDeposited(0), xrange(), yrange(), 
+	zrange(), trange(), PMThitTimes(PMThitTimesin), PMTnum(PMTnumin) {
+	// actual constructor. 
+#ifdef _MRDDigit_VERBOSE_
+	cout<<"constructing a mrd digit"<<endl;
+#endif
+		std::sort(PMThitTimes.begin(), PMThitTimes.end());
+//	std::vector<Int_t> hitpmts = GetNumPMTsHit();			// should only be one PMT hit per mrd digit.
+//	for(std::vector<Int_t>::iterator it=hitpmts.begin();it!=hitpmts.end();it++){
+#ifdef _MRDDigit_VERBOSE_
+		cout<<"there are "<<PMThitTimes.size()<<" hits in this mrd digit"<<endl;
+#endif
+		if(PMThitTimes.size()!=0){
+			Int_t panelpairnum = TMath::Floor(PMTnum/(numpaddlesperpanelh+numpaddlesperpanelv));
+			Int_t pmtnumrem = PMTnum-((numpaddlesperpanelh+numpaddlesperpanelv)*panelpairnum);
+			// first layer is a vertical layer (check this!) //TODO
+			if(pmtnumrem<numpaddlesperpanelv){
+#ifdef _MRDDigit_VERBOSE_
+				cout<<"this is a vertical paddle"<<endl;
+#endif
+				MRDlayer=(panelpairnum*2);
+			} else {
+				MRDlayer=(panelpairnum*2)+1; 
+				pmtnumrem = pmtnumrem - numpaddlesperpanelv;
+#ifdef _MRDDigit_VERBOSE_
+				cout<<"this is a horizontal paddle"<<endl;
+#endif
+			}
+			MRDpaddle = pmtnumrem;
+#ifdef _MRDDigit_VERBOSE_
+			cout<<"the hit PMT was PMT number "<<PMTnum<<" which is paddle "<<MRDpaddle<<" of layer "<<MRDlayer<<endl;
+#endif
+			// note within a panel PMTs {0,1}, {2,3} etc are pairs stacked end-to-end
+			if(MRDlayer%2!=0){	//horizontal panels, use PMT number to determine y position
+				if((pmtnumrem%2)==0){	// row 1 - RHS looking downstream
+					pmtnumrem=pmtnumrem/2;	// merge rows
+					xrange.first = 0;
+					xrange.second = scintvfullylen;
+					yrange.first = (scintfullxlen+scintbordergap)*(pmtnumrem-(numpaddlesperpanelh/4)-0.5);
+					yrange.second = (scintfullxlen+scintbordergap)*(pmtnumrem+1-(numpaddlesperpanelh/4)-0.5)-scintalugap;
+				} else {
+					pmtnumrem=TMath::Floor(pmtnumrem/2);	// merge rows
+					xrange.first = -scintvfullylen;
+					xrange.second = 0;
+					yrange.first = (scintfullxlen+scintbordergap)*(pmtnumrem-(numpaddlesperpanelh/4)-0.5);
+					yrange.second = (scintfullxlen+scintbordergap)*(pmtnumrem+1-(numpaddlesperpanelh/4)-0.5)-scintalugap;
+				}			
+			} else {
+				if((pmtnumrem%2)==0){	// row 1 or 2?
+					pmtnumrem=pmtnumrem/2;	// merge rows
+					yrange.first = -scinthfullylen;
+					yrange.second = 0;
+					xrange.first = (scintfullxlen+scintbordergap)*(pmtnumrem-(numpaddlesperpanelv/4)-0.5);
+					xrange.second = (scintfullxlen+scintbordergap)*(pmtnumrem+1-(numpaddlesperpanelv/4)-0.5)-scintalugap;
+				} else {
+					pmtnumrem=TMath::Floor(pmtnumrem/2);	// merge rows
+					yrange.first = 0;
+					yrange.second = scinthfullylen;
+					xrange.first = (scintfullxlen+scintbordergap)*(pmtnumrem-(numpaddlesperpanelv/4)-0.5);
+					xrange.second = (scintfullxlen+scintbordergap)*(pmtnumrem+1-(numpaddlesperpanelv/4)-0.5)-scintalugap;
+				}
+			}
+//			zrange.first = scintzedges[(Int_t)(2*TMath::Floor(MRDlayer))];
+//			zrange.second = scintzedges[(Int_t)(2*TMath::Floor(MRDlayer))+1];
+			Double_t Zposition = MRDlayer*(steelfullzlen + alufullzlen + scintfullzlen + layergap);
+			if(MRDlayer==0){Zposition = Zposition + alufullzlen + scintalugap;}		
+			// layer 0 scints intrude into layer 1's offset
+			Zposition = Zposition + steelfullzlen + steelscintgap;								
+			// scint follows closely behind first steel
+			Zposition = Zposition + (scintfullzlen/2);														
+			// offset by half depth so we place front face not centre
+			Zposition = Zposition - (mrdZlen/2);																	
+			// offset by half total length to shift to front
+			zrange.first = Zposition;
+			zrange.second = Zposition + scintfullzlen;
+#ifdef _MRDDigit_VERBOSE_
+			cout<<"the paddle bounds are from "<<xrange.first<<"<x<"<<xrange.second<<", "<<yrange.first<<"<y<"<<yrange.second
+					<<", "<<zrange.first<<"<z<"<<zrange.second<<endl;
+#endif
+			trange.first = PMThitTimes.front();
+			trange.second = PMThitTimes.back();
+#ifdef _MRDDigit_VERBOSE_
+			cout<<"hit times range from "<<trange.first<<"<t<"<<trange.second<<"ns"<<endl;
+#endif
+		}
 	}
 }
 

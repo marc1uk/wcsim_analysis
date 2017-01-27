@@ -34,10 +34,10 @@ void WCSimAnalysis::DoVetoTrueHits(){
 	for(Int_t i=0; i<numtruehits; i++){
 		// retrieve the hit information
 		WCSimRootCherenkovHit* hit = (WCSimRootCherenkovHit*)atrigv->GetCherenkovHits()->At(i);
-		//WCSimRootCherenkovHit has methods GetTubeId(), GetTotalPe(int)
+		//WCSimRootCherenkovHit has methods GetTubeId(), GetTotalPe(int). only really need int=0
 
-		// how is HitTimes related? Is it an event-wide? digit wide?....
-		WCSimRootCherenkovHitTime* hittime = (WCSimRootCherenkovHitTime*)atrigv->GetCherenkovHitTimes()->At(i);
+		// HitTimes and Hits are not 1:1 lists; use hit->TotalPe(0) to map from 1 to the other.
+		WCSimRootCherenkovHitTime* hittime = (WCSimRootCherenkovHitTime*)atrigv->GetCherenkovHitTimes()->At(hit->GetTotalPe(0));
 		// WCSimRootCherenkovHitTime has methods GetTruetime() and GetParentID(); 
 		
 		// call functions that use this information

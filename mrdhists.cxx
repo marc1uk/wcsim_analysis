@@ -14,6 +14,15 @@ void WCSimAnalysis::DefineMRDhistos(){
 	hitTimeDistmrd = new TH1D("hitTimeDistmrd","MRD Hit Time Distribution;Hit Time (ns);Frequency", 100,900,3400);
 	digitTimeDistmrd = new TH1D("digitTimeDistmrd","MRD Digitized Hit Time Distribution;Digit Time (ns);Frequency", 100,900,3400);
 	mrdhist = new TH2D("mrdhist","Map of MRD Hits", 15, 0, 14, 13, 0, 12);
+	
+	if(drawmrdhistos){
+		win_scale=0.7;
+		n_wide=2;
+		n_high=3;
+	
+		QvsTmrdCanv = new TCanvas("QvsTmrdCanv","QvsTmrdCanv",700*n_wide*win_scale,500*n_high*win_scale);
+		QvsTmrdCanv->Divide(n_wide,n_high);
+	}
 }
 
 // #######################################################################
@@ -54,45 +63,41 @@ void WCSimAnalysis::FillMRDdigiHitsHist(WCSimRootCherenkovDigiHit* digihit){
 // DRAWING HISTOGRAMS
 // ==================
 void WCSimAnalysis::DrawMRDhistos(){
-	win_scale=0.7;
-	n_wide=2;
-	n_high=3;
-	
-	QvsTmrdCanv = new TCanvas("QvsTmrdCanv","QvsTmrdCanv",700*n_wide*win_scale,500*n_high*win_scale);
-	QvsTmrdCanv->Divide(n_wide,n_high);
-	QvsTmrdCanv->cd(1);
-	QvsTmrd->Draw("colz");
+	if(drawmrdhistos){
+		QvsTmrdCanv->cd(1);
+		QvsTmrd->Draw("colz");
 
-	TH1 *temp;
-	QvsTmrdCanv->cd(2);
-	temp=QvsTmrd->ProjectionY();
-	temp->SetTitle("charge");
-	temp->Draw();
-	QvsTmrdCanv->GetPad(2)->SetLogy();
+		TH1 *temp;
+		QvsTmrdCanv->cd(2);
+		temp=QvsTmrd->ProjectionY();
+		temp->SetTitle("charge");
+		temp->Draw();
+		QvsTmrdCanv->GetPad(2)->SetLogy();
 
-	QvsTmrdCanv->cd(3);
-	temp=QvsTmrd->ProjectionX();
-	temp->SetTitle("hits vs time");
-	temp->Draw();
-	QvsTmrdCanv->GetPad(3)->SetLogy();
+		QvsTmrdCanv->cd(3);
+		temp=QvsTmrd->ProjectionX();
+		temp->SetTitle("hits vs time");
+		temp->Draw();
+		QvsTmrdCanv->GetPad(3)->SetLogy();
 
-	QvsTmrdCanv->cd(4);
-	temp=QvsTmrd->ProfileX();
-	temp->SetTitle("average charge vs time");
-	temp->Draw();
+		QvsTmrdCanv->cd(4);
+		temp=QvsTmrd->ProfileX();
+		temp->SetTitle("average charge vs time");
+		temp->Draw();
 
-	QvsTmrdCanv->cd(5);
-	temp=PEdistmrd;
-	temp->Draw();
-	QvsTmrdCanv->GetPad(5)->SetLogy();
+		QvsTmrdCanv->cd(5);
+		temp=PEdistmrd;
+		temp->Draw();
+		QvsTmrdCanv->GetPad(5)->SetLogy();
 
-	QvsTmrdCanv->cd(6);
-	temp=hitTimeDistmrd;
-	temp->Draw();
-	temp=digitTimeDistmrd;
-	temp->SetLineColor(kRed);
-	temp->Draw("same");
-	QvsTmrdCanv->GetPad(6)->SetLogy();
+		QvsTmrdCanv->cd(6);
+		temp=hitTimeDistmrd;
+		temp->Draw();
+		temp=digitTimeDistmrd;
+		temp->SetLineColor(kRed);
+		temp->Draw("same");
+		QvsTmrdCanv->GetPad(6)->SetLogy();
+	}
 }
 
 

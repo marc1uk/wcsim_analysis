@@ -15,6 +15,20 @@ void WCSimAnalysis::DefineVetoHistos(){
 	digitTimeDistveto = new TH1D("digitTimeDistveto","Veto Digitized Hit Time Distribution;Digit Time (ns);Frequency", 100,900,3400);
 //	PMTsvDigitTimeveto = new TH2D("PMTsvDigitTimeveto","Num Veto PMTs hit vs Last Digit Time;Digit Time (ns);Num PMTs Hit", 100,900,3400, numvetopmts, 0, numvetopmts);
 	facchist = new TH2D("facchist","Map of FACC Hits", 30, 0, 29, 2, 0, 1);
+	
+	if(drawvetohistos){
+		win_scale=0.7;
+		n_wide=2;
+		n_high=3;
+	
+		// charge distributions for veto
+		QvsTvetoCanv = new TCanvas("QvsTvetoCanv","QvsTvetoCanv",700*n_wide*win_scale,500*n_high*win_scale);
+		QvsTvetoCanv->Divide(n_wide,n_high);
+		
+//		n_wide=1;
+//		n_high=1;
+//		vetoLastTimevsNumHitsCanv = new TCanvas("vetoLastTimevsNumHitsCanv","Last Veto Digit vs Num Veto PMTs hit",700*n_wide*win_scale,500*n_high*win_scale);
+	}
 }
 
 
@@ -56,52 +70,44 @@ void WCSimAnalysis::FillVetoDigiHitsHist(WCSimRootCherenkovDigiHit* digihit){
 // DRAWING HISTOGRAMS
 // ==================
 void WCSimAnalysis::DrawVetoHistos(){
-	win_scale=0.7;
-	n_wide=2;
-	n_high=3;
-	
-	// charge distributions for veto
-	QvsTvetoCanv = new TCanvas("QvsTvetoCanv","QvsTvetoCanv",700*n_wide*win_scale,500*n_high*win_scale);
-	QvsTvetoCanv->Divide(n_wide,n_high);
-	QvsTvetoCanv->cd(1);
-	QvsTveto->Draw("colz");
+	if(drawvetohistos){
+		QvsTvetoCanv->cd(1);
+		QvsTveto->Draw("colz");
 
-	TH1 *temp;
-	QvsTvetoCanv->cd(2);
-	temp=QvsTveto->ProjectionY();
-	temp->SetTitle("charge");
-	temp->Draw();
-	QvsTvetoCanv->GetPad(2)->SetLogy();
+		TH1 *temp;
+		QvsTvetoCanv->cd(2);
+		temp=QvsTveto->ProjectionY();
+		temp->SetTitle("charge");
+		temp->Draw();
+		QvsTvetoCanv->GetPad(2)->SetLogy();
 
-	QvsTvetoCanv->cd(3);
-	temp=QvsTveto->ProjectionX();
-	temp->SetTitle("hits vs time");
-	temp->Draw();
-	QvsTvetoCanv->GetPad(3)->SetLogy();
+		QvsTvetoCanv->cd(3);
+		temp=QvsTveto->ProjectionX();
+		temp->SetTitle("hits vs time");
+		temp->Draw();
+		QvsTvetoCanv->GetPad(3)->SetLogy();
 
-	QvsTvetoCanv->cd(4);
-	temp=QvsTveto->ProfileX();
-	temp->SetTitle("average charge vs time");
-	temp->Draw();
+		QvsTvetoCanv->cd(4);
+		temp=QvsTveto->ProfileX();
+		temp->SetTitle("average charge vs time");
+		temp->Draw();
 
-	QvsTvetoCanv->cd(5);
-	temp=PEdistveto;
-	temp->Draw();
-	QvsTvetoCanv->GetPad(5)->SetLogy();
+		QvsTvetoCanv->cd(5);
+		temp=PEdistveto;
+		temp->Draw();
+		QvsTvetoCanv->GetPad(5)->SetLogy();
 
-	QvsTvetoCanv->cd(6);
-	temp=hitTimeDistveto;
-	temp->Draw();
-	temp=digitTimeDistveto;
-	temp->SetLineColor(kRed);
-	temp->Draw("same");
-	QvsTvetoCanv->GetPad(6)->SetLogy();
+		QvsTvetoCanv->cd(6);
+		temp=hitTimeDistveto;
+		temp->Draw();
+		temp=digitTimeDistveto;
+		temp->SetLineColor(kRed);
+		temp->Draw("same");
+		QvsTvetoCanv->GetPad(6)->SetLogy();
 
-//	n_wide=1;
-//	n_high=1;
-//	vetoLastTimevsNumHitsCanv = new TCanvas("vetoLastTimevsNumHitsCanv","Last Veto Digit vs Num Veto PMTs hit",700*n_wide*win_scale,500*n_high*win_scale);
-//	vetoLastTimevsNumHitsCanv->cd();
-//	//temp=PMTsvDigitTimeveto->ProjectionX();
-//	//temp->Draw();
-//	//PMTsvDigitTimeveto->Draw();
+	//	vetoLastTimevsNumHitsCanv->cd();
+	//	//temp=PMTsvDigitTimeveto->ProjectionX();
+	//	//temp->Draw();
+	//	//PMTsvDigitTimeveto->Draw();
+	}
 }
