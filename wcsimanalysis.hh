@@ -14,6 +14,8 @@
 #include "TCanvas.h"
 #include "TString.h"
 #include "TMath.h"
+#include "TColor.h"
+#include "TStyle.h"
 #include <exception>	// for stdexcept
 #include <vector>
 #include <map>
@@ -42,7 +44,7 @@ class WCSimAnalysis : public TObject {
 	private:
 	// CONSTS
 	const Int_t numtankpmts=128+2*(26);	// 26 pmts and lappds on each cap
-	const Int_t nummrdpmts=336;
+	const Int_t nummrdpmts=307;
 	const Int_t numvetopmts=26;
 	const Int_t caparraysize=8;    // pmts on the cap form an nxn grid where caparraysize=n
 	const Int_t pmtsperring=16;    // pmts around each ring of the main walls
@@ -50,7 +52,7 @@ class WCSimAnalysis : public TObject {
 	const Int_t MAXTRACKSPEREVENT=50;
 
 	int treeNumber;
-	Double_t maxtrackduration;  // in ns?
+	Double_t maxtrackduration=30.;  // in ns?
 	// canvas sizes
 	float win_scale;
 	int n_wide;
@@ -67,6 +69,13 @@ class WCSimAnalysis : public TObject {
 	WCSimRootTrigger* atrigt=0;
 	WCSimRootTrigger* atrigm=0;
 	WCSimRootTrigger* atrigv=0;
+	WCSimRootEventHeader* header=0;
+	TTree* currenttree;
+	TFile* currentfile;
+	std::string currentfilestring;
+	Int_t eventnum;
+	Int_t runnum;
+	Int_t subtriggernum;
 
 	// PMT MAP VARIABLES
 	// needed for drawing tank histograms
@@ -137,25 +146,16 @@ class WCSimAnalysis : public TObject {
 	// variables for file writing
 	TFile* mrdtrackfile=0;
 	TTree* recotree=0;
-	Int_t nummrddigitsthisevent;
+	std::vector<Double_t> mrddigittimesthisevent;
 	Int_t nummrdtracksthisevent;
-	std::vector<std::vector<Int_t>> tubeidsinthistrack;
-	std::vector<std::vector<Double_t>> digitqsinthistrack;
-	std::vector<std::vector<Double_t>> digittimesinthistrack;
-	std::vector<std::vector<Int_t>> particleidsinthistrack;
-	TBranch* nummrddigitsthiseventb=0;
 	TBranch* nummrdtracksthiseventb=0;
-	TBranch* tubeidsinthistrackb=0;
-	TBranch* digitqsinthistrackb=0;
-	TBranch* digittimesinthistrackb=0;
-	TBranch* particleidsinthistrackb=0;
-	// vectors filled in histogram functions, used for track finding
-	std::vector<int> mrddigittubesthisevent;
-	std::vector<double> mrddigittimesthisevent;
+	TBranch* tracksinthiseventb=0;
+	TClonesArray* aTrack;
+	TClonesArray aTracka;
 	
 	// DISABLING STUFF
 	// ~~~~~~~~~~~~~~
-	Bool_t drawtankhistos=false;
+	Bool_t drawtankhistos=true;
 	Bool_t drawmrdhistos=false;
 	Bool_t drawvetohistos=false;
 
@@ -226,7 +226,6 @@ class WCSimAnalysis : public TObject {
 
 	// functions - mrd track finding
 	void OpenMRDtrackOutfile();
-	void SplitMrdTracks();			//TODO: store tubeids as well
 	void FindMRDtracksInEvent();	//TODO: write this
 	
 	// the one that calls all the others
@@ -342,8 +341,6 @@ WCSimAnalysis::~WCSimAnalysis(){
 #include "tankanalysis.cxx"
 #include "mrdanalysis.cxx"
 #include "vetoanalysis.cxx"
-#include "MRDStrikeClass.hh"	// basically an extension of a digit, with MRD specific info
-#include "MRDTrackClass.hh"		// a class for defining MRD tracks
 
 //TODO std::string intxnumtotype(gst genieeventasclass){
 
@@ -352,4 +349,28 @@ WCSimAnalysis::~WCSimAnalysis(){
 #ifdef __CINT__
 #pragma link C++ class WCSimAnalysis+;
 #endif
+
+// ###########################################################################
+
+// WCSim class summary:
+
+
+
+/* 
+WCSimRootTrack has methods: 
+Int_t     GetIpnu()             pdg
+Int_t     GetFlag()             -1 = probe nu, -2 = target, 1 = fsl, 2 = most energetic fs nucleon
+Float_t   GetM()                mass
+Float_t   GetP()                momentum magnitude
+Float_t   GetE()                energy (inc rest mass^2)
+Int_t     GetStartvol()         starting volume
+Int_t     GetStopvol()          stopping volume
+Float_t   GetDir(Int_t i=0)     momentum unit vector
+Float_t   GetPdir(Int_t i=0)    momentum vector
+Float_t   GetStop(Int_t i=0)    stopping vertex x,y,z for i=0-2
+Float_t   GetStart(Int_t i=0)   starting vertex x,y,z for i=0-2
+Int_t     GetParenttype()       parent pdg
+Float_t   GetTime()             trj->GetGlobalTime(); stopping(?) time of particle
+Int_t     GetId()               wcsim trackid
+*/
 

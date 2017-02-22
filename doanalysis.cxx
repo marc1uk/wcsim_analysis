@@ -12,9 +12,8 @@ void WCSimAnalysis::DoAnalysis(){
 
 	// Declare loop locals
 	// ===================
-	Int_t eventnum=0;
+	eventnum=0;
 	treeNumber=0;
-	maxtrackduration=30.;
 	
 	// Perform Pre-Loop actions
 	DoTankPreLoop();
@@ -38,6 +37,11 @@ void WCSimAnalysis::DoAnalysis(){
 		atrigm = m->GetTrigger(subtrigger);
 		atrigv = v->GetTrigger(subtrigger);
 		
+		header = atrigt->GetHeader();
+		//eventnum = header->GetEvtNum();					<<< not sure this works
+		runnum = header->GetRun();
+		subtriggernum = header->GetSubEvtNumber();
+		
 		// TANK ANALYSIS
 		// =============
 		int numtanktruehits=0, numtankdigits=0;
@@ -50,7 +54,7 @@ void WCSimAnalysis::DoAnalysis(){
 		// post hit loop actions
 		DoTankPostHitLoop();
 		//if(numtankdigits>maxdigits){ maxdigits=numtankdigits; cout<<"maxdigits now "<<maxdigits<<endl; }
-		//if(numtankdigits==79){ cout<<numtankdigits<<" digits in this event"<<endl; break; }
+//		if(numtankdigits==79){ cout<<numtankdigits<<" digits in this event"<<endl; break; }
 		
 		// MRD ANALYSIS
 		// ============

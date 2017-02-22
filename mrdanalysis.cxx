@@ -6,6 +6,8 @@
 void WCSimAnalysis::DoMRDpreLoop(){
 	DefineMRDhistos();
 	OpenMRDtrackOutfile();	// open file for writing mrd tracks
+	//TClonesArray* aTrack; clear this?
+	//TClonesArray &aTracka = *aTrack; reset this?
 }
 
 //############################################################################################
@@ -23,6 +25,7 @@ void WCSimAnalysis::DoMRDeventwide(Int_t &numtruehits, Int_t &numdigits){
 // MRD PRE-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoMRDpreHitLoop(){
+	mrddigittimesthisevent.clear();
 }
 
 //############################################################################################
@@ -56,7 +59,8 @@ void WCSimAnalysis::DoMRDdigitHits(){
 		// ============================
 		WCSimRootCherenkovDigiHit* digihit = (WCSimRootCherenkovDigiHit*)atrigm->GetCherenkovDigiHits()->At(i);
 		//WCSimRootChernkovDigiHit has methods GetTubeId(), GetT(), GetQ()
-
+		mrddigittimesthisevent.push_back(digihit->GetT());
+		
 		// call functions that use this information
 		// ========================================
 		FillMRDdigiHitsHist(digihit);

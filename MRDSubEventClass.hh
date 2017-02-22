@@ -1,10 +1,10 @@
 /* vim:set noexpandtab tabstop=4 wrap */
-#ifndef _MRDTrack_VERBOSE_
-#define _MRDTrack_VERBOSE_ 1
+#ifndef _MRDSubEvent_VERBOSE_
+#define _MRDSubEvent_VERBOSE_ 1
 #endif
 
-#ifndef _MRDTrack_Class_
-#define _MRDTrack_Class_ 1
+#ifndef _MRDSubEvent_Class_
+#define _MRDSubEvent_Class_ 1
 
 #include <TObject.h>
 #include "Math/Vector3D.h"
@@ -18,14 +18,14 @@
 #include <algorithm>
 #include <map>
 #include "MRDspecs.hh"
-#include "cMRDTrack_ReconstructionClasses.hh"	// defines classes used in DoReconstruction() function
+#include "MRDSubEventClass_ReconstructionClasses.hh"	// defines classes used in DoReconstruction() function
 
-class cMRDTrack : public TObject {
+class cMRDSubEvent : public TObject {
 	
 	// Private members
 	// ===============
 	private:
-	Int_t MRDtrackID;						// ID of this track within the subtrigger
+	Int_t MRDSubEventID;						// ID of this track within the subtrigger
 	Int_t tanktrackID;						// correlated tank track within the subtrigger
 	
 	// Raw Info:
@@ -166,19 +166,19 @@ class cMRDTrack : public TObject {
 	// ====================
 	public:
 	// Default constructor that initialises all private members required for ROOT classes
-	cMRDTrack() : MRDtrackID(-1), wcsimfile(""), run_id(-1), event_id(-1), subtrigger(-1), digi_ids(), pmts_hit(), digi_qs(), digi_ts(), digi_numphots(), digi_phot_ts(), digi_phot_parents(), tanktrackID(-1), layers_hit(), eDepsInLayers(), KEStart(-1.), KEEnd(-1.), particlePID(-1), tracktype(-1), trueTrackID(-1), recovalshoriz(), recovalsvert() {};
+	cMRDSubEvent() : MRDSubEventID(-1), wcsimfile(""), run_id(-1), event_id(-1), subtrigger(-1), digi_ids(), pmts_hit(), digi_qs(), digi_ts(), digi_numphots(), digi_phot_ts(), digi_phot_parents(), tanktrackID(-1), layers_hit(), eDepsInLayers(), KEStart(-1.), KEEnd(-1.), particlePID(-1), tracktype(-1), trueTrackID(-1), recovalshoriz(), recovalsvert() {};
 	
 	// destructor
-	~cMRDTrack(){}
+	~cMRDSubEvent(){}
 	
 	// Actual Constructor
 	// ==================
-	cMRDTrack(Int_t mrdtrackidin, std::string wcsimefilein, Int_t runidin, Int_t eventidin,
+	cMRDSubEvent(Int_t mrdsubeventidin, std::string wcsimefilein, Int_t runidin, Int_t eventidin,
 	Int_t subtriggerin, std::vector<Int_t> digitidsin, std::vector<Int_t> digittubesin, std::vector<Double_t>
 	digitqsin, std::vector<Double_t> digittimesin, std::vector<Int_t> digitnumphotsin, std::vector<Double_t> 
 	digitstruetimesin, std::vector<Int_t> digitsparentsin) :
 	/* information retrieved when creating the track: initialize with input */
-	MRDtrackID(mrdtrackidin), wcsimfile(wcsimefilein), run_id(runidin), event_id(eventidin),
+	MRDSubEventID(mrdsubeventidin), wcsimfile(wcsimefilein), run_id(runidin), event_id(eventidin),
 	subtrigger(subtriggerin), digi_ids(digitidsin), pmts_hit(digittubesin), digi_qs(digitqsin),
 	digi_ts(digittimesin), digi_numphots(digitnumphotsin), digi_phot_ts(digitstruetimesin),
 	digi_phot_parents(digitsparentsin),
@@ -186,7 +186,7 @@ class cMRDTrack : public TObject {
 	tanktrackID(-1), layers_hit(), KEStart(-1.), KEEnd(-1.), particlePID(-1),
 	tracktype(-1), trueTrackID(-1), recovalshoriz(), recovalsvert() {
 		
-#ifdef _MRDTrack_VERBOSE_
+#ifdef _MRDSubEvent_VERBOSE_
 		cout<<"constructing a track with "<<digi_ids.size()<<" digits"<<endl;
 #endif
 //		if(fillstaticmembers){
@@ -220,24 +220,24 @@ class cMRDTrack : public TObject {
 	
 	// End class definition
 	// ====================
-	ClassDef(cMRDTrack,1);					// INCREMENT VERSION NUM EVERY TIME CLASS MEMBERS CHANGE
+	ClassDef(cMRDSubEvent,1);					// INCREMENT VERSION NUM EVERY TIME CLASS MEMBERS CHANGE
 };
 
-Bool_t cMRDTrack::fillstaticmembers=true;
-TCanvas* cMRDTrack::imgcanvas=0;
-TText* cMRDTrack::titleleft=0;
-TText* cMRDTrack::titleright=0;
-std::vector<TBox*> cMRDTrack::paddlepointers(nummrdpmts);
-//std::vector<Int_t> cMRDTrack::aspectrumv(19);
-std::vector<Int_t> cMRDTrack::aspectrumv = ( []()->std::vector<Int_t> { std::vector<Int_t> temp {kYellow, kOrange, (kOrange-3), (kOrange+8), (kOrange+10), kRed, (kRed+1), (kPink+4), (kMagenta+2), (kMagenta+1), kMagenta, (kViolet-2), (kViolet-3), (kViolet+7), (kViolet+9), (kBlue+2), (kBlue+1), kAzure, (kAzure+7)}; return temp; }() );
+Bool_t cMRDSubEvent::fillstaticmembers=true;
+TCanvas* cMRDSubEvent::imgcanvas=0;
+TText* cMRDSubEvent::titleleft=0;
+TText* cMRDSubEvent::titleright=0;
+std::vector<TBox*> cMRDSubEvent::paddlepointers(nummrdpmts);
+//std::vector<Int_t> cMRDSubEvent::aspectrumv(19);
+std::vector<Int_t> cMRDSubEvent::aspectrumv = ( []()->std::vector<Int_t> { std::vector<Int_t> temp {kYellow, kOrange, (kOrange-3), (kOrange+8), (kOrange+10), kRed, (kRed+1), (kPink+4), (kMagenta+2), (kMagenta+1), kMagenta, (kViolet-2), (kViolet-3), (kViolet+7), (kViolet+9), (kBlue+2), (kBlue+1), kAzure, (kAzure+7)}; return temp; }() );
 
-#include "cMRDTrack_DoReconstruction2.cxx"	// contains reconstruction function definitions
+#include "MRDSubEvent_DoReconstruction2.cxx"	// contains reconstruction function definitions
 #include "makemrdimage.cxx"					// functions to draw the MRD top and side views
 
 #endif
 
 #ifdef __CINT__
-#pragma link C++ class cMRDTrack+;
+#pragma link C++ class cMRDSubEvent+;
 //#pragma link C++ class ROOT::Math::XYZTVector+;
 //#pragma link C++ class std::vector<ROOT::Math::XYZTVector>+;
 //#pragma link C++ class cMRDStrike+;
