@@ -3,12 +3,13 @@
 #include "TCanvas.h"
 #include "TBox.h"
 #include "TLine.h"
+#include "TArrow.h"
 
 #ifndef DRAWVERBOSE
 //#define DRAWVERBOSE 1
 #endif
 
-void cMRDTrack::DrawMrdCanvases(){
+void cMRDSubEvent::DrawMrdCanvases(){
 // TODO: need to handle cleanup
 #ifdef DRAWVERBOSE
 	cout<<"making canvas plots"<<endl;
@@ -29,14 +30,14 @@ void cMRDTrack::DrawMrdCanvases(){
 	// build a root pad that represents the MRD and its paddles. 
 	// highlight the paddles that were hit, and draw the reconstructed region.
 	Double_t canvw=1200., canvh=700.;
-	if(imgcanvas==0){ 
+	if(imgcanvas==0){
 		imgcanvas = new TCanvas("imgcanvas","MRD Digit Visualiser",canvw,canvh); 
 		imgcanvas->Divide(2,1);
 		imgcanvas->cd(1);
-		titleleft = new TText(.32,.9,TString::Format("Top View, Event %d",event_id));
+		titleleft = new TText(.32,.9,TString::Format("Side View, Event %d",event_id));
 		titleleft->Draw();
 		imgcanvas->cd(2);
-		titleright = new TText(.32,.9,TString::Format("Side View, Event %d",event_id));
+		titleright = new TText(.32,.9,TString::Format("Top View, Event %d",event_id));
 		titleright->Draw();
 		imgcanvas->cd(2);
 		for(int i=0; i<aspectrumv.size(); i++){
@@ -60,9 +61,9 @@ void cMRDTrack::DrawMrdCanvases(){
 //		imgcanvas->cd(2);
 //		gPad->Clear();
 //		titleright->Draw();
-		titleleft->SetTitle(TString::Format("Top View, Event %d",event_id));
+		titleleft->SetTitle(TString::Format("Side View, Event %d",event_id));
 		titleleft->Draw();
-		titleright->SetTitle(TString::Format("Side View, Event %d",event_id));
+		titleright->SetTitle(TString::Format("Top View, Event %d",event_id));
 		titleright->Draw();
 		char titlebuf[50];
 		snprintf(titlebuf,50,"%d",(int)(maxtime*2));
@@ -75,7 +76,7 @@ void cMRDTrack::DrawMrdCanvases(){
 
 	//cout<<"adding scints"<<endl;
 	Bool_t firsthpaddledone=false, firstvpaddledone=false;
-	//std::pair<double, double> xupcorner1, xupcorner2, xdowncorner1, xdowncorner2, yupcorner1, yupcorner2, ydowncorner1, ydowncorner2;	// part of cMRDTrack class now
+	//std::pair<double, double> xupcorner1, xupcorner2, xdowncorner1, xdowncorner2, yupcorner1, yupcorner2, ydowncorner1, ydowncorner2;	// part of cMRDSubEvent class now
 	Bool_t rightsidehit=false, leftsidehit=false, tophit=false, bottomhit=false;
 	
 	// loop over all paddles and build a map of which were hit
@@ -122,7 +123,9 @@ void cMRDTrack::DrawMrdCanvases(){
 		if(paddle==0){
 			cout<<"drawing box with height "<<(scintfullxlen/(maxwidth*1.2))<<" and width "<<(scintboxwidth/(mrdZlen*1.2))<<endl;
 		}*/
-		if((!ishpaddle)&&(!firsthpaddledone)&&paddleishit){
+		// make a note of the first and last paddles hit in each view. These are used to do a very simple
+		// track fit, just by drawing a straight line between them. Currently not used. 
+		if((!ishpaddle)&&(!firsthpaddledone)&&paddleishit){	//TODO: why !ishpaddle instead of ishpaddle??
 			firsthpaddledone=true;
 			xupcorner1=std::pair<double,double>(holderx-(sideboxheight/2.),holderz);
 			xdowncorner1=std::pair<double,double>(holderx+(sideboxheight/2.),holderz+(scintboxwidth/mrdZlen));
@@ -147,21 +150,18 @@ void cMRDTrack::DrawMrdCanvases(){
 		
 		// Draw the box
 		TBox *thepaddle;
-		if(!ishpaddle){
-			imgcanvas->cd(2);
-			//TBox (Double_t leftx, Double_t bottomy, Double_t rightx, Double_t topy)
-			if(paddlepointers.at(paddle)==0){
+		if(paddlepointers.at(paddle)!=0){
+			thepaddle = paddlepointers.at(paddle);
+		} else {
+			if(!ishpaddle){
+				imgcanvas->cd(2);
+				//TBox (Double_t leftx, Double_t bottomy, Double_t rightx, Double_t topy)
 				thepaddle = new TBox(holderz,holderx-(sideboxheight/2.),holderz+(scintboxwidth/mrdZlen),holderx+(sideboxheight/2.));
 			} else {
-				thepaddle = paddlepointers.at(paddle);
-			}
-		} else {
-			imgcanvas->cd(1);
-			if(paddlepointers.at(paddle)==0){
+				imgcanvas->cd(1);
 				thepaddle = new TBox(holderz,holdery-(topboxheight/2.),holderz+(scintboxwidth/mrdZlen),holdery+(topboxheight/2.));
-			} else {
-				thepaddle = paddlepointers.at(paddle);
 			}
+			paddlepointers.at(paddle) = thepaddle;
 		}
 		thepaddle->SetFillStyle(1001);	// solid fill
 		if(paddleishit){ thepaddle->SetFillColor(paddlecolour); } else { thepaddle->SetFillColor(11); } 
@@ -171,7 +171,7 @@ void cMRDTrack::DrawMrdCanvases(){
 		thepaddle->Draw();
 		
 		// check if we're changing panel
-		if((std::find(layeroffsets.begin(), layeroffsets.end(), (paddle+1))!=layeroffsets.end())&&paddle!=0){
+		if( paddle!=0 && (std::count(layeroffsets.begin(), layeroffsets.end(), (paddle+1))!=0) ){
 			Double_t holderx1, holderx2, holdery1, holdery2;
 			Double_t otherviewoffset;
 			// this is the last paddle of this layer - draw the layer in the opposite view, combining all paddles
@@ -180,10 +180,13 @@ void cMRDTrack::DrawMrdCanvases(){
 				imgcanvas->cd(1);
 				holderx1=((scintalugap*10)/(maxwidth*1.2));
 				holderx2=(scinthfullylen/(maxwidth*1.2));
-				if(paddlepointers.at(paddle)==0){
+				// some paddles are shown in both views, so we have more TBoxes than real PMTs
+				Int_t overflowindex = nummrdpmts + (2*mrdcluster::paddle_layers.at(paddle));	// RH paddle
+				if(paddlepointers.at(overflowindex)==0){
 					thepaddle = new TBox(holderz+otherviewoffset,0.5+holderx1,holderz+(scintboxwidth/mrdZlen)+otherviewoffset, 0.5+holderx1+holderx2);
+					paddlepointers.at(overflowindex) = thepaddle;
 				} else {
-					thepaddle = paddlepointers.at(paddle);
+					thepaddle = paddlepointers.at(overflowindex);
 				}
 				thepaddle->SetFillStyle(1001);	// solid fill
 				if(rightsidehit){ thepaddle->SetFillColor(paddlecolour); } else { thepaddle->SetFillColor(11); }
@@ -191,10 +194,12 @@ void cMRDTrack::DrawMrdCanvases(){
 				thepaddle->SetLineColor(1);	//black
 				thepaddle->SetLineWidth(2);
 				thepaddle->Draw();
-				if(paddlepointers.at(paddle)==0){
+				overflowindex++;	// left side paddle
+				if(paddlepointers.at(overflowindex)==0){
 					thepaddle = new TBox(holderz+otherviewoffset,0.5-holderx1,holderz+(scintboxwidth/mrdZlen)+otherviewoffset, 0.5-(holderx1+holderx2));
+					paddlepointers.at(overflowindex) = thepaddle;
 				} else {
-					thepaddle = paddlepointers.at(paddle);
+					thepaddle = paddlepointers.at(overflowindex);
 				}
 				thepaddle->SetFillStyle(1001);	// solid fill
 				if(leftsidehit){ thepaddle->SetFillColor(paddlecolour); } else { thepaddle->SetFillColor(11); }
@@ -208,10 +213,12 @@ void cMRDTrack::DrawMrdCanvases(){
 				imgcanvas->cd(2);
 				holdery1=((scintalugap*10)/(maxheight*1.2));
 				holdery2=(scintvfullylen/(maxheight*1.2));
-				if(paddlepointers.at(paddle)==0){
+				Int_t overflowindex = nummrdpmts + (2*mrdcluster::paddle_layers.at(paddle));	// top paddle
+				if(paddlepointers.at(overflowindex)==0){
 					thepaddle = new TBox(holderz+otherviewoffset,holdery1+0.5,holderz+(scintboxwidth/mrdZlen)+otherviewoffset,0.5+holdery1+holdery2);
+					paddlepointers.at(overflowindex) = thepaddle;
 				} else {
-					thepaddle = paddlepointers.at(paddle);
+					thepaddle = paddlepointers.at(overflowindex);
 				}
 				thepaddle->SetFillStyle(1001);	// solid fill
 				if(tophit){ thepaddle->SetFillColor(paddlecolour); } else { thepaddle->SetFillColor(11); }
@@ -219,10 +226,12 @@ void cMRDTrack::DrawMrdCanvases(){
 				thepaddle->SetLineColor(1);	//black
 				thepaddle->SetLineWidth(2);
 				thepaddle->Draw();
-				if(paddlepointers.at(paddle)==0){
+				overflowindex++;	// bottom paddle
+				if(paddlepointers.at(overflowindex)==0){
 					thepaddle = new TBox(holderz+otherviewoffset,0.5+-holdery1,holderz+(scintboxwidth/mrdZlen)+otherviewoffset,0.5-(holdery1+holdery2));
+					paddlepointers.at(overflowindex) = thepaddle;
 				} else {
-					thepaddle = paddlepointers.at(paddle);
+					thepaddle = paddlepointers.at(overflowindex);
 				}
 				thepaddle->SetFillStyle(1001);	// solid fill
 				if(bottomhit){ thepaddle->SetFillColor(paddlecolour); } else { thepaddle->SetFillColor(11); }
@@ -238,190 +247,202 @@ void cMRDTrack::DrawMrdCanvases(){
 		
 	}
 	//gPad->WaitPrimitive();	// wait for user to click
-	imgcanvas->SaveAs(TString::Format("mrdtracks_%d.png",event_id));
+	// imgcanvas->SaveAs(TString::Format("mrdtracks_%d.png",event_id)); // invoke after adding tracks
 }
 
-void cMRDTrack::AddTrackLines(){
-//TODO: rather than projecting to 0.8, project to the appropriate further depth of penetration.
-	// add trajectory lines 
-	//=====================
-	// TLine::TLine(Double_t x1, Double_t y1, Double_t x2, Double_t y2))
-	std::map<const char*, double> xlines = this->GetTrackXStats();
-	std::map<const char*, double> ylines = this->GetTrackYStats();
-	// has keys "angminxval", "angminzval", "angmin", same for angmax
-	Double_t holderx1, holdery1, holderz1, holderx2, holdery2, holderz2, projectedleft, projectedright;
-	TLine *xupgoing, *xdowngoing, *yupgoing, *ydowngoing;
-	Bool_t usebasic=false, useclass=true;
+void cMRDSubEvent::AddTrackLines(){
 	
-	// first upgoing x line
-#ifdef DRAWVERBOSE
-	cout<<"making basic upgoing x line"<<endl;
-#endif
-	if(usebasic){	// simple reconstruction: just use corners of first and last paddles hit
-		holderx1=xupcorner1.first; holderz1=xupcorner1.second;
-		holderx2=xupcorner2.first; holderz2=xupcorner2.second;
-		projectedleft = holderx1-holderz1*((holderx2-holderx1)/(holderz2-holderz1));
-		//xupgoing = new TLine(holderz1,holderx1,holderz2, holderx2);	//without projection, just join corners
-		xupgoing = new TLine(0.,projectedleft,holderz2, holderx2);		// with projection to left
-		//-------------------------
-		xupgoing->SetLineColor(kRed);
-		xupgoing->SetLineWidth(4);
-		xupgoing->SetLineStyle(3);
-		imgcanvas->cd(2);
-		xupgoing->Draw();
-	} 
-#ifdef DRAWVERBOSE
-	cout<<"making class upgoing x line"<<endl;
-#endif
-	if (useclass){			// track class has a more thorough method that ensures all paddles are hit
-		holderx1=((xlines.at("angminxval"))/(maxwidth*1.2))+0.5;
-		holderz1=((xlines.at("angminzval"))/(mrdZlen*1.2))+0.5;
-		projectedleft=holderx1-(holderz1*(TMath::Tan(xlines.at("angmin")))*(mrdZlen/maxwidth));
-		projectedright=holderx1+((0.8-holderz1)*TMath::Tan(xlines.at("angmin"))*(mrdZlen/maxwidth));
-		xupgoing = new TLine(0.02,projectedleft,0.8,projectedright);
-				/*cout<<"xlines.at('angminxval')="<<xlines.at("angminxval")<<endl;
-				cout<<"xlines.at('angminzval')="<<xlines.at("angminzval")<<endl;
-				cout<<"xlines.at('angmin')="<<TMath::RadToDeg()*xlines.at("angmin")<<endl;
-				cout<<"holderx1="<<holderx1<<" projected left by z="<<xlines.at("angminzval")<<"="<<holderz1<<" at angle "
-				<<TMath::RadToDeg()*((mrdZlen/maxwidth)*xlines.at("angmin"))<<" giving offset of "
-				<<(holderz1*TMath::Tan(xlines.at("angmin"))*(mrdZlen/maxwidth))
-				<<", projectedleft="<<projectedleft<<endl
-				<<"holderz1="<<holderz1
-				<<", (TMath::Tan(xlines.at('angmin'))="<<((maxwidth/mrdZlen)*TMath::Tan(xlines.at("angmin")))
-				<<", projectedright="<<projectedright<<endl;*/
-		//--------------------------
-		xupgoing->SetLineWidth(4);
-		xupgoing->SetLineColor(kBlue);
-		xupgoing->SetLineStyle(3);
-		imgcanvas->cd(2);
-		xupgoing->Draw();
-	}
+	// loop over tracks and draw boundary lines for each
+	for(int i=0; i<tracksthissubevent.size(); i++){
+		cMRDTrack* atrack = tracksthissubevent.at(i);
+		
+		//TODO: rather than projecting to 0.8, project to the appropriate further depth of penetration.
+		// add trajectory lines 
+		//=====================
+		// TLine::TLine(Double_t x1, Double_t y1, Double_t x2, Double_t y2))
+		std::map<const char*, double> xlines = atrack->GetTrackXStats();
+		std::map<const char*, double> ylines = atrack->GetTrackYStats();
+		// has keys "angminxval", "angminzval", "angmin", same for angmax
+		Double_t holderx1, holdery1, holderz1, holderx2, holdery2, holderz2, projectedleft, projectedright;
+		TLine *xupgoing, *xdowngoing, *yupgoing, *ydowngoing;
+		Bool_t usebasic=false, useclass=true;
 	
-#ifdef DRAWVERBOSE
-	cout<<"making basic downgoing x line"<<endl;
-#endif
-	// now downgoing x line
-	if(usebasic){
-		holderx1=xdowncorner1.first; holderz1=xdowncorner1.second;
-		holderx2=xdowncorner2.first; holderz2=xdowncorner2.second;
-		projectedleft = holderx1+holderz1*((holderx1-holderx2)/(holderz2-holderz1));
-		xdowngoing = new TLine(0.,projectedleft,holderz2, holderx2);
-		//--------------------------
-		xdowngoing->SetLineColor(kRed);
-		xdowngoing->SetLineWidth(4);
-		xdowngoing->SetLineStyle(3);
-		imgcanvas->cd(2);
-		xdowngoing->Draw();
-	}
-#ifdef DRAWVERBOSE
-	cout<<"making class downgoing x line"<<endl;
-#endif
-	if(useclass){
-		holderx1=((xlines.at("angmaxxval"))/(maxwidth*1.2))+0.5;
-		holderz1=((xlines.at("angmaxzval"))/(mrdZlen*1.2))+0.5;
-		projectedleft=holderx1+(holderz1*(TMath::Tan(xlines.at("angmax")))*(mrdZlen/maxwidth));
-		projectedright=holderx1-((0.8-holderz1)*TMath::Tan(xlines.at("angmax"))*(mrdZlen/maxwidth));
-		xdowngoing = new TLine(0.02,projectedleft,0.8,projectedright);
-				/*cout<<"xlines.at('angmaxxval')="<<xlines.at("angmaxxval")<<endl;
-				cout<<"xlines.at('angmaxzval')="<<xlines.at("angmaxzval")<<endl;
-				cout<<"xlines.at('angmax')="<<TMath::RadToDeg()*xlines.at("angmax")<<endl;
-				cout<<"holderx1="<<holderx1<<" projected left by z="<<xlines.at("angmaxzval")<<"="<<holderz1<<" at angle "
-				<<TMath::RadToDeg()*((mrdZlen/maxwidth)*xlines.at("angmax"))<<" giving offset of "
-				<<(holderz1*TMath::Tan(xlines.at("angmax"))*(mrdZlen/maxwidth))
-				<<", projectedleft="<<projectedleft<<endl
-				<<"holderz1="<<holderz1
-				<<", (TMath::Tan(xlines.at('angmax'))="<<((maxwidth/mrdZlen)*TMath::Tan(xlines.at("angmax")))
-				<<", projectedright="<<projectedright<<endl;*/
-		//--------------------------
-		xdowngoing->SetLineColor(kBlue);
-		xdowngoing->SetLineWidth(4);
-		xdowngoing->SetLineStyle(3);
-		imgcanvas->cd(2);
-		xdowngoing->Draw();
-	}
-#ifdef DRAWVERBOSE
-	cout<<"making basic upgoing y line"<<endl;
-#endif
-	// now upgoing y line
-	if(usebasic){
-		holdery1=yupcorner1.first; holderz1=yupcorner1.second;
-		holdery2=yupcorner2.first; holderz2=yupcorner2.second;
-		projectedleft = holdery1-holderz1*((holdery2-holdery1)/(holderz2-holderz1));
-		yupgoing = new TLine(0.,projectedleft,holderz2, holdery2);
-		//--------------------------
-		yupgoing->SetLineWidth(4);
-		yupgoing->SetLineColor(kRed);
-		yupgoing->SetLineStyle(3);
-		imgcanvas->cd(1);
-		yupgoing->Draw();
-	}
-#ifdef DRAWVERBOSE
-	cout<<"making class upgoing y line"<<endl;
-#endif
-	if(useclass){
-		holdery1=((ylines.at("angminyval"))/(maxheight*1.2))+0.5;
-		holderz1=((ylines.at("angminzval"))/(mrdZlen*1.2))+0.5;
-		projectedleft=holdery1-(holderz1*(TMath::Tan(ylines.at("angmin")))*(mrdZlen/maxheight));
-		projectedright=holdery1+((0.8-holderz1)*TMath::Tan(ylines.at("angmin"))*(mrdZlen/maxheight));
-		yupgoing = new TLine(0.02,projectedleft,0.8,projectedright);
-		//yupgoing = new TLine(holderz1,holdery1,0.8,projectedright);
-				/*cout<<"ylines.at('angminyval')="<<ylines.at("angminyval")<<endl;
-				cout<<"ylines.at('angminzval')="<<ylines.at("angminzval")<<endl;
-				cout<<"ylines.at('angmin')="<<TMath::RadToDeg()*ylines.at("angmin")<<endl;
-				cout<<"holdery1="<<holdery1<<" projected left by z="<<ylines.at("angminzval")<<"="<<holderz1<<" at angle "
-				<<TMath::RadToDeg()*((mrdZlen/maxwidth)*ylines.at("angmin"))<<" giving offset of "
-				<<(holderz1*TMath::Tan(ylines.at("angmin"))*(mrdZlen/maxwidth))
-				<<", projectedleft="<<projectedleft<<endl
-				<<"holderz1="<<holderz1
-				<<", (TMath::Tan(ylines.at('angmin'))="<<((maxwidth/mrdZlen)*TMath::Tan(ylines.at("angmin")))
-				<<", projectedright="<<projectedright<<endl;*/
-		//--------------------------
-		yupgoing->SetLineColor(kBlue);
-		yupgoing->SetLineWidth(4);
-		yupgoing->SetLineStyle(3);
-		imgcanvas->cd(1);
-		yupgoing->Draw();
-	}
+		// first upgoing x line
+	#ifdef DRAWVERBOSE
+		cout<<"making basic upgoing x line"<<endl;
+	#endif
+		if(usebasic){	// simple reconstruction: just use corners of first and last paddles hit
+			holderx1=xupcorner1.first; holderz1=xupcorner1.second;
+			holderx2=xupcorner2.first; holderz2=xupcorner2.second;
+			projectedleft = holderx1-holderz1*((holderx2-holderx1)/(holderz2-holderz1));
+			//xupgoing = new TLine(holderz1,holderx1,holderz2, holderx2);	//without projection, just join corners
+			xupgoing = new TLine(0.,projectedleft,holderz2, holderx2);		// with projection to left
+			//-------------------------
+			xupgoing->SetLineColor(kRed);
+			xupgoing->SetLineWidth(4);
+			xupgoing->SetLineStyle(3);
+			imgcanvas->cd(2);
+			xupgoing->Draw();
+		} 
+	#ifdef DRAWVERBOSE
+		cout<<"making class upgoing x line"<<endl;
+	#endif
+		if (useclass){			// track class has a more thorough method that ensures all paddles are hit
+			holderx1=((xlines.at("angminxval"))/(maxwidth*1.2))+0.5;
+			holderz1=((xlines.at("angminzval"))/(mrdZlen*1.2))+0.5;
+			projectedleft=holderx1-(holderz1*(TMath::Tan(xlines.at("angmin")))*(mrdZlen/maxwidth));
+			projectedright=holderx1+((0.8-holderz1)*TMath::Tan(xlines.at("angmin"))*(mrdZlen/maxwidth));
+			xupgoing = new TLine(0.02,projectedleft,0.8,projectedright);
+					/*cout<<"xlines.at('angminxval')="<<xlines.at("angminxval")<<endl;
+					cout<<"xlines.at('angminzval')="<<xlines.at("angminzval")<<endl;
+					cout<<"xlines.at('angmin')="<<TMath::RadToDeg()*xlines.at("angmin")<<endl;
+					cout<<"holderx1="<<holderx1<<" projected left by z="<<xlines.at("angminzval")<<"="<<holderz1<<" at angle "
+					<<TMath::RadToDeg()*((mrdZlen/maxwidth)*xlines.at("angmin"))<<" giving offset of "
+					<<(holderz1*TMath::Tan(xlines.at("angmin"))*(mrdZlen/maxwidth))
+					<<", projectedleft="<<projectedleft<<endl
+					<<"holderz1="<<holderz1
+					<<", (TMath::Tan(xlines.at('angmin'))="<<((maxwidth/mrdZlen)*TMath::Tan(xlines.at("angmin")))
+					<<", projectedright="<<projectedright<<endl;*/
+			//--------------------------
+			xupgoing->SetLineWidth(4);
+			xupgoing->SetLineColor(kBlue);
+			xupgoing->SetLineStyle(3);
+			imgcanvas->cd(2);
+			xupgoing->Draw();
+		}
 	
-	// finally downgoing y line
-#ifdef DRAWVERBOSE
-	cout<<"making basic downgoing y line"<<endl;
-#endif
-	if(usebasic){
-		holdery1=ydowncorner1.first; holderz1=ydowncorner1.second;
-		holdery2=ydowncorner2.first; holderz2=ydowncorner2.second;
-		projectedleft = holdery1+holderz1*((holdery1-holdery2)/(holderz2-holderz1));
-		ydowngoing = new TLine(0.,projectedleft,holderz2, holdery2);
-		//--------------------------
-		ydowngoing->SetLineWidth(4);
-		ydowngoing->SetLineColor(kRed);
-		ydowngoing->SetLineStyle(3);
-		imgcanvas->cd(1);
-		ydowngoing->Draw();
-	}
-#ifdef DRAWVERBOSE
-	cout<<"making class downgoing y line"<<endl;
-#endif
-	if(useclass){
-		holdery1=((ylines.at("angmaxyval"))/(maxheight*1.2))+0.5;
-		holderz1=((ylines.at("angmaxzval"))/(mrdZlen*1.2))+0.5;
-		projectedleft=holdery1+(holderz1*(TMath::Tan(ylines.at("angmax")))*(mrdZlen/maxheight));
-		projectedright=holdery1-((0.8-holderz1)*TMath::Tan(ylines.at("angmax"))*(mrdZlen/maxheight));
-		ydowngoing = new TLine(0.02,projectedleft,0.8,projectedright);
-		//ydowngoing = new TLine(holderz1,holdery1,0.8,projectedright);
-		//--------------------------
-		ydowngoing->SetLineColor(kBlue);
-		ydowngoing->SetLineWidth(4);
-		ydowngoing->SetLineStyle(3);
-		imgcanvas->cd(1);
-		ydowngoing->Draw();
-	}
+	#ifdef DRAWVERBOSE
+		cout<<"making basic downgoing x line"<<endl;
+	#endif
+		// now downgoing x line
+		if(usebasic){
+			holderx1=xdowncorner1.first; holderz1=xdowncorner1.second;
+			holderx2=xdowncorner2.first; holderz2=xdowncorner2.second;
+			projectedleft = holderx1+holderz1*((holderx1-holderx2)/(holderz2-holderz1));
+			xdowngoing = new TLine(0.,projectedleft,holderz2, holderx2);
+			//--------------------------
+			xdowngoing->SetLineColor(kRed);
+			xdowngoing->SetLineWidth(4);
+			xdowngoing->SetLineStyle(3);
+			imgcanvas->cd(2);
+			xdowngoing->Draw();
+		}
+	#ifdef DRAWVERBOSE
+		cout<<"making class downgoing x line"<<endl;
+	#endif
+		if(useclass){
+			holderx1=((xlines.at("angmaxxval"))/(maxwidth*1.2))+0.5;
+			holderz1=((xlines.at("angmaxzval"))/(mrdZlen*1.2))+0.5;
+			projectedleft=holderx1+(holderz1*(TMath::Tan(xlines.at("angmax")))*(mrdZlen/maxwidth));
+			projectedright=holderx1-((0.8-holderz1)*TMath::Tan(xlines.at("angmax"))*(mrdZlen/maxwidth));
+			xdowngoing = new TLine(0.02,projectedleft,0.8,projectedright);
+					/*cout<<"xlines.at('angmaxxval')="<<xlines.at("angmaxxval")<<endl;
+					cout<<"xlines.at('angmaxzval')="<<xlines.at("angmaxzval")<<endl;
+					cout<<"xlines.at('angmax')="<<TMath::RadToDeg()*xlines.at("angmax")<<endl;
+					cout<<"holderx1="<<holderx1<<" projected left by z="<<xlines.at("angmaxzval")<<"="<<holderz1<<" at angle "
+					<<TMath::RadToDeg()*((mrdZlen/maxwidth)*xlines.at("angmax"))<<" giving offset of "
+					<<(holderz1*TMath::Tan(xlines.at("angmax"))*(mrdZlen/maxwidth))
+					<<", projectedleft="<<projectedleft<<endl
+					<<"holderz1="<<holderz1
+					<<", (TMath::Tan(xlines.at('angmax'))="<<((maxwidth/mrdZlen)*TMath::Tan(xlines.at("angmax")))
+					<<", projectedright="<<projectedright<<endl;*/
+			//--------------------------
+			xdowngoing->SetLineColor(kBlue);
+			xdowngoing->SetLineWidth(4);
+			xdowngoing->SetLineStyle(3);
+			imgcanvas->cd(2);
+			xdowngoing->Draw();
+		}
+	#ifdef DRAWVERBOSE
+		cout<<"making basic upgoing y line"<<endl;
+	#endif
+		// now upgoing y line
+		if(usebasic){
+			holdery1=yupcorner1.first; holderz1=yupcorner1.second;
+			holdery2=yupcorner2.first; holderz2=yupcorner2.second;
+			projectedleft = holdery1-holderz1*((holdery2-holdery1)/(holderz2-holderz1));
+			yupgoing = new TLine(0.,projectedleft,holderz2, holdery2);
+			//--------------------------
+			yupgoing->SetLineWidth(4);
+			yupgoing->SetLineColor(kRed);
+			yupgoing->SetLineStyle(3);
+			imgcanvas->cd(1);
+			yupgoing->Draw();
+		}
+	#ifdef DRAWVERBOSE
+		cout<<"making class upgoing y line"<<endl;
+	#endif
+		if(useclass){
+			holdery1=((ylines.at("angminyval"))/(maxheight*1.2))+0.5;
+			holderz1=((ylines.at("angminzval"))/(mrdZlen*1.2))+0.5;
+			projectedleft=holdery1-(holderz1*(TMath::Tan(ylines.at("angmin")))*(mrdZlen/maxheight));
+			projectedright=holdery1+((0.8-holderz1)*TMath::Tan(ylines.at("angmin"))*(mrdZlen/maxheight));
+			yupgoing = new TLine(0.02,projectedleft,0.8,projectedright);
+			//yupgoing = new TLine(holderz1,holdery1,0.8,projectedright);
+					/*cout<<"ylines.at('angminyval')="<<ylines.at("angminyval")<<endl;
+					cout<<"ylines.at('angminzval')="<<ylines.at("angminzval")<<endl;
+					cout<<"ylines.at('angmin')="<<TMath::RadToDeg()*ylines.at("angmin")<<endl;
+					cout<<"holdery1="<<holdery1<<" projected left by z="<<ylines.at("angminzval")<<"="<<holderz1<<" at angle "
+					<<TMath::RadToDeg()*((mrdZlen/maxwidth)*ylines.at("angmin"))<<" giving offset of "
+					<<(holderz1*TMath::Tan(ylines.at("angmin"))*(mrdZlen/maxwidth))
+					<<", projectedleft="<<projectedleft<<endl
+					<<"holderz1="<<holderz1
+					<<", (TMath::Tan(ylines.at('angmin'))="<<((maxwidth/mrdZlen)*TMath::Tan(ylines.at("angmin")))
+					<<", projectedright="<<projectedright<<endl;*/
+			//--------------------------
+			yupgoing->SetLineColor(kBlue);
+			yupgoing->SetLineWidth(4);
+			yupgoing->SetLineStyle(3);
+			imgcanvas->cd(1);
+			yupgoing->Draw();
+		}
+	
+		// finally downgoing y line
+	#ifdef DRAWVERBOSE
+		cout<<"making basic downgoing y line"<<endl;
+	#endif
+		if(usebasic){
+			holdery1=ydowncorner1.first; holderz1=ydowncorner1.second;
+			holdery2=ydowncorner2.first; holderz2=ydowncorner2.second;
+			projectedleft = holdery1+holderz1*((holdery1-holdery2)/(holderz2-holderz1));
+			ydowngoing = new TLine(0.,projectedleft,holderz2, holdery2);
+			//--------------------------
+			ydowngoing->SetLineWidth(4);
+			ydowngoing->SetLineColor(kRed);
+			ydowngoing->SetLineStyle(3);
+			imgcanvas->cd(1);
+			ydowngoing->Draw();
+		}
+	#ifdef DRAWVERBOSE
+		cout<<"making class downgoing y line"<<endl;
+	#endif
+		if(useclass){
+			holdery1=((ylines.at("angmaxyval"))/(maxheight*1.2))+0.5;
+			holderz1=((ylines.at("angmaxzval"))/(mrdZlen*1.2))+0.5;
+			projectedleft=holdery1+(holderz1*(TMath::Tan(ylines.at("angmax")))*(mrdZlen/maxheight));
+			projectedright=holdery1-((0.8-holderz1)*TMath::Tan(ylines.at("angmax"))*(mrdZlen/maxheight));
+			ydowngoing = new TLine(0.02,projectedleft,0.8,projectedright);
+			//ydowngoing = new TLine(holderz1,holdery1,0.8,projectedright);
+			//--------------------------
+			ydowngoing->SetLineColor(kBlue);
+			ydowngoing->SetLineWidth(4);
+			ydowngoing->SetLineStyle(3);
+			imgcanvas->cd(1);
+			ydowngoing->Draw();
+		}
+		
+		trackboundaries.push_back(xupgoing);
+		trackboundaries.push_back(xdowngoing);
+		trackboundaries.push_back(yupgoing);
+		trackboundaries.push_back(ydowngoing);
+	
+	}	// end loop over tracks
 }
 
 // code taken from MRDDetectorConstruction.cc, WCSimDetectorConstruction::ComputePaddleTransformation
 // with comments stripped, G4int->Int_t, G4bool->Bool_t, G4ThreeVector->TVector3, remove G4RotationMatrix
 //============================= 
-void cMRDTrack::ComputePaddleTransformation (const Int_t copyNo, TVector3 &origin, Bool_t &ishpaddle, Bool_t paddleishit) {
+void cMRDSubEvent::ComputePaddleTransformation (const Int_t copyNo, TVector3 &origin, Bool_t &ishpaddle, Bool_t paddleishit) {
 	Double_t Xposition=0, Yposition=0, Zposition=0;
 	Int_t panelpairnum = floor(copyNo/(numpaddlesperpanelv+numpaddlesperpanelh));
 	Int_t panelnumrem = copyNo - panelpairnum*(numpaddlesperpanelv+numpaddlesperpanelh);

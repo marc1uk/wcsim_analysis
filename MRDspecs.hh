@@ -2,6 +2,7 @@
 #define _MRD_SPECS_ 1
 
 // first panel is a HORIZONTAL LAYER.
+// TODO: this should probably be a class, struct or namespace maybe.
 
 const Int_t numpaddlesperpanelv=30;
 const Int_t numpaddlesperpanelh=26;
@@ -58,8 +59,8 @@ const Double_t maxwidth = *std::max_element(widths,widths+(sizeof(widths)/sizeof
 const Double_t maxheight = *std::max_element(heights,heights+(sizeof(heights)/sizeof(heights[0])))+0.1;
 
 const Int_t nummrdpmts=306;
-const std::vector<int> layeroffsets {0, 26, 56, 82, 112, 138, 168, 194, 224, 250, 280};
-// ids of the first pmt in each layer.
+const std::vector<int> layeroffsets {0, 26, 56, 82, 112, 138, 168, 194, 224, 250, 280, 306};
+// ids of the first pmt in each layer.                                   KEEP an extra ^^^
 
 //totMRD_box = new G4Box("totMRD",(maxwidth/2),(maxheight/2),mrdZlen/2);
 

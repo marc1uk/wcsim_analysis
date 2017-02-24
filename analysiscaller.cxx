@@ -11,7 +11,9 @@ WCSimAnalysis* analysiscaller(){
 
 	//TString theincludepath = gSystem->Getenv("ROOT_INCLUDE_PATH");
 	//gInterpreter->AddIncludePath(theincludepath);
-	WCSimAnalysis* theanalysis = new WCSimAnalysis("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in");	//no trailing slash
+	WCSimAnalysis* theanalysis = new WCSimAnalysis("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in");
+	// no trailing slash in directory
+	//WCSimAnalysis* theanalysis = new WCSimAnalysis("/pnfs/annie/persistent/users/moflaher/wcsim");
 	theanalysis->DoAnalysis();
 	cout<<"end of DoAnalysis() call"<<endl;
 	//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos

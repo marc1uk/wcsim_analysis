@@ -3,7 +3,6 @@
 #define _cMRD_reconstruction_classes 1
 // supporting classes used in DoReconstruction cellular algorithm version (cMRDTrack_DoReconstruction2.cxx)
 // 1. define a cluster, by an id and it's position
-class cMRDTrack;
 class mrdcluster : public TObject{
 	public: 
 	static Int_t clustercounter;
@@ -38,7 +37,7 @@ class mrdcluster : public TObject{
 	}
 	// return an *effective in-layer tube index* of the cluster centre.
 	Double_t GetCentreIndex(){
-		if(xmaxid==xminid){ 
+		if(xmaxid==xminid){
 			//cout<<"xmaxid==xminid, centreindex is "<<xmaxid<<endl;
 			return xmaxid;
 		} else {
@@ -159,11 +158,16 @@ class mrdcell : public TObject{
 	std::pair<mrdcluster*, mrdcluster*> clusters;
 	Bool_t isdownstreamgoing;			// is the track going upstream instead of downstream
 	Int_t status;
-	Int_t neighbourcellindex;	// a cell can only have one neighbour, as it must align with the cell
+	Int_t utneighbourcellindex;	// the up-track neighbour of this cell
+	Int_t dtneighbourcellindex;	// the down-track neighbour of this cell
+								// a down-track cell index of -2 indicates more than one
+	Int_t parentcellindex;		// if the up-track cell has more than one downtrack neighbour, the track splits
+								// so it's upstream neighbour becomes it's parent
+	Bool_t hasdaughters;		// so we can keep short tracks that have daughters
 	Double_t neighbourchi2;		// if we have more than one candidate, use the most aligned neighbour
 	void IncrementStatus(){ status +=1; }
-	mrdcell(mrdcluster* startcluster, mrdcluster* endcluster) : status(0), neighbourcellindex(-1), 
-		neighbourchi2(-1.) {
+	mrdcell(mrdcluster* startcluster, mrdcluster* endcluster) : status(0), utneighbourcellindex(-1), 
+		dtneighbourcellindex(-1), parentcellindex(-1), hasdaughters(false), neighbourchi2(-1.) {
 		std::pair<mrdcluster*, mrdcluster*> clustersin(startcluster, endcluster);
 		clusters = clustersin;
 		isdownstreamgoing = (clusters.first->GetTime() < clusters.second->GetTime());

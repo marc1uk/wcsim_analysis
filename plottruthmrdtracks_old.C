@@ -1,73 +1,139 @@
 /* vim:set noexpandtab tabstop=4 wrap */
-#include <stdlib.h> /* atoi */
-#include <regex>
 
-// GENIE headers
+#ifndef PLOTVERBOSE
+//#define PLOTVERBOSE
+#endif
+#ifndef WCSIMDEBUG
+//#define WCSIMDEBUG
+#endif
+#include "TROOT.h"
+#include "TSystem.h"
+#include "TSystemFile.h"
+#include "TSystemDirectory.h"
+#include "TApplication.h"
+#include "TFile.h"
+#include "TH1.h"
+#include "TH2.h"
+#include "TH3.h"
+#include "TNtuple.h"
+#include "TChain.h"
+#include "TProfile.h"
+#include "TProfile2D.h"
+#include "TCanvas.h"
+#include "TString.h"
+#include "TMath.h"
+#include "TLorentzVector.h"
+#include "TLegend.h"
+#include <regex>
+#include <exception>	// for stdexcept
+#include <vector>
+#include <map>
+#include <string>
+#include <algorithm>	// remove and remove_if
+#include <iostream>
+#include <iomanip>
+#include <fstream> 		//std::ofstream
+#include <stdlib.h> /* atoi */
+
+// we need to #include all the WCSim headers.
+#include "WCSimRootEvent.hh"
+#include "WCSimRootGeom.hh"
+#include "WCSimPmtInfo.hh"
+#include "WCSimLAPPDInfo.hh"
+#include "WCSimEnumerations.hh"
+#include "WCSimRootLinkDef.hh"
+
+// genie headers
 #include "GHEP/GHepParticle.h"
 #include "GHEP/GHepRecord.h"
 #include "GHEP/GHepUtils.h"
 #include "Ntuple/NtpMCTreeHeader.h"
 #include "Ntuple/NtpMCEventRecord.h"
 #include "Interaction/Interaction.h"
+#include "PDG/PDGUtils.h"
+#include "PDG/PDGCodes.h"
+#include "PDG/PDGLibrary.h"
+#include "Conventions/Constants.h"
+//#include "Numerical/GSFunc.h" 
+// ensure in the evironment we have set
+//ROOT_INCLUDE_PATH=${ROOT_INCLUDE_PATH}:${GENIE}/../include/GENIE
+//ROOT_LIBRARY_PATH=${ROOT_LIBRARY_PATH}:${GENIE}/../lib
 
 const Float_t MRD_width = (305./2.);      // half width of steel in cm
 const Float_t MRD_height = (274./2.);     // half height of steel in cm
-const Float_t MRD_layer2 = 2789.45;       // position in wcsim coords of second scint layer in cm
-const Float_t MRD_start = 3255.;          // position in wcsim coord of MRD front face in cm
+const Float_t MRD_layer2 = 290.755;       // position in wcsim coords of second scint layer in cm
+const Float_t MRD_start = 325.5;          // position in wcsim coord of MRD front face in cm
 const Float_t MRD_depth = 139.09;         // total depth of the MRD in cm
 /* output from WCSim:
-########## MRD front face: 3255                       ##########
-########## MRD total Z length: 139.09                 ########## 
-########## MRD scintillator layer 0  (H) at z=2668.35 ##########
-########## MRD scintillator layer 1  (V) at z=2789.45 ##########
-########## MRD scintillator layer 2  (H) at z=2910.55 ##########
-########## MRD scintillator layer 3  (V) at z=3031.65 ##########
-########## MRD scintillator layer 4  (H) at z=3152.75 ##########
-########## MRD scintillator layer 5  (V) at z=3273.85 ##########
-########## MRD scintillator layer 6  (H) at z=3394.95 ##########
-########## MRD scintillator layer 7  (V) at z=3516.05 ##########
-########## MRD scintillator layer 8  (H) at z=3637.15 ##########
-########## MRD scintillator layer 9  (V) at z=3758.25 ##########
-########## MRD scintillator layer 10 (H) at z=3879.35 ########## */
+########## MRD front face: 325.5                      ##########
+########## MRD total Z length: 139.09                 ##########
+########## MRD scintillator layer 0  (H) at z=266.535 ##########
+########## MRD scintillator layer 1  (V) at z=278.645 ##########
+########## MRD scintillator layer 2  (H) at z=290.755 ##########
+########## MRD scintillator layer 3  (V) at z=302.865 ##########
+########## MRD scintillator layer 4  (H) at z=314.975 ##########
+########## MRD scintillator layer 5  (V) at z=327.085 ##########
+########## MRD scintillator layer 6  (H) at z=339.195 ##########
+########## MRD scintillator layer 7  (V) at z=351.305 ##########
+########## MRD scintillator layer 8  (H) at z=363.415 ##########
+########## MRD scintillator layer 9  (V) at z=375.525 ##########
+########## MRD scintillator layer 10 (H) at z=387.635 ########## */
 
-const char* dirtpath="/home/marc/LinuxSystemFiles/WChSandBox/build/fluxesandtables";
-const char* geniepath="/home/marc/LinuxSystemFiles/WChSandBox/build/fluxesandtables";
-const char* wcsimpath="/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in";
-const char* wcsimlibrarypath="/home/marc/LinuxSystemFiles/WCSim/gitver/wcsim/libWCSimRoot.so";
+const Float_t tank_start = 15.70;          // front face of the tank in cm
+const Float_t tank_radius = 152.4;         // tank radius in cm
+/* from WCSimDetectorConfigs.cc
+tankouterRadius= 1.524*m;
+tankzoffset = 15.70*cm;
+*/
 
-const Bool_t printneutrinoevent=true;
+const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt";
+const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
+const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim";
+const char* wcsimlibrarypath="/annie/app/users/moflaher/wcsim/wcsim/libWCSimRoot.so";
+const char* outpath="/annie/app/users/moflaher/wcsim/root_work";
+
+const Bool_t printneutrinoevent=false;
 
 void truthtracks(){
 	// load WCSim library for reading WCSim files
+	cout<<"loading "<<wcsimlibrarypath<<endl;
 	gSystem->Load(wcsimlibrarypath);
-	// load genie scripts for reading genie files
-	TString script_dir = gSystem->Getenv("GENIE");
-	script_dir += "/src/scripts/gcint/";
-	TString curr_dir = gSystem->pwd();
-	gSystem->cd(script_dir.Data());
-	gROOT->ProcessLine(".x loadincs.C");
-	gROOT->ProcessLine(".x loadlibs.C");
-	gSystem->cd(curr_dir.Data());
-
+	// load genie for reading genie files - done in a separate macro, before calling ACLiC on this file
+//	TString script_dir = gSystem->Getenv("GENIE");
+//	script_dir += "/src/scripts/gcint/";
+//	TString curr_dir = gSystem->pwd();
+//	gSystem->cd(script_dir.Data());
+//	gROOT->ProcessLine(".x loadincs.C");
+//	gROOT->ProcessLine(".x loadlibs.C");
+//	gSystem->cd(curr_dir.Data());
+	
 	// Declare paths, files, trees...
 	TFile* wcsimfile;
+	TString wcsimfilepath;
 	TTree* wcsimT;
-
+	Int_t numwcsimentries;
+	
 	TFile* dirtfile;
 	TTree* tankflux;
 	TTree* tankmeta;
-
+	
 	TFile* geniefile;
+	TString geniefilepath;
 	TTree* gtree;
-
+	Int_t numgenietentries;
+	
 	// TChain for dirt files - this will be the main driver of the loop - all it's events will be processed.
 	TChain* c =  new TChain("tankflux");
-	c->Add(TString::Format("%s/annie_tank_flux.*.root");
+	TString chainpattern = TString::Format("%s/annie_tank_flux.*.root",dirtpath);
+	cout<<"loading TChain entries from "<<chainpattern<<endl;
+	c->Add(chainpattern);
 	Int_t numents = c->GetEntries();
-
+	cout<<"loaded "<<numents<<" entries in the chain"<<endl;
+	if(numents<1){ return; }
+	
 	// tankflux
 	Int_t genieentry=0;
-	Branch* genieentrybranch=0;
+	TBranch* genieentrybranch=0;
 	Int_t ntankbranchval=0;
 	TBranch *nTankBranch=0;
 	Int_t* nuprimarybranchval=0;
@@ -76,40 +142,55 @@ void truthtracks(){
 	TBranch* vertexmaterialbranch=0;
 	//Int_t* pdgbranchval=0;	// retrieve this info from wcsimT
 	//TBranch* pdgBranch=0;
-
+	
 	// tankmeta
 	TBranch* geniefilenamebranch=0;
 	Char_t geniefilename[100];
 	TBranch* potsbranch=0;
-	Int_t pots;
-	Int_t totalpots=0;	// count of POTs in all processed files
-
+	Double_t pots;
+	Double_t totalpots=0;	// count of POTs in all processed files
+	
 	// gtree
+	cout<<"creating new genie::NtpMCEventRecord"<<endl;
 	genie::NtpMCEventRecord* genierecordval = new genie::NtpMCEventRecord;
 	TBranch* genierecordBranch=0;
-	geniedata->SetBranchAddress("gmcrec",&genierecordval,&genierecordBranch);
-
+	
 	// wcsimT
 	WCSimRootEvent* b=0, *m=0, *v=0;
 	TBranch* bp=0, *mp=0, *vp=0;
 	WCSimRootTrigger* atrigt=0, *atrigm=0, *atrigv=0;
-
+	
 	// information from genie:
-	TH1F* incidentneutrinoenergies = new TH1F("incidentneutrinoenergies","Distribution of Probe Neutrino Energies:Energy (GeV):Num Events",20,0,0.);
-	TH1F* finalstateleptonanglesall = new TH1F("finalstateleptonanglesall","Distribution of Final State Lepton Angles:Angle (rads):Num Events",20,-TMath::Pi(),TMath::Pi());
-	TH1F* finalstateleptonenergiesall = new TH1F("finalstateleptonenergiesall","Distribution of Final State Lepton Energies (GeV):Energy (GeV):Num Events",20,0.,3.);
-	TH1F* finalstateleptonanglesaccepted = new TH1F("finalstateleptonanglesaccepted","Distribution of Accepted Final State Lepton Angles:Angle (rads):Num Events",20,-TMath::Pi(),TMath::Pi());
-	TH1F* finalstateleptonenergiesaccepted = new TH1F("finalstateleptonenergiesaccepted","Distribution of Accepted Final State Lepton Energies (GeV):Energy (GeV):Num Events",20,0.,3.);
-
+	gROOT->cd();
+	TH1D* incidentneutrinoenergiesall = new TH1D("incidentneutrinoenergiesall","Distribution of Probe Neutrino Energies:Energy (GeV):Num Events",100,0,0.);
+	TH1D* incidentneutrinoenergiesaccepted = new TH1D("incidentneutrinoenergiesaccepted","Distribution of Accepted Probe Neutrino Energies:Energy (GeV):Num Events",100,0,0.);
+	TH1D* fslanglesall = new TH1D("fslanglesall","Distribution of Final State Lepton Angles:Angle (rads):Num Events",100,0.,TMath::Pi());
+	TH1D* fslenergiesall = new TH1D("fslenergiesall","Distribution of Final State Lepton Energies (GeV):Energy (GeV):Num Events",100,0.,3.);
+	TH1D* fslanglesaccepted = new TH1D("fslanglesaccepted","Distribution of Accepted Final State Lepton Angles:Angle (rads):Num Events",100,0.,TMath::Pi());
+	TH1D* fslenergiesaccepted = new TH1D("fslenergiesaccepted","Distribution of Accepted Final State Lepton Energies (GeV):Energy (GeV):Num Events",100,0.,3.);
+	
 	// information from WCSim: 
-	TH1F* finalstateleptonanglesacceptedwcsim = new TH1F("finalstateleptonanglesacceptedwcsim","Distribution of Accepted Final State Lepton Angles:Angle (rads):Num Events",20,-TMath::Pi(),TMath::Pi());
-	TH1F* finalstateleptonenergiesacceptedwcsim = new TH1F("finalstateleptonenergiesacceptedwcsim","Distribution of Accepted Final State Lepton Energies (GeV):Energy (GeV):Num Events",20,0.,3.);
-
+	TH1D* fslanglesacceptedwcsim = new TH1D("fslanglesacceptedwcsim","Distribution of Accepted Final State Lepton Angles:Angle (rads):Num Events",100,0.,TMath::Pi());
+	TH1D* fslenergiesacceptedwcsim = new TH1D("fslenergiesacceptedwcsim","Distribution of Accepted Final State Lepton Energies (GeV):Energy (GeV):Num Events",100,0.,3.);
+	
+//	// debugging:
+	TH1D* fsltruetracklength = new TH1D("fsltruetracklength", "Distribution of True Track Lengths", 100, 0., 1500.);
+#ifdef WCSIMDEBUG
+	TH3D* tankstartvertices = new TH3D("tankstartvertices", "Distribution of Tank Starting Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
+	TH3D* vetostartvertices = new TH3D("vetostartvertices", "Distribution of Veto Starting Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
+	TH3D* mrdstartvertices = new TH3D("mrdstartvertices", "Distribution of MRD Starting Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
+	TH3D* tankstopvertices = new TH3D("tankstopvertices", "Distribution of Tank Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
+	TH3D* vetostopvertices = new TH3D("vetostopvertices", "Distribution of Veto Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
+	TH3D* mrdstopvertices = new TH3D("mrdstopvertices", "Distribution of MRD Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
+#endif
+	
+	cout<<"loading first tankflux tree from "<<chainpattern<<" tchain"<<endl;
 	c->LoadTree(0);
-	Int_t treeNumber = c->GetTreeNumber();
+	Int_t treeNumber = -1;
 	tankflux = c->GetTree();
 	Int_t thistreesentries = tankflux->GetEntries();
-
+	cout<<thistreesentries<<" entries in the first tree"<<endl;
+	
 	/*
 	1. Load next g4dirt entry
 	2. Check if genie primary, and volume is in tank - if not, continue
@@ -118,7 +199,8 @@ void truthtracks(){
 	5. If so, load wcsim detector response. 
 	6. Load tracks, look for primary mu track through the MRD, record interaction details. 
 	*/
-
+	
+	cout<<"looping over tchain entries"<<endl;
 	for(Int_t inputEntry=0; inputEntry<numents; inputEntry++){
 		/* 	1. Load next g4dirt entry */ 
 		Long64_t localEntry = c->LoadTree(inputEntry);
@@ -133,44 +215,64 @@ void truthtracks(){
 			dirtfile = tankflux->GetCurrentFile();
 			std::string nextdirtfilename(dirtfile->GetName());
 			thistreesentries = tankflux->GetEntries();
+			cout<<"tankflux has "<<thistreesentries<<" entries in this file"<<endl;
 			
 			// retrieve genie filename from the meta tree, and open the corresponding genie file
 			tankmeta = (TTree*)dirtfile->Get("tankmeta");
 			tankmeta->SetBranchAddress("inputFluxName", geniefilename, &geniefilenamebranch);
 			geniefilenamebranch->GetEntry(0);
-			geniefile = TFile::Open(TString::Format("%s/%s",geniepath,geniefilename);
+			geniefilepath = TString::Format("%s/%s",geniepath,geniefilename);
+			cout<<"corresponding genie file is "<<geniefilepath<<", loading this file"<<endl;
+			geniefile = TFile::Open(geniefilepath);
+			if(!geniefile){cout<<"this genie file doesn't exist!"<<endl; break; }
 			gtree = (TTree*)geniefile->Get("gtree");
+			if(!gtree){cout<<"gtree doesn't exist!"<<endl; break; }
+			numgenietentries = gtree->GetEntries();
+			cout<<"gtree has "<<numgenietentries<<" entries in this file"<<endl;
+			if(numgenietentries<1){cout<<"gtree has no entries!"<<endl; break; }
 			
 			// use regexp to pull out the file number needed for identifying the corresponding wcsim file
 			std::match_results<string::const_iterator> submatches;
 			// filename is of the form "annie_tank_flux.####.root"
 			// #### is input file num. Need this to match against genie/wcsim file names
-			std::regex theexpression ("[^0-9]+.([0-9]+).*");
+			std::regex theexpression (".*/[^0-9]+\\.([0-9]+)\\.root");
+			cout<<"matching regex for filename "<<nextdirtfilename<<endl;
 			std::regex_match (nextdirtfilename, submatches, theexpression);
 			std::string submatch = (std::string)submatches[0];	// match 0 is 'whole match' or smthg
-			if(submatch==""){ cout<<"unrecognised input file pattern: "<<nextdirtfilename<<endl; }
+			if(submatch==""){ cout<<"unrecognised input file pattern: "<<nextdirtfilename<<endl; return; }
 			submatch = (std::string)submatches[1];
+			cout<<"extracted submatch is "<<submatch<<endl;
 			int filenum = atoi(submatch.c_str());
 			
 			// use filenum to open the corresponding wcsim file
-			wcsimfile = TFile::Open(TString::Format("%s/wcsim_0.%d.root",wcsimpath,filenum);
+			wcsimfilepath = TString::Format("%s/wcsim_0.%d.root",wcsimpath,filenum);
+			cout<<"corresponding wcsim file is "<<wcsimfilepath<<endl;
+			wcsimfile = TFile::Open(wcsimfilepath);
+			if(!wcsimfile){cout<<"this wcsimfile doesn't exist!"<<endl; break; }
 			wcsimT = (TTree*)wcsimfile->Get("wcsimT");
+			if(!wcsimT){cout<<"wcsimT doesn't exist!"<<endl; break; }
+			numwcsimentries = wcsimT->GetEntries();
+			cout<<"wcsimT has "<<numwcsimentries<<" entries in this file"<<endl;
+			if(numwcsimentries<1){cout<<"wcsimT has no entries!"<<endl; break; }
 			
 			/* Set the branch addresses for the new trees */
 			// tankflux:
 			// genie file entry number for each entry, to get the genie intx info
 			c->SetBranchAddress("entry",&genieentry,&genieentrybranch);
 			// number of primaries (so we can create appropriately sized array)
-			c->SetBranchAddress("ntank",&ntankbranchval, nTankBranch);
+			c->SetBranchAddress("ntank",&ntankbranchval, &nTankBranch);
 			// material of vertex - identify as 'TankWater' to pull only primaries in the tank
 			c->SetBranchAddress("vtxmat",&vertexmaterial, &vertexmaterialbranch);
 			// array of whether particle is a genie primary
 			nuprimaryBranch=c->GetBranch("primary");
 			// tankmeta:
 			// POTs in this genie file, so we can normalise wcsim event frequency
-			tankmeta->SetBranchAddress("inputTotalPOTs", pots, &potsbranch);
+			tankmeta->SetBranchAddress("inputTotalPOTs", &pots, &potsbranch);
 			potsbranch->GetEntry(0);
-			totalpots += pots;
+			Double_t lasttotpots=totalpots;
+			if(TMath::IsNaN(pots)==0){ totalpots += pots; }
+			if(totalpots<lasttotpots){ cout<<"ERROR! TOTAL POTS CAME DOWN FROM "<<lasttotpots<<" TO "<<totalpots<<endl; return; }
+			cout<<"adding "<<pots<<" POTs to the running total, making "<<totalpots<<" POTs so far"<<endl;
 			
 			// wcsimT:
 			// wcsim trigger classes
@@ -182,13 +284,16 @@ void truthtracks(){
 			// gtree:
 			gtree->SetBranchAddress("gmcrec",&genierecordval,&genierecordBranch);
 		}
-		cout<<"entry "<<inputEntry<<": localEntry "<<localEntry
-		    <<" of "<<thistreesentries<<" in tree "<<treeNumber<<endl;
+#ifdef PLOTVERBOSE
+		cout<<"processing inputEntry "<<inputEntry<<", localEntry "<<localEntry
+		    <<"/"<<thistreesentries<<" in tree "<<treeNumber<<endl;
+#endif
 		
 		/* 2. Check if genie primary, and volume is in tank - if not, continue */
+		// cout<<"getting wcsim info"<<endl;
 		nTankBranch->GetEntry(localEntry);
 		vertexmaterialbranch->GetEntry(localEntry);
-		if(vertexmaterial!="TankWater"){ continue; }	// neutrino intx wasn't in tank water
+		if(strcmp(vertexmaterial,"TankWater")!=0){ continue; }	// neutrino intx wasn't in tank water
 		if(nuprimarybranchval){delete[] nuprimarybranchval;}
 		nuprimarybranchval = new Int_t[ntankbranchval];
 		nuprimaryBranch->SetAddress(nuprimarybranchval);
@@ -201,6 +306,11 @@ void truthtracks(){
 		if(!primariesinthisentry){ continue; }	// dirt recorded particles weren't genie primaries
 		
 		/* 3. If so, load genie entry. */
+#ifdef PLOTVERBOSE
+		cout<<"getting genie info"<<endl;
+#endif
+		if(localEntry>numgenietentries){ cout<<"can't load localEntry "<<localEntry
+								 <<"from "<<geniefilepath<<" gtree: not enough entries!"<<endl; continue; }
 		genieentrybranch->GetEntry(localEntry);
 		genierecordBranch->GetEntry(genieentry);
 		genie::EventRecord* gevtRec = genierecordval->event;
@@ -208,34 +318,32 @@ void truthtracks(){
 		
 		// process information:
 		TString procinfostring = genieint->ProcInfo().AsString();
-		TString scatteringtypestring = genieint->ScatteringTypeAsString();
-		TString interactiontypestring = genieint->InteractionTypeAsString();
-		Bool_t isQE = interaction.ProcInfo().IsQuasiElastic();
-		Double_t neutrinoq2 = genieint->Kine().Q2();
-		TLorentzVector& k1 = *(gevtRec->Probe()->P4());
-		TLorentzVector& k2 = *(gevtRec->FinalStatePrimaryLepton()->P4());
-		Double_t costhfsl = TMath::Cos( k2.Vect().Angle(k1.Vect()) );
+		TString scatteringtypestring = genieint->ProcInfo().ScatteringTypeAsString();
+		TString interactiontypestring = genieint->ProcInfo().InteractionTypeAsString();
+		Bool_t isQE = genieint->ProcInfo().IsQuasiElastic();
+		Bool_t isWeakCC = genieint->ProcInfo().IsWeakCC();
+		Int_t neutinteractioncode = genie::utils::ghep::NeutReactionCode(gevtRec);
+		Int_t nuanceinteractioncode  = genie::utils::ghep::NuanceReactionCode(gevtRec);
 //		TLorentzVector* genieVtx = gevtRec->Vertex();
 //		G4double x = genieVtx->X() * m;         // same info as nuvtx in g4dirt file
 //		G4double y = genieVtx->Y() * m;         // GENIE uses meters
 //		G4double z = genieVtx->Z() * m;         // GENIE uses meters
 //		G4double t = genieVtx->T() * second;    // GENIE uses seconds for time
-		Int_t neutinteractioncode = genie::utils::ghep::NeutReactionCode(gevtRec);
-		Int_t nuanceinteractioncode  = genie::utils::ghep::NuanceReactionCode(gevtRec);
 		
 		// neutrino information:
 		Double_t probeenergy = genieint->InitState().ProbeE(genie::kRfLab);	// GeV
 		Int_t probepdg = genieint->InitState().Probe()->PdgCode();
-		TSring probepartname = genieint->InitState().Probe()->GetName();
+		TString probepartname = genieint->InitState().Probe()->GetName();
 		TLorentzVector* probemomentum = gevtRec->Probe()->P4();
 		TVector3 probethreemomentum = probemomentum->Vect();
 		TVector3 probemomentumdir = probethreemomentum.Unit();
 		Double_t probeanglex = TMath::ATan(probethreemomentum.X()/probethreemomentum.Z());
 		Double_t probeangley = TMath::ATan(probethreemomentum.Y()/probethreemomentum.Z());
-		Double_t probeangle = TMath::Max(probeanglex,probeanglexy);
+		Double_t probeangle = TMath::Max(probeanglex,probeangley);
 		// n.b.  genieint->InitState().Probe != gevtRec->Probe()
 		
 		// target nucleon:
+		genie::GHepParticle* targetnucleon = gevtRec->HitNucleon();
 		int targetnucleonpdg = genieint->InitState().Tgt().HitNucPdg();
 		TString targetnucleonname;
 		if ( genie::pdg::IsNeutronOrProton(targetnucleonpdg) ) {
@@ -244,15 +352,19 @@ void truthtracks(){
 		} else {
 			targetnucleonname = targetnucleonpdg;
 		}
-		TLorentzVector* targetnucleonmomentum = gevtRec->HitNucleon()->P4();
-		TVector3 targetnucleonthreemomentum = targetnucleonmomentum->Vect();
-		Double_t targetnucleonenergy = targetnucleonmomentum->Energy(); //GeV
+		TVector3 targetnucleonthreemomentum=TVector3(0.,0.,0.);
+		Double_t targetnucleonenergy=0.;
+		if(targetnucleon){
+			TLorentzVector* targetnucleonmomentum = targetnucleon->P4();
+			targetnucleonthreemomentum = targetnucleonmomentum->Vect();
+			targetnucleonenergy = targetnucleonmomentum->Energy(); //GeV
+		}
 		
 		// target nucleus:
 		Int_t targetnucleuspdg = genieint->InitState().Tgt().Pdg();
 		TParticlePDG * targetnucleus = genie::PDGLibrary::Instance()->Find( targetnucleuspdg );
 		TString targetnucleusname = "unknown";
-		if(targetnucleus){ targetnucleusname = nucleartarget->GetName(); }
+		if(targetnucleus){ targetnucleusname = targetnucleus->GetName(); }
 		Int_t targetnucleusZ = genieint->InitState().Tgt().Z();
 		Int_t targetnucleusA = genieint->InitState().Tgt().A();
 		
@@ -270,19 +382,35 @@ void truthtracks(){
 		TString fsleptonname="n/a";
 		Double_t fsleptonenergy=-1.;
 		if(fsleppos>-1){
-			fsleptonname = gevtRec->Particle(ipos)->Name();
-			fsleptonenergy = gevtRec->Particle(ipos)->Energy();
+			fsleptonname = gevtRec->Particle(fsleppos)->Name();
+			fsleptonenergy = gevtRec->Particle(fsleppos)->Energy();
 		}
 		
-		// other remnants:
+		// other remnants: TODO: this information is NOT being correctly read in
 		Int_t numfsprotons = genieint->ExclTag().NProtons();
 		Int_t numfsneutrons = genieint->ExclTag().NNeutrons();
 		Int_t numfspi0 = genieint->ExclTag().NPi0();
 		Int_t numfspiplus = genieint->ExclTag().NPiPlus();
 		Int_t numfspiminus = genieint->ExclTag().NPiMinus();
 		
+		// kinematic information
+		Double_t M  = genie::constants::kNucleonMass; 
+		// Calculate kinematic variables "as an experimentalist would measure them; 
+		// neglecting fermi momentum and off-shellness of bound nucleons"
+		TLorentzVector& k1 = *(gevtRec->Probe()->P4());
+		TLorentzVector& k2 = *(gevtRec->FinalStatePrimaryLepton()->P4());
+		Double_t costhfsl = TMath::Cos( k2.Vect().Angle(k1.Vect()) );
+		Double_t fslanglegenie = k2.Vect().Angle(k1.Vect());
+		TLorentzVector q  = k1-k2;                              // q=k1-k2, 4-p transfer
+		//Double_t neutrinoq2 = genieint->Kine().Q2();          // not set in our GENIE files!
+		Double_t Q2 = -1 * q.M2();                              // momemtum transfer
+		Double_t Ev  = (targetnucleon) ? q.Energy()       : -1; // v (E transfer to the nucleus)
+		Double_t x  = (targetnucleon) ? 0.5*Q2/(M*Ev)     : -1; // Bjorken x
+		Double_t y  = (targetnucleon) ? Ev/k1.Energy()    : -1; // Inelasticity, y = q*P1/k1*P1
+		Double_t W2 = (targetnucleon) ? M*M + 2*M*Ev - Q2 : -1; // Hadronic Invariant mass ^ 2
+		
 		if(printneutrinoevent){
-			cout<<"This was a "<< procinfoasstring <<" interaction of a "<<probeenergy<<"GeV " 
+			cout<<"This was a "<< procinfostring <<" interaction of a "<<probeenergy<<"GeV " 
 				<< probepartname << " on a "; 
 			
 			if( targetnucleonpdg==2212 || targetnucleonpdg==2122 ){ cout<<targetnucleonname<<" in a "; }
@@ -292,40 +420,53 @@ void truthtracks(){
 			else { cout<<"Z=["<<targetnucleusZ<<","<<targetnucleusA<<"] nucleus, "; }
 			
 			if(remnucpos>-1){ cout<<"producing a "<<remnantnucleusenergy<<"GeV "<<remnantnucleusname; }
-			else { cout<<"with no remnant nucleus"; }
+			else { cout<<"with no remnant nucleus"; }  // DIS on 16O produces no remnant nucleus?!
 			
 			if(fsleppos>-1){ cout<<" and a "<<fsleptonenergy<<"GeV "<<fsleptonname<<endl; }
 			else{ cout<<" and no final state leptons"<<endl; }
 			
-			cout<<endl<<"Q^2 was "<<neutrinoq2<<"XX, with final state lepton ejected at Cos(θ)="<<costhfsl<<endl;
+			cout<<endl<<"Q^2 was "<<Q2<<"(GeV/c)^2, with final state lepton ejected at Cos(θ)="<<costhfsl<<endl;
 			cout<<"Additional final state particles included "<<endl;
-			cout<< " N(p) = "       << numfsprotons
-				<< " N(n) = "       << numfsneutrons
+			cout<< "   N(p) = "       << numfsprotons
+				<< "   N(n) = "       << numfsneutrons
 				<< endl
-				<< " N(pi^0) = "    << numfspi0
-				<< " N(pi^+) = "    << numfspiplus
-				<< " N(pi^-) = "    << numfspiminus
+				<< "   N(pi^0) = "    << numfspi0
+				<< "   N(pi^+) = "    << numfspiplus
+				<< "   N(pi^-) = "    << numfspiminus
 				<<endl;
 		}
 		
-		incidentneutrinoenergies->Fill(probeenergy);
-		incidentneutrinoangles->Fill(probeangle);
-		finalstateleptonanglesall->Fill(TMath::ACos(costhfsl));
-		finalstateleptonenergiesall->Fill(fsleptonenergy);
+#ifdef PLOTVERBOSE
+		cout<<"filling incident neutrino histograms"<<endl;
+#endif
+		incidentneutrinoenergiesall->Fill(probeenergy);
+		//incidentneutrinoanglesall->Fill(probeangle);
+		fslanglesall->Fill(fslanglegenie);
+		fslenergiesall->Fill(fsleptonenergy);
 		
 		/* 4. Check if interaction is QE - if not, continue */
-		if (!(genieint->ProcInfo().IsQuasiElastic() && genieint->ProcInfo().IsWeakCC())){ continue; }
+		if (!(isQE && isWeakCC)){ continue; }
 		
 		/*5. If so, load wcsim detector response. */
 		// read only first subtrigger; delayed decay detector response is not interesting for primary FSL tracks
+#ifdef PLOTVERBOSE
+		cout<<"getting wcsim entry"<<endl;
+#endif
+		if(localEntry>numwcsimentries){ cout<<"can't load localEntry "<<localEntry
+				<<"from "<<wcsimfilepath<<" wcsimT - not enough entries!"<<endl; continue; }
+		wcsimT->GetEntry(localEntry);
 		atrigt = b->GetTrigger(0);
 		atrigm = m->GetTrigger(0);
 		atrigv = v->GetTrigger(0);
 		
 		Int_t numtracks = atrigt->GetNtrack();
+#ifdef PLOTVERBOSE
+		cout<<"wcsim event had "<<numtracks<<" truth tracks"<<endl;
+#endif
 		
 		std::vector<Float_t> primaryenergiesvector;
-		std::vectr<Double_t> scatteringanglesvector;
+		std::vector<Double_t> scatteringanglesvector;
+		std::vector<Int_t> acceptedtrackids;
 		
 		for(int track=0; track<numtracks; track++){
 			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(track);
@@ -348,80 +489,138 @@ void truthtracks(){
 			
 			/* 6. Load tracks, look for primary mu track through the MRD, record interaction details. */
 			// for now we use truth information
-			
 			// is it a primary?
-			Int_t primaryparentpdg = GetParenttype();
-			if(primaryparentpdg!=0) continue; 				// not a primary
+			Int_t primaryparentpdg = nextrack->GetParenttype();
+			if(primaryparentpdg!=0) continue;
 			
 			// is it a (anti)muon?
 			Int_t primarypdg = nextrack->GetIpnu();
+#ifdef PLOTVERBOSE
+			cout<<"primarypdg is "<<primarypdg<<endl;
+#endif
 			if(TMath::Abs(primarypdg)!=13) continue; 		// not a muon
 			
 			// does it start in the tank?
 			Int_t primarystartvol = nextrack->GetStartvol();
+			// temporary override as these weren't correctly set in wcsim #################
+			if(nextrack->GetStart(2)<tank_start){
+				primarystartvol = 20;						// start depth is facc or hall
+			} else if(nextrack->GetStart(2)>(tank_start+(2.*tank_radius))){
+				primarystartvol = 30;						// start depth is mrd or hall
+			} else {
+				primarystartvol = 10;						// start depth is tank
+			}
+			
+#ifdef PLOTVERBOSE
+			cout<<"primarystartvol is "<<primarystartvol<<endl;
+#endif
 			if(primarystartvol!=10) continue;				// start volume is not the tank
 			
-			// does it stop in the mrd?
+			// does it stop in the mrd, or pass completely through the MRD? 
 			Int_t primarystopvol = nextrack->GetStopvol();
+			// temporary override as these weren't correctly set in wcsim #################
+			if(nextrack->GetStop(2)<tank_start){
+				primarystopvol = 20;						// start depth is facc or hall
+			} else if(nextrack->GetStop(2)>(tank_start+(2.*tank_radius))){
+				primarystopvol = 30;						// start depth is mrd or hall
+			} else {
+				primarystopvol = 10;						// start depth is tank
+			}
+#ifdef PLOTVERBOSE
+			cout<<"primarystopvol is "<<primarystopvol<<endl;
+#endif
 			
-			// or does it pass completely through the MRD? 
-			TVector3 primarystopvertex;
-			primarystopvertex.X() = nextrack->GetStop(0);
-			primarystopvertex.Y() = nextrack->GetStop(1);
-			primarystopvertex.Z() = nextrack->GetStop(2);
+			TVector3 primarystartvertex(nextrack->GetStart(0),nextrack->GetStart(1),nextrack->GetStart(2));
+			TVector3 primarystopvertex(nextrack->GetStop(0), nextrack->GetStop(1), nextrack->GetStop(2));
+			TVector3 differencevector  = (primarystopvertex-primarystartvertex);
 			
-			// continue if neither
-			if(!(primarystopvol==30 /*|| primarystopvertex.Z()>MRD_start+MRD_depth)*/) continue;
-			// TODO: disabling check for complete penetration. 
-			// We _could_ have a track pass thru multiple MRD layers, then exit MRD and stop with z<MRD_end
+			// continue if stopping volume is in either the tank or veto, or track is backward going.
+			if( primarystopvol==10 || primarystopvol==20 || primarystopvertex.Z() < primarystartvertex.Z() )
+				continue;
 			
-			/* Requiring z_stop > MRD_end is alone not sufficient - need to check it intercepts the MRD.
-			The mrd is as wide as the tank. We can ensure a track enters the mrd by projecting the track
-			forward from the start vertex, at the angle between start and stop vertices, and requiring:
+			/* We next need to check it intercepts the MRD. The mrd is as wide as the tank. 
+			We can ensure a track enters the mrd by projecting the track forward from the start vertex, 
+			at the angle between start and stop vertices, and requiring:
 			1) at z=MRD_start, x is between +/-(MRD_width/2);
 			2) z endpoint is > MRD_start
 			To require at least 2-layers of penetration, as above but with z=MRD_layer2 */
-			
-			TVector3 primarystartvertex;
-			primarystartvertex.X() = nextrack->GetStart(0);
-			primarystartvertex.Y() = nextrack->GetStart(1);
-			primarystartvertex.Z() = nextrack->GetStart(2);
+#ifdef WCSIMDEBUG
+			switch (primarystartvol){
+			case 10:
+				tankstartvertices->Fill(primarystartvertex.X(), primarystartvertex.Y(), primarystartvertex.Z());
+				break;
+			case 20:
+				vetostartvertices->Fill(primarystartvertex.X(), primarystartvertex.Y(), primarystartvertex.Z());
+				break;
+			case 30:
+				mrdstartvertices->Fill(primarystartvertex.X(), primarystartvertex.Y(), primarystartvertex.Z());
+				break;
+			}
+			switch (primarystopvol){
+			case 10:
+				tankstopvertices->Fill(primarystopvertex.X(), primarystopvertex.Y(), primarystopvertex.Z());
+				break;
+			case 20:
+				vetostopvertices->Fill(primarystopvertex.X(), primarystopvertex.Y(), primarystopvertex.Z());
+				break;
+			case 30:
+				mrdstopvertices->Fill(primarystopvertex.X(), primarystopvertex.Y(), primarystopvertex.Z());
+				break;
+			}
+#endif
 			
 			Float_t opp = primarystopvertex.X() - primarystartvertex.X();
 			Float_t adj = primarystopvertex.Z() - primarystartvertex.Z();
 			Float_t avgtrackanglex = TMath::ATan(opp/adj);
+			
 			Float_t xatmrd = primarystartvertex.X() + (MRD_layer2-primarystartvertex.Z())*TMath::Tan(avgtrackanglex);
+#ifdef WCSIMDEBUG
+			cout<<"primary start vertex: ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()
+				<<","<<primarystartvertex.Z()<<")"<<endl;
+			cout<<"primary stop vertex: ("<<primarystopvertex.X()<<", "<<primarystopvertex.Y()
+				<<","<<primarystopvertex.Z()<<")"<<endl;
+			cout<<"opp = "<<opp<<endl;
+			cout<<"adj = "<<adj<<endl;
+			cout<<"angle = "<<avgtrackanglex<<endl;
+			cout<<"tan(angle) = "<<TMath::Tan(avgtrackanglex)<<endl;
+			cout<<"projected x at z="<<MRD_layer2<<" is "<<xatmrd<<endl;
+			fsltruetracklength->Fill(differencevector.Mag());
+#endif
 			
 			opp = primarystopvertex.Y() - primarystartvertex.Y();
 			Float_t avgtrackangley = TMath::ATan(opp/adj);
 			Float_t yatmrd = primarystartvertex.Y() + (MRD_layer2-primarystartvertex.Z())*TMath::Tan(avgtrackangley);
-			
+#ifdef WCSIMDEBUG
+			cout<<"xatmrd="<<xatmrd<<", MRD_width="<<MRD_width<<endl;
+			cout<<"yatmrd="<<yatmrd<<", MRD_height="<<MRD_height<<endl;
+#endif
 			if((TMath::Abs(xatmrd)>MRD_width)||(TMath::Abs(yatmrd)>MRD_height)) 
 				continue;	// track does not meet MRD penetration requirement
 			
 			// if we got to here, we have a muon that stops in, or penetrates at least 2 MRD layers!
 			// retrieve any remaining information and record the event
-			Float_t primaryenergy = nextrack->GetE();			// starting energy
+			Float_t mu_rest_mass_E = 105.658;
+			Float_t primaryenergy = (nextrack->GetE()-mu_rest_mass_E)/1000.;	// starting energy (GeV) (p^2+m^2)
 			Float_t primarymomentummag = nextrack->GetP();		// starting momentum
-			TVector3 primarymomentumdir;
-			primarymomentumdir.X() = nextrack->GetPdir(0);
-			primarymomentumdir.Y() = nextrack->GetPdir(1);
-			primarymomentumdir.Z() = nextrack->GetPdir(2);
+			TVector3 primarymomentumdir(nextrack->GetPdir(0),nextrack->GetPdir(1),nextrack->GetPdir(2));
 			Float_t starttrackanglex = TMath::ATan(primarymomentumdir.X()/primarymomentumdir.Z());
 			Float_t starttrackangley = TMath::ATan(primarymomentumdir.Y()/primarymomentumdir.Y());
 			Float_t starttrackangle = TMath::Max(starttrackanglex,starttrackangley);
-			Double_t scatteringangle = k1.Angle(primarymomentumdir);
-			// TMath::Cos(scatteringangle) should be the same as costhfsl if neutrino dir == z axis
+			//Double_t scatteringangle = k1.Angle(primarymomentumdir);
+			Double_t scatteringangle = k1.Angle(differencevector);
+			// scatteringangle for primaries by definition should be the same as fslanglegenie
 			
 			// Add this primary information to a vector. We _should_ only find one suitable primary
 			// and can break once it is found, but... let's just see. Keep wcsim trackID in case.
 			Int_t primarytrackid = nextrack->GetId();
 			
+#ifdef PLOTVERBOSE
+			cout<<"found a suitable primary track"<<endl;
+#endif
 			scatteringanglesvector.push_back(scatteringangle);
 			primaryenergiesvector.push_back(primaryenergy);
 			acceptedtrackids.push_back(primarytrackid);
 		}
-		
 		
 		if(scatteringanglesvector.size()>1) {
 			cerr<<"Mutliple accepted final state leptons!"<<endl;
@@ -431,95 +630,134 @@ void truthtracks(){
 				cout<<"wcsim lepton trackid "<<i<<" = "<<acceptedtrackids.at(i)<<endl;
 			}
 			cout<<"compare to:"<<endl;
-			cout<<"genie lepton angle = "<<TMath::ACos(costhfsl)<<endl;
+			cout<<"genie lepton angle = "<<fslanglegenie<<endl;
 			cout<<"genie lepton energy = "<<fsleptonenergy<<endl;
 			
 			std::vector<Int_t>::iterator minit = std::min_element(acceptedtrackids.begin(), acceptedtrackids.end());		
 			Int_t indextouse = std::distance(acceptedtrackids.begin(),minit);
-			finalstateleptonanglesacceptedwcsim->Fill(TMath::ACos(scatteringanglesvector.at(indextouse));
-			finalstateleptonenergiesacceptedwcsim->Fill(primaryenergiesvector.at(indextouse));
+			fslanglesacceptedwcsim->Fill(scatteringanglesvector.at(indextouse));
+			fslenergiesacceptedwcsim->Fill(primaryenergiesvector.at(indextouse));
 		} else if (scatteringanglesvector.size()==1) { // just one matched wcsim track. 
-			finalstateleptonanglesacceptedwcsim->Fill(TMath::ACos(scatteringangle));
-			finalstateleptonenergiesacceptedwcsim->Fill(primaryenergy);
+			fslanglesacceptedwcsim->Fill(scatteringanglesvector.at(0));
+			fslenergiesacceptedwcsim->Fill(primaryenergiesvector.at(0));
+			
+			cout<<"wcsim lepton angle = "<<scatteringanglesvector.at(0)<<endl;
+			cout<<"wcsim lepton energy = "<<primaryenergiesvector.at(0)<<endl;
+			cout<<"wcsim lepton trackid = "<<acceptedtrackids.at(0)<<endl;
+			cout<<"compare to:"<<endl;
+			cout<<"genie lepton angle = "<<fslanglegenie<<endl;
+			cout<<"genie lepton energy = "<<fsleptonenergy<<endl;
 		} else {
-			//cout<<"no accepted wcsim track"<<endl;
+			cout<<"no accepted wcsim track"<<endl;
 		}
-		
-		finalstateleptonanglesaccepted->Fill(TMath::ACos(costhfsl));
-		finalstateleptonenergiesaccepted->Fill(fsleptonenergy);
+		if(scatteringanglesvector.size()!=0){
+			cout<<"MATCHED A TRACK YEEEEAH"<<endl; /*return;*/
+			// by getting this far we've found a primary muon that penetrated the MRD.
+			// fill genie 'accepted' histograms.
+			incidentneutrinoenergiesaccepted->Fill(probeenergy);
+			//incidentneutrinoanglesaccepted->Fill(probeangle);
+			fslanglesaccepted->Fill(fslanglegenie);
+			fslenergiesaccepted->Fill(fsleptonenergy);
+		}
 		
 	}
 	
+	cout<<"generating scaled histograms"<<endl;
+	Double_t numbeamspills = totalpots/(4.0 * TMath::Power(10.,12.));
+	Double_t numbeamspillsperday = (24.*60.*60.*1000.)/133.3333;	// 24 hours in ms / 133.33 ms between spills
+	Double_t numdays = numbeamspills/numbeamspillsperday;
+	cout<<"Results based on "<<totalpots<<" POTs, or "<<numbeamspills<<" beam spills, or "<<numdays<<" days of data"<<endl;
+	
+	gROOT->cd();
 	// create scaled histograms with bin contents scaled to the number of POTs in input files:
-	TH1F* incidentneutrinoenergiesscaled = new TH1F(incidentneutrinoenergies);
-	TH1F* finalstateleptonanglesallscaled = new TH1F(finalstateleptonanglesall);
-	TH1F* finalstateleptonenergiesallscaled = new TH1F(finalstateleptonenergiesall);
-	TH1F* finalstateleptonanglesacceptedscaled = new TH1F(finalstateleptonanglesaccepted);
-	TH1F* finalstateleptonenergiesacceptedscaled = new TH1F(finalstateleptonenergiesaccepted);
-	TH1F* finalstateleptonanglesacceptedwcsimscaled = new TH1F(finalstateleptonanglesacceptedwcsim);
-	TH1F* finalstateleptonenergiesacceptedwcsimscaled = new TH1F(finalstateleptonenergiesacceptedwcsim);
+	TH1D* incidentneutrinoenergiesallscaled = new TH1D(*incidentneutrinoenergiesall);
+	TH1D* incidentneutrinoenergiesacceptedscaled = new TH1D(*incidentneutrinoenergiesaccepted);
+	TH1D* fslanglesallscaled = new TH1D(*fslanglesall);
+	TH1D* fslenergiesallscaled = new TH1D(*fslenergiesall);
+	TH1D* fslanglesacceptedscaled = new TH1D(*fslanglesaccepted);
+	TH1D* fslenergiesacceptedscaled = new TH1D(*fslenergiesaccepted);
+	TH1D* fslanglesacceptedwcsimscaled = new TH1D(*fslanglesacceptedwcsim);
+	TH1D* fslenergiesacceptedwcsimscaled = new TH1D(*fslenergiesacceptedwcsim);
 	
-	TH1F* thehistopointersarr[]{
-	incidentneutrinoenergiesscaled,
-	finalstateleptonanglesallscaled,
-	finalstateleptonanglesacceptedscaled,
-	finalstateleptonanglesacceptedwcsimscaled,
-	finalstateleptonenergiesallscaled,
-	finalstateleptonenergiesacceptedscaled,
-	finalstateleptonenergiesacceptedwcsimscaled};
+	TH1D* thehistopointersarr[]{
+	incidentneutrinoenergiesallscaled,
+	incidentneutrinoenergiesacceptedscaled,
+	fslanglesallscaled,
+	fslanglesacceptedscaled,
+	fslanglesacceptedwcsimscaled,
+	fslenergiesallscaled,
+	fslenergiesacceptedscaled,
+	fslenergiesacceptedwcsimscaled};
 	//TODO: modify size if you add more histograms!!!
-	std::vector<TH1F*> scaledhistopointers(thehistopointersarr,thehistopointersarr+7);
+	std::vector<TH1D*> scaledhistopointers(thehistopointersarr,thehistopointersarr+8);
 	
-	for(int i=0; i<thehistopointers.size(); i++){
-		TH1F* temp = thehistopointers.at(i);
+	for(int i=0; i<scaledhistopointers.size(); i++){
+		TH1D* temp = scaledhistopointers.at(i);
 		for(int j=0; j<temp->GetNbinsX(); j++){
-			Float_t thecontent = temp->GetBinContent(j);
-			thecontent /= totalpots;
-			temp->SetBinContent(thecontent);
+			Double_t thecontent = temp->GetBinContent(j);
+			if(thecontent!=0){ thecontent /= numdays; }
+			temp->SetBinContent(j,thecontent);
 		}
 	}
 	
-	TH1F* thehistopointersarr2[]{
-	incidentneutrinoenergiesscaled,
-	finalstateleptonanglesall,
-	finalstateleptonanglesaccepted,
-	finalstateleptonanglesacceptedwcsim,
-	finalstateleptonenergiesall,
-	finalstateleptonenergiesaccepted,
-	finalstateleptonenergiesacceptedwcsim};
+	TH1D* thehistopointersarr2[]{
+	incidentneutrinoenergiesall,
+	incidentneutrinoenergiesaccepted,
+	fslanglesall,
+	fslanglesaccepted,
+	fslanglesacceptedwcsim,
+	fslenergiesall,
+	fslenergiesaccepted,
+	fslenergiesacceptedwcsim};
 	//TODO: modify size if you add more histograms!!!
-	std::vector<TH1F*> histopointers.assign(thehistopointersarr2,thehistopointersarr2+7);
+	std::vector<TH1D*> histopointers(thehistopointersarr2,thehistopointersarr2+8);
 	
 	// draw the original histograms
 	// ============================
-	TLegend* leg;
-	TCanvas* canv;
+//	Double_t win_width=500;
+//	Double_t win_height=400;
+//	Double_t win_scale=0.7;
+//	Int_t n_wide=2;
+//	Int_t n_high=3;
+//	TCanvas* c1 = new TCanvas("c1","c1",win_width*n_wide*win_scale,win_height*n_high*win_scale);
 	
+	cout<<"drawing histograms"<<endl;
 	std::vector<TCanvas*> canvaspointers;
 	std::vector<TLegend*> legendpointers;
 	for(int i=0; i<histopointers.size(); i++){
-		TH1F* hist = histopointers.at(i);
+		TLegend* leg;
+		TCanvas* canv;
+		TH1D* hist = histopointers.at(i);
 		if(i==0){
-			canv = new TCanvas();
-			scaledcanvaspointers.push_back(canv);
+			canv = new TCanvas(TString::Format("c%d",i),TString::Format("c%d",i));
+			canvaspointers.push_back(canv);
 			canv->cd();
-			hist->SetLineColor(kRed);
-			hist->Draw();
-		else if((i-1)%3==0){
-			canv = new TCanvas();
-			scaledcanvaspointers.push_back(canv);
-			canv->cd();
-			leg = new TLegend(0.1,0.7,0.48,0.9);
+			leg = new TLegend(0.5,0.78,0.7,0.88);
 			legendpointers.push_back(leg);
 			leg->AddEntry(hist,"incident","l");
 			hist->SetLineColor(kRed);
 			hist->Draw();
-		} else if((i-1)%3==1){
+		} else if(i==1){
+			hist->SetLineColor(kBlue);
+			leg->AddEntry(hist,"accepted (truth)","l");
+			hist->Draw("same");
+			leg->Draw();
+		} else if((i-2)%3==0){
+			canv = new TCanvas(TString::Format("c%d",i),TString::Format("c%d",i));
+			canvaspointers.push_back(canv);
+			canv->cd();
+			leg = new TLegend(0.5,0.78,0.7,0.88);
+			legendpointers.push_back(leg);
+			leg->AddEntry(hist,"incident","l");
+			hist->SetLineColor(kRed);
+			hist->Draw();
+		} else if((i-2)%3==1){
 			hist->SetLineColor(kBlue);
 			leg->AddEntry(hist,"accepted (truth)","l");
 			hist->Draw("same");
 		} else {
-			hist->SetLineColor(kIndigo);
+			hist->SetLineColor(kViolet);
+			hist->SetLineStyle(2);
 			leg->AddEntry(hist,"accepted (reco)","l");
 			hist->Draw("same");
 			leg->Draw();
@@ -531,90 +769,159 @@ void truthtracks(){
 	std::vector<TCanvas*> scaledcanvaspointers;
 	std::vector<TLegend*> scaledlegendpointers;
 	for(int i=0; i<scaledhistopointers.size(); i++){
-		TH1F* hist = scaledhistopointers.at(i);
+		TLegend* leg;
+		TCanvas* canv;
+		TH1D* hist = scaledhistopointers.at(i);
 		if(i==0){
-			canv = new TCanvas();
+			canv = new TCanvas(TString::Format("cc%d",i),TString::Format("cc%d",i));
 			scaledcanvaspointers.push_back(canv);
 			canv->cd();
-			hist->SetLineColor(kRed);
-			hist->Draw();
-		else if((i-1)%3==0){
-			canv = new TCanvas();
-			scaledcanvaspointers.push_back(canv);
-			canv->cd();
-			leg = new TLegend(0.1,0.7,0.48,0.9);
-			legendpointers.push_back(leg);
+			leg = new TLegend(0.5,0.78,0.7,0.88);
+			scaledlegendpointers.push_back(leg);
 			leg->AddEntry(hist,"incident","l");
 			hist->SetLineColor(kRed);
 			hist->Draw();
-		} else if((i-1)%3==1){
+		} else if(i==1){
+			hist->SetLineColor(kBlue);
+			leg->AddEntry(hist,"accepted (truth)","l");
+			hist->Draw("same");
+			leg->Draw();
+		} else if((i-2)%3==0){
+			canv = new TCanvas(TString::Format("cc%d",i),TString::Format("cc%d",i));
+			scaledcanvaspointers.push_back(canv);
+			canv->cd();
+			leg = new TLegend(0.5,0.78,0.7,0.88);
+			scaledlegendpointers.push_back(leg);
+			leg->AddEntry(hist,"incident","l");
+			hist->SetLineColor(kRed);
+			hist->Draw();
+		} else if((i-2)%3==1){
 			hist->SetLineColor(kBlue);
 			leg->AddEntry(hist,"accepted (truth)","l");
 			hist->Draw("same");
 		} else {
-			hist->SetLineColor(kIndigo);
+			hist->SetLineColor(kViolet);
+			hist->SetLineStyle(2);
 			leg->AddEntry(hist,"accepted (reco)","l");
 			hist->Draw("same");
 			leg->Draw();
 		}
 	}
 	
+//	 draw other canvases
+	TCanvas* debug1 = new TCanvas("debug1","debug1");
+	debug1->cd();
+	fsltruetracklength->Draw();
+	debug1->SaveAs("muon track lengths.png");
+	if(fsltruetracklength) delete fsltruetracklength; fsltruetracklength=0;
+	if(debug1) delete debug1; debug1=0;
+	
+#ifdef WCSIMDEBUG
+	TCanvas* debug2 = new TCanvas("debug2","debug2");
+	debug2->cd();
+	tankstartvertices->SetMarkerColor(kRed);
+	tankstartvertices->SetMarkerStyle(7);
+	tankstartvertices->SetMarkerSize(1);
+	tankstartvertices->Draw();
+	vetostartvertices->SetMarkerColor(kBlue);
+	vetostartvertices->SetMarkerStyle(7);
+	vetostartvertices->SetMarkerSize(1);
+	vetostartvertices->Draw("same");
+	mrdstartvertices->SetMarkerColor(kViolet);
+	mrdstartvertices->SetMarkerStyle(7);
+	mrdstartvertices->SetMarkerSize(1);
+	mrdstartvertices->Draw("same");
+	debug2->SaveAs("start vertex distributions.png");
+	delete tankstartvertices;
+	delete vetostartvertices;
+	delete mrdstartvertices;
+	delete debug2;
+	
+	TCanvas* debug3 = new TCanvas("debug3","debug3");
+	debug3->cd();
+	tankstopvertices->SetMarkerColor(kRed);
+	tankstopvertices->SetMarkerStyle(7);
+	tankstopvertices->SetMarkerSize(1);
+	tankstopvertices->Draw();
+	vetostopvertices->SetMarkerColor(kBlue);
+	vetostopvertices->SetMarkerStyle(7);
+	vetostopvertices->SetMarkerSize(1);
+	vetostopvertices->Draw("same");
+	mrdstopvertices->SetMarkerColor(kViolet);
+	mrdstopvertices->SetMarkerStyle(7);
+	mrdstopvertices->SetMarkerSize(1);
+	mrdstopvertices->Draw("same");
+	debug3->SaveAs("stop vertex distributions.png");
+	delete tankstopvertices;
+	delete vetostopvertices;
+	delete mrdstopvertices;
+	delete debug3;
+#endif
+	
 	// cleanup
 	// =======
+	cout<<"cleanup"<<endl;
 	if(c) c->ResetBranchAddresses();
+	//cout<<"resetting tankflux branches"<<endl;
 	if(tankflux) tankflux->ResetBranchAddresses();
+	//cout<<"resetting tankmeta branches"<<endl;
 	if(tankmeta) tankmeta->ResetBranchAddresses();
-	if(dirtfile) dirtfile->Close(); // do we need to do this with a TChain? 
-	if(c) delete c;					// ??
+	cout<<"closing dirtfile"<<endl;
+	if(dirtfile) dirtfile->Close(); // do we need to do this with a TChain?
+	//cout<<"deleting dirtfile"<<endl;
+	if(c) delete c; c=0;					// ??
 	
+	//cout<<"resetting gtree branches"<<endl;
 	if(gtree) gtree->ResetBranchAddresses();
+	cout<<"closing geniefile"<<endl;
 	if(geniefile) geniefile->Close();
 	// should clean up gtree
-	if(genierecordval) delete genierecordval;
-
+	//cout<<"deleting genierecordval"<<endl;
+	if(genierecordval) delete genierecordval; genierecordval=0;
+	
+	//cout<<"resetting wcsimT branches"<<endl;
 	if(wcsimT) wcsimT->ResetBranchAddresses();
+	cout<<"closing wcsimfile"<<endl;
 	if(wcsimfile) wcsimfile->Close();
 	// should clean up wcsimT
-	if(nuprimarybranchval){delete[] nuprimarybranchval;}	// ? branch array
+	//cout<<"deleting nuprimarybranchval array"<<endl;
+	if(nuprimarybranchval) delete[] nuprimarybranchval; nuprimarybranchval=0; // ? branch array
 	
-	// delete histograms
-	delete incidentneutrinoenergies;
-	delete finalstateleptonanglesall;
-	delete finalstateleptonenergiesall;
-	delete finalstateleptonanglesaccepted;
-	delete finalstateleptonenergiesaccepted;
-	delete finalstateleptonanglesacceptedwcsim;
-	delete finalstateleptonenergiesacceptedwcsim;
-	
-	// delete scaled histograms
-	delete incidentneutrinoenergiesscaled;
-	delete finalstateleptonanglesallscaled;
-	delete finalstateleptonenergiesallscaled;
-	delete finalstateleptonanglesacceptedscaled;
-	delete finalstateleptonenergiesacceptedscaled;
-	delete finalstateleptonanglesacceptedwcsimscaled;
-	delete finalstateleptonenergiesacceptedwcsimscaled;
-	
-	// delete canvases and legends
-	std::vector<TCanvas*> canvaspointers;
+	// save, then delete canvases and legends
+	cout<<"saving histograms to "<<outpath<<endl;
+	//cout<<"deleting canvases and legends"<<endl;
 	for(int i=0; i<canvaspointers.size(); i++){
 		TCanvas* canv = canvaspointers.at(i);
-		canv->SaveAs(TString::Format("histograms_%d.png",i));
-		if(canv) delete canv;
+		canv->SaveAs(TString::Format("%s/histograms_%d.png",outpath,i));
+		if(canv) delete canv; canv=0;
 		TLegend* leg = legendpointers.at(i);
-		if(leg) delete leg;
+		if(leg) delete leg; leg=0;
 	}
-	std::vector<TCanvas*> canvaspointers;
 	
-	// delete scaled canvases and legends
+	// save, then delete scaled canvases and legends
+	//cout<<"deleting scaled canvases and legends"<<endl;
 	for(int i=0; i<scaledcanvaspointers.size(); i++){
 		TCanvas* canv = scaledcanvaspointers.at(i);
-		canv->SaveAs(TString::Format("scaled_histograms_%d.png",i));
-		if(canv) delete canv;
+		canv->SaveAs(TString::Format("%s/scaled_histograms_%d.png",outpath,i));
+		if(canv) delete canv; canv=0;
 		TLegend* leg = scaledlegendpointers.at(i);
-		if(leg) delete leg;
+		if(leg) delete leg; leg=0;
 	}
-
+	
+	// delete histograms - do this after the canvas version, which saves them before deleting them
+	//cout<<"deleting histograms"<<endl;
+	for(int i=0; i<histopointers.size(); i++){
+		TH1D* temp = histopointers.at(i);
+		delete temp;
+	}
+	
+	// delete scaled histograms
+	//cout<<"deleting scaled histograms"<<endl;
+	for(int i=0; i<scaledhistopointers.size(); i++){
+		TH1D* temp = scaledhistopointers.at(i);
+		delete temp;
+	}
+	cout<<"end"<<endl;
 }
 
 
@@ -633,3 +940,4 @@ void truthtracks(){
 //    nuvtx material ?
 //    target energy?
 /////////////////////////////
+//    $GENIE/src/stdapp/gNtpConv.cxx

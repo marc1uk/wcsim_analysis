@@ -1,7 +1,7 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 
 #ifndef PLOTVERBOSE
-//#define PLOTVERBOSE
+#define PLOTVERBOSE
 #endif
 #ifndef WCSIMDEBUG
 //#define WCSIMDEBUG
@@ -24,6 +24,7 @@
 #include "TMath.h"
 #include "TLorentzVector.h"
 #include "TLegend.h"
+#include "TText.h"
 #include <regex>
 #include <exception>	// for stdexcept
 #include <vector>
@@ -81,6 +82,8 @@ const Float_t MRD_depth = 139.09;         // total depth of the MRD in cm
 
 const Float_t tank_start = 15.70;          // front face of the tank in cm
 const Float_t tank_radius = 152.4;         // tank radius in cm
+const Float_t tank_halfheight = 198.;      // tank half height in cm
+const Float_t tank_yoffset = -14.46;        // tank y offset in cm
 /* from WCSimDetectorConfigs.cc
 tankouterRadius= 1.524*m;
 tankzoffset = 15.70*cm;
@@ -108,19 +111,19 @@ void truthtracks(){
 //	gSystem->cd(curr_dir.Data());
 	
 	// Declare paths, files, trees...
-	TFile* wcsimfile;
+	TFile* wcsimfile=0;
 	TString wcsimfilepath;
-	TTree* wcsimT;
-	Int_t numwcsimentries;
+	TTree* wcsimT=0;
+	Int_t numwcsimentries=0;
 	
-	TFile* dirtfile;
-	TTree* tankflux;
-	TTree* tankmeta;
+	TFile* dirtfile=0;
+	TTree* tankflux=0;
+	TTree* tankmeta=0;
 	
-	TFile* geniefile;
+	TFile* geniefile=0;
 	TString geniefilepath;
-	TTree* gtree;
-	Int_t numgenietentries;
+	TTree* gtree=0;
+	Int_t numgenietentries=0;
 	
 	// TChain for dirt files - this will be the main driver of the loop - all it's events will be processed.
 	TChain* c =  new TChain("tankflux");
@@ -148,7 +151,11 @@ void truthtracks(){
 	Char_t geniefilename[100];
 	TBranch* potsbranch=0;
 	Double_t pots;
-	Double_t totalpots=0;	// count of POTs in all processed files
+	Double_t totalpots=0;					// count of POTs in all processed files
+	Double_t numneutrinoeventsintank=0.;
+	Double_t numQEneutrinoeventsintank=0.;
+	Double_t nummuontracksintank=0.;
+	Double_t nummuontracksintankpassedcut=0.;
 	
 	// gtree
 	cout<<"creating new genie::NtpMCEventRecord"<<endl;
@@ -161,20 +168,33 @@ void truthtracks(){
 	WCSimRootTrigger* atrigt=0, *atrigm=0, *atrigv=0;
 	
 	// information from genie:
-	gROOT->cd();
+	//gROOT->cd();
+	TFile* histofileout = new TFile("TruthHistos.root","RECREATE");
 	TH1D* incidentneutrinoenergiesall = new TH1D("incidentneutrinoenergiesall","Distribution of Probe Neutrino Energies:Energy (GeV):Num Events",100,0,0.);
 	TH1D* incidentneutrinoenergiesaccepted = new TH1D("incidentneutrinoenergiesaccepted","Distribution of Accepted Probe Neutrino Energies:Energy (GeV):Num Events",100,0,0.);
 	TH1D* fslanglesall = new TH1D("fslanglesall","Distribution of Final State Lepton Angles:Angle (rads):Num Events",100,0.,TMath::Pi());
 	TH1D* fslenergiesall = new TH1D("fslenergiesall","Distribution of Final State Lepton Energies (GeV):Energy (GeV):Num Events",100,0.,3.);
 	TH1D* fslanglesaccepted = new TH1D("fslanglesaccepted","Distribution of Accepted Final State Lepton Angles:Angle (rads):Num Events",100,0.,TMath::Pi());
 	TH1D* fslenergiesaccepted = new TH1D("fslenergiesaccepted","Distribution of Accepted Final State Lepton Energies (GeV):Energy (GeV):Num Events",100,0.,3.);
+	TH1D* eventq2all = new TH1D("eventq2all","Distribution of Event Q^2 Values:Q^2 (GeV/c)^2:Num Events",100,0.,3.);
+	TH1D* eventq2accepted = new TH1D("eventq2accepted","Distribution of Accepted Event Q^2 Values:Q^2 (GeV/c)^2:Num Events",100,0.,3.);
+	
+	TH3D* neutrinovertex = new TH3D("neutrinovertex","Distribution of Neutrino Vertices in the tank",100,-tank_radius,tank_radius,100,tank_start,tank_start+(tank_radius*2),100,-tank_halfheight,tank_halfheight);
+	TH3D* neutrinovertexQE = new TH3D("neutrinovertexQE","Distribution of QE Neutrino Vertices in the tank",100,-tank_radius,tank_radius,100,tank_start,tank_start+(tank_radius*2),100,-tank_halfheight,tank_halfheight);
+	TH3D* neutrinovertexQEaccepted = new TH3D("neutrinovertexQEaccepted","Distribution of QE Neutrino Vertices with an Accepted MRD Track",100,-tank_radius,tank_radius,100,tank_start,tank_start+(tank_radius*2),100,-tank_halfheight,tank_halfheight);
+//	TH3D* neutronstopvertex = new TH3D("neutronstopvertex","Distribution of Primary Neutron Stopping Vertices in the tank",100,-tank_radius,tank_radius,100,tank_start,tank_start+(tank_radius*2),100,-tank_halfheight,tank_halfheight);
+//	TH3D* neutronstopvertexaccepted = new TH3D("neutronstopvertexaccepted","Distribution of Primary Neutron Stopping Vertices With an Accepted MRD Track",100,-tank_radius,tank_radius,100,tank_start,tank_start+(tank_radius*2),100,-tank_halfheight,tank_halfheight);
 	
 	// information from WCSim: 
 	TH1D* fslanglesacceptedwcsim = new TH1D("fslanglesacceptedwcsim","Distribution of Accepted Final State Lepton Angles:Angle (rads):Num Events",100,0.,TMath::Pi());
 	TH1D* fslenergiesacceptedwcsim = new TH1D("fslenergiesacceptedwcsim","Distribution of Accepted Final State Lepton Energies (GeV):Energy (GeV):Num Events",100,0.,3.);
+	TH1D* eventq2acceptedwcsim = new TH1D("eventq2acceptedwcsim","Distribution of Accepted Event Q^2 Values:Q^2 (GeV/c)^2:Num Events",100,0.,3.);
+	TH1D* muedepositionswcsim = new TH1D("muedepositionswcsim","Distribution of Muon Energy Depositions In Tank:Energy (PMT Q):Num Events",100,0.,1);
+	TH1D* muedepositionsacceptedwcsim = new TH1D("muedepositionsacceptedwcsim","Distribution of Muon Energy Depositions In Tank, with MRD Selection:Energy (PMT Q):Num Events",100,0.,100);
 	
 //	// debugging:
 	TH1D* fsltruetracklength = new TH1D("fsltruetracklength", "Distribution of True Track Lengths", 100, 0., 1500.);
+	TH1D* fsltruetracklengthintank = new TH1D("fsltruetracklengthintank", "Distribution of True Track Lengths In Tank", 100, 0., 1500.);
 #ifdef WCSIMDEBUG
 	TH3D* tankstartvertices = new TH3D("tankstartvertices", "Distribution of Tank Starting Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
 	TH3D* vetostartvertices = new TH3D("vetostartvertices", "Distribution of Veto Starting Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
@@ -184,6 +204,7 @@ void truthtracks(){
 	TH3D* mrdstopvertices = new TH3D("mrdstopvertices", "Distribution of MRD Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
 #endif
 	
+	gROOT->cd();
 	cout<<"loading first tankflux tree from "<<chainpattern<<" tchain"<<endl;
 	c->LoadTree(0);
 	Int_t treeNumber = -1;
@@ -201,14 +222,17 @@ void truthtracks(){
 	*/
 	
 	cout<<"looping over tchain entries"<<endl;
+//	numents=10000;
 	for(Int_t inputEntry=0; inputEntry<numents; inputEntry++){
 		/* 	1. Load next g4dirt entry */ 
+#ifdef PLOTVERBOSE
+		cout<<"loading entry "<<inputEntry<<endl;
+#endif
 		Long64_t localEntry = c->LoadTree(inputEntry);
 		if( localEntry<0){ cout<<"end of tchain"<<endl; break; }
 		Int_t nextTreeNumber = c->GetTreeNumber();
 		if(treeNumber!=nextTreeNumber){
 			cout<<"new tree: "<<nextTreeNumber<<endl;
-			treeNumber=nextTreeNumber;
 			// this means we've switched file - need to load the new meta tree and genie tree.
 			// first pull out the new file name
 			tankflux = c->GetTree();
@@ -223,8 +247,13 @@ void truthtracks(){
 			geniefilenamebranch->GetEntry(0);
 			geniefilepath = TString::Format("%s/%s",geniepath,geniefilename);
 			cout<<"corresponding genie file is "<<geniefilepath<<", loading this file"<<endl;
+			if(geniefile) geniefile->Close(); geniefile=0;
 			geniefile = TFile::Open(geniefilepath);
-			if(!geniefile){cout<<"this genie file doesn't exist!"<<endl; break; }
+			if(!geniefile){
+				cout<<"this genie file doesn't exist!"<<endl; 
+				inputEntry += thistreesentries;	// skip the loop iterator forward by all the entries in this file
+				continue; 
+			}
 			gtree = (TTree*)geniefile->Get("gtree");
 			if(!gtree){cout<<"gtree doesn't exist!"<<endl; break; }
 			numgenietentries = gtree->GetEntries();
@@ -247,8 +276,13 @@ void truthtracks(){
 			// use filenum to open the corresponding wcsim file
 			wcsimfilepath = TString::Format("%s/wcsim_0.%d.root",wcsimpath,filenum);
 			cout<<"corresponding wcsim file is "<<wcsimfilepath<<endl;
+			if(wcsimfile) wcsimfile->Close(); wcsimfile=0;
 			wcsimfile = TFile::Open(wcsimfilepath);
-			if(!wcsimfile){cout<<"this wcsimfile doesn't exist!"<<endl; break; }
+			if(!wcsimfile){
+				cout<<"this wcsimfile doesn't exist!"<<endl; 
+				inputEntry += thistreesentries;	// skip the loop iterator forward by all the entries in this file
+				continue; 
+			}
 			wcsimT = (TTree*)wcsimfile->Get("wcsimT");
 			if(!wcsimT){cout<<"wcsimT doesn't exist!"<<endl; break; }
 			numwcsimentries = wcsimT->GetEntries();
@@ -271,18 +305,26 @@ void truthtracks(){
 			potsbranch->GetEntry(0);
 			Double_t lasttotpots=totalpots;
 			if(TMath::IsNaN(pots)==0){ totalpots += pots; }
-			if(totalpots<lasttotpots){ cout<<"ERROR! TOTAL POTS CAME DOWN FROM "<<lasttotpots<<" TO "<<totalpots<<endl; return; }
-			cout<<"adding "<<pots<<" POTs to the running total, making "<<totalpots<<" POTs so far"<<endl;
+			if(totalpots<lasttotpots){ 
+				cout<<"ERROR! TOTAL POTS CAME DOWN FROM "<<lasttotpots<<" TO "<<totalpots<<endl; return; 
+			} else {
+				cout<<"adding "<<pots<<" POTs to the running total, making "<<totalpots<<" POTs so far"<<endl;
+			}
 			
 			// wcsimT:
 			// wcsim trigger classes
 			wcsimT->SetBranchAddress("wcsimrootevent",&b, &bp);
 			wcsimT->SetBranchAddress("wcsimrootevent_mrd",&m, &mp);
 			wcsimT->SetBranchAddress("wcsimrootevent_facc",&v, &vp);
+			bp->SetAutoDelete(kTRUE);
+			mp->SetAutoDelete(kTRUE);
+			vp->SetAutoDelete(kTRUE);
 			if(bp==0||mp==0||vp==0){ cout<<"branches are zombies!"<<endl; }
 			
 			// gtree:
 			gtree->SetBranchAddress("gmcrec",&genierecordval,&genierecordBranch);
+			
+			treeNumber=nextTreeNumber;
 		}
 #ifdef PLOTVERBOSE
 		cout<<"processing inputEntry "<<inputEntry<<", localEntry "<<localEntry
@@ -324,11 +366,11 @@ void truthtracks(){
 		Bool_t isWeakCC = genieint->ProcInfo().IsWeakCC();
 		Int_t neutinteractioncode = genie::utils::ghep::NeutReactionCode(gevtRec);
 		Int_t nuanceinteractioncode  = genie::utils::ghep::NuanceReactionCode(gevtRec);
-//		TLorentzVector* genieVtx = gevtRec->Vertex();
-//		G4double x = genieVtx->X() * m;         // same info as nuvtx in g4dirt file
-//		G4double y = genieVtx->Y() * m;         // GENIE uses meters
-//		G4double z = genieVtx->Z() * m;         // GENIE uses meters
-//		G4double t = genieVtx->T() * second;    // GENIE uses seconds for time
+		TLorentzVector* genieVtx = gevtRec->Vertex();
+		Double_t genie_x = genieVtx->X() * 100.;         // same info as nuvtx in g4dirt file
+		Double_t genie_y = genieVtx->Y() * 100.;         // GENIE uses meters
+		Double_t genie_z = genieVtx->Z() * 100.;         // GENIE uses meters
+//		Double_t genie_t = genieVtx->T() * second;       // GENIE uses seconds for time
 		
 		// neutrino information:
 		Double_t probeenergy = genieint->InitState().ProbeE(genie::kRfLab);	// GeV
@@ -436,6 +478,8 @@ void truthtracks(){
 				<<endl;
 		}
 		
+		/* 4. Check if interaction is QE - if not, continue */
+		if (!(isQE && isWeakCC)){ continue; }
 #ifdef PLOTVERBOSE
 		cout<<"filling incident neutrino histograms"<<endl;
 #endif
@@ -443,9 +487,11 @@ void truthtracks(){
 		//incidentneutrinoanglesall->Fill(probeangle);
 		fslanglesall->Fill(fslanglegenie);
 		fslenergiesall->Fill(fsleptonenergy);
-		
-		/* 4. Check if interaction is QE - if not, continue */
-		if (!(isQE && isWeakCC)){ continue; }
+		eventq2all->Fill(Q2);
+		neutrinovertex->Fill(genie_x, genie_y, genie_z);
+		numneutrinoeventsintank++;
+		numQEneutrinoeventsintank++;
+		neutrinovertexQE->Fill(genie_x, genie_y, genie_z);
 		
 		/*5. If so, load wcsim detector response. */
 		// read only first subtrigger; delayed decay detector response is not interesting for primary FSL tracks
@@ -467,6 +513,10 @@ void truthtracks(){
 		std::vector<Float_t> primaryenergiesvector;
 		std::vector<Double_t> scatteringanglesvector;
 		std::vector<Int_t> acceptedtrackids;
+		std::vector<Double_t> q2vector;
+		std::vector<Double_t> muonenergydepositions;
+		
+		// TODO before we search for muons that pass through the MRD, let's scan for neutron captures
 		
 		for(int track=0; track<numtracks; track++){
 			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(track);
@@ -532,7 +582,151 @@ void truthtracks(){
 			
 			TVector3 primarystartvertex(nextrack->GetStart(0),nextrack->GetStart(1),nextrack->GetStart(2));
 			TVector3 primarystopvertex(nextrack->GetStop(0), nextrack->GetStop(1), nextrack->GetStop(2));
+			
+			Float_t oppx = primarystopvertex.X() - primarystartvertex.X();
+			Float_t adj = primarystopvertex.Z() - primarystartvertex.Z();
+			Float_t avgtrackanglex = TMath::ATan(oppx/adj);
+			Float_t oppy = primarystopvertex.Y() - primarystartvertex.Y();
+			Float_t avgtrackangley = TMath::ATan(oppy/adj);
+			
 			TVector3 differencevector  = (primarystopvertex-primarystartvertex);
+			fsltruetracklength->Fill(differencevector.Mag());
+			// to calculate track length _in water_ find distance from start vertex to the point
+			// where it intercepts the tank. if this length > total track length, use total track length
+			// otherwise use this length. 
+			
+			// first find out the z value where the tank would leave the radius of the tank
+			cout<<"z0 = "<<genie_z-tank_start-tank_radius<<", x0 = "<<genie_x<<endl;
+			Double_t xatziszero = (genie_x - (genie_z-tank_start-tank_radius)*TMath::Tan(avgtrackanglex));
+			Double_t firstterm = -TMath::Tan(avgtrackanglex)*xatziszero;
+			Double_t thirdterm = 1+TMath::Power(TMath::Tan(avgtrackanglex),2.);
+			Double_t secondterm = (TMath::Power(tank_radius,2.)*thirdterm) - TMath::Power(xatziszero,2.);
+			Double_t solution1 = (firstterm + TMath::Sqrt(secondterm))/thirdterm;
+			Double_t solution2 = (firstterm - TMath::Sqrt(secondterm))/thirdterm;
+			Double_t tankendpointz;
+			if(primarystopvertex.Z() > primarystartvertex.Z()){
+				tankendpointz = solution1;	//forward going track
+			} else {
+				tankendpointz = solution2;	// backward going track
+			}
+			Double_t tankendpointx = TMath::Sqrt(TMath::Power(tank_radius,2)-TMath::Power(tankendpointz,2));
+			// correct for tank z offset (do after tankendpointx, before tankendpointy)
+			tankendpointz += tank_start+tank_radius;
+			// now check if the particle would have exited through one of the caps before reaching this radius
+			Double_t tankendpointy = genie_y + (tankendpointz-genie_z)*TMath::Tan(avgtrackangley);
+			
+			cout<<"avgtrackanglex="<<avgtrackanglex<<endl;
+			cout<<"avgtrackangley="<<avgtrackangley<<endl;
+			cout<<"xatziszero="<<xatziszero<<endl;
+			cout<<"firstterm="<<firstterm<<endl;
+			cout<<"thirdterm="<<thirdterm<<endl;
+			cout<<"secondterm="<<secondterm<<endl;
+			cout<<"solution1="<<solution1<<endl;
+			cout<<"solution2="<<solution2<<endl<<endl;
+			
+			cout<<"values before cap exit check"<<endl;
+			cout<<"tankendpointz="<<tankendpointz<<endl;
+			cout<<"tankendpointx="<<tankendpointx<<endl;
+			cout<<"tankendpointy="<<tankendpointy<<endl;
+			
+			if(TMath::Abs(tankendpointy-tank_yoffset)>(tank_halfheight)){
+				// this trajectory exits through the cap. Need to recalculate x, z exiting points...!
+				if(primarystopvertex.Y()>primarystartvertex.Y()){
+					tankendpointy = tank_halfheight+tank_yoffset;	// by definition of leaving through cap
+				} else {
+					tankendpointy = -tank_halfheight+tank_yoffset;
+				}
+				tankendpointz = genie_z + (tankendpointy-genie_y)/TMath::Tan(avgtrackangley);
+				tankendpointx = genie_x + (tankendpointz-genie_z)*TMath::Tan(avgtrackanglex);
+			} else {
+				// this trajectory exited the tank by a side point; existing value is valid
+			}
+			cout<<"values after cap exit check"<<endl;
+			cout<<"tankendpointz="<<tankendpointz<<endl;
+			cout<<"tankendpointx="<<tankendpointx<<endl;
+			cout<<"tankendpointy="<<tankendpointy<<endl;
+			Double_t maxtanktracklength = 
+				TMath::Sqrt(TMath::Power(tank_radius*2.,2.)+TMath::Power(tank_halfheight*2.,2.));
+			cout<<"max tank track length is "<<maxtanktracklength<<endl;
+			
+			// we're now able to determine muon track length in the tank:
+			Double_t mutracklengthintank = TMath::Sqrt(
+				TMath::Power((tankendpointx-genie_x),2)+
+				TMath::Power((tankendpointy-genie_y),2)+
+				TMath::Power((tankendpointz-genie_z),2) );
+			cout<<"muon tank track length: ("<<(tankendpointx-genie_x)<<", "<<(tankendpointy-genie_y)<<", "
+				<<(tankendpointz-genie_z)<<") = "<<mutracklengthintank<<"cm total"<<endl;
+			cout<<"muon tank exit point: ("<<tankendpointx<<", "<<tankendpointy<<", "<<tankendpointz<<") ";
+			cout<<"muon start point : ("<<genie_x<<", "<<genie_y<<", "<<genie_z<<")"<<endl;
+			if(mutracklengthintank > maxtanktracklength){
+				cout<<"Track length is impossibly long!"<<endl;
+				assert(false);
+			}
+			if(TMath::IsNaN(mutracklengthintank)){
+				cout<<"NaN RESULT FROM MU TRACK LENGTH IN TANK?!"<<endl;
+				assert(false);
+			}
+			fsltruetracklengthintank->Fill(mutracklengthintank);
+			nummuontracksintank++;
+			if(mutracklengthintank>50){ nummuontracksintankpassedcut++; }
+			
+			///////////////////////////////////////////////////
+			
+			// Now how about calculating the energy detected by tank PMTs from this track?
+			// search for all digits, select those whose photons have this muon as their parent,
+			// and make a list of those digits and their Q. Then, sum the Q's. 
+			cout<<endl<<"calculating muon energy deposition, mu track id "<<nextrack->GetId()<<endl;
+			std::vector<int> numphotsinthedigits;
+			std::vector<int> numphotsfromthemuoninthedigits;
+			std::vector<double> chargesinthedigits;
+			Int_t numdigitsthisevent = atrigt->GetCherenkovDigiHits()->GetEntries();
+			cout<<"this event has "<<numdigitsthisevent<<" digits"<<endl;
+/*
+			for(Int_t i=0; i<numdigitsthisevent; i++){
+				// retrieve the digit information
+				// ============================
+				WCSimRootCherenkovDigiHit* thedigihit = 
+					(WCSimRootCherenkovDigiHit*)atrigt->GetCherenkovDigiHits()->At(i);
+				// scan through the parents ID's for the photons contributing to this digit
+				// and see if any of them are this muon
+				std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
+				int numphotonsfromthismuon=0;
+				cout<<"   digit "<<i<<" has "<<truephotonindices.size()<<" true photons"<<endl;
+				for(int truephoton=0; truephoton<truephotonindices.size(); truephoton++){
+					int thephotonsid = truephotonindices.at(truephoton);
+					WCSimRootCherenkovHitTime *thehittimeobject = 
+						(WCSimRootCherenkovHitTime*)atrigt->GetCherenkovHitTimes()->At(thephotonsid);
+					Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
+					cout<<"      HitTimeIndex "<<thephotonsid<<", HitTimeObject "<<thehittimeobject
+						<<", HitTimeParent "<<thephotonsparenttrackid<<endl;
+					if(thephotonsparenttrackid==nextrack->GetId()) {
+						numphotonsfromthismuon++;
+						cout<<"################ FOUND A DIGIT ############"<<endl;
+						cout<<"the digits Q is "<<thedigihit->GetQ()<<endl;
+						return;
+					}
+				}
+				if(numphotonsfromthismuon!=0){	//this digit had contribution from the muon!
+					numphotsinthedigits.push_back(truephotonindices.size());
+					numphotsfromthemuoninthedigits.push_back(numphotonsfromthismuon);
+					chargesinthedigits.push_back(thedigihit->GetQ());
+				}
+			}
+*/
+			// Now sum up the energy by adding the charges in the digits, scaled by photonic contribution
+			Double_t energydepositionofmuon=0.;
+			for(int idigit=0; idigit<chargesinthedigits.size(); idigit++){
+				cout<<"muon digit with charge "<<chargesinthedigits.at(idigit)
+					<<" scaled by contribution factor "
+					<<(numphotsinthedigits.at(idigit)/numphotsfromthemuoninthedigits.at(idigit))<<endl;
+				energydepositionofmuon += chargesinthedigits.at(idigit) * 
+					(numphotsinthedigits.at(idigit)/numphotsfromthemuoninthedigits.at(idigit));
+			}
+			muedepositionswcsim->Fill(energydepositionofmuon);
+			muonenergydepositions.push_back(energydepositionofmuon);
+			if(energydepositionofmuon!=0) return;
+			
+			////////////////////////////////////////////////
 			
 			// continue if stopping volume is in either the tank or veto, or track is backward going.
 			if( primarystopvol==10 || primarystopvol==20 || primarystopvertex.Z() < primarystartvertex.Z() )
@@ -569,31 +763,22 @@ void truthtracks(){
 			}
 #endif
 			
-			Float_t opp = primarystopvertex.X() - primarystartvertex.X();
-			Float_t adj = primarystopvertex.Z() - primarystartvertex.Z();
-			Float_t avgtrackanglex = TMath::ATan(opp/adj);
-			
 			Float_t xatmrd = primarystartvertex.X() + (MRD_layer2-primarystartvertex.Z())*TMath::Tan(avgtrackanglex);
+			Float_t yatmrd = primarystartvertex.Y() + (MRD_layer2-primarystartvertex.Z())*TMath::Tan(avgtrackangley);
 #ifdef WCSIMDEBUG
 			cout<<"primary start vertex: ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()
 				<<","<<primarystartvertex.Z()<<")"<<endl;
 			cout<<"primary stop vertex: ("<<primarystopvertex.X()<<", "<<primarystopvertex.Y()
 				<<","<<primarystopvertex.Z()<<")"<<endl;
-			cout<<"opp = "<<opp<<endl;
+			cout<<"oppx = "<<oppx<<endl;
 			cout<<"adj = "<<adj<<endl;
 			cout<<"angle = "<<avgtrackanglex<<endl;
 			cout<<"tan(angle) = "<<TMath::Tan(avgtrackanglex)<<endl;
 			cout<<"projected x at z="<<MRD_layer2<<" is "<<xatmrd<<endl;
-			fsltruetracklength->Fill(differencevector.Mag());
-#endif
-			
-			opp = primarystopvertex.Y() - primarystartvertex.Y();
-			Float_t avgtrackangley = TMath::ATan(opp/adj);
-			Float_t yatmrd = primarystartvertex.Y() + (MRD_layer2-primarystartvertex.Z())*TMath::Tan(avgtrackangley);
-#ifdef WCSIMDEBUG
 			cout<<"xatmrd="<<xatmrd<<", MRD_width="<<MRD_width<<endl;
 			cout<<"yatmrd="<<yatmrd<<", MRD_height="<<MRD_height<<endl;
 #endif
+			
 			if((TMath::Abs(xatmrd)>MRD_width)||(TMath::Abs(yatmrd)>MRD_height)) 
 				continue;	// track does not meet MRD penetration requirement
 			
@@ -609,6 +794,9 @@ void truthtracks(){
 			//Double_t scatteringangle = k1.Angle(primarymomentumdir);
 			Double_t scatteringangle = k1.Angle(differencevector);
 			// scatteringangle for primaries by definition should be the same as fslanglegenie
+			Double_t neutrinoenergyguess = probeenergy;	//TODO: how do we estimate this?
+			TVector3 momtrans = (primarymomentummag*primarymomentumdir)-TVector3(0.,0.,neutrinoenergyguess);
+			Double_t calculatedq2 = -1 * momtrans.Mag2();
 			
 			// Add this primary information to a vector. We _should_ only find one suitable primary
 			// and can break once it is found, but... let's just see. Keep wcsim trackID in case.
@@ -620,6 +808,7 @@ void truthtracks(){
 			scatteringanglesvector.push_back(scatteringangle);
 			primaryenergiesvector.push_back(primaryenergy);
 			acceptedtrackids.push_back(primarytrackid);
+			q2vector.push_back(calculatedq2);
 		}
 		
 		if(scatteringanglesvector.size()>1) {
@@ -637,9 +826,13 @@ void truthtracks(){
 			Int_t indextouse = std::distance(acceptedtrackids.begin(),minit);
 			fslanglesacceptedwcsim->Fill(scatteringanglesvector.at(indextouse));
 			fslenergiesacceptedwcsim->Fill(primaryenergiesvector.at(indextouse));
+			eventq2acceptedwcsim->Fill(q2vector.at(indextouse));
+			muedepositionsacceptedwcsim->Fill(muonenergydepositions.at(indextouse));
 		} else if (scatteringanglesvector.size()==1) { // just one matched wcsim track. 
 			fslanglesacceptedwcsim->Fill(scatteringanglesvector.at(0));
 			fslenergiesacceptedwcsim->Fill(primaryenergiesvector.at(0));
+			eventq2acceptedwcsim->Fill(q2vector.at(0));
+			muedepositionsacceptedwcsim->Fill(muonenergydepositions.at(0));
 			
 			cout<<"wcsim lepton angle = "<<scatteringanglesvector.at(0)<<endl;
 			cout<<"wcsim lepton energy = "<<primaryenergiesvector.at(0)<<endl;
@@ -658,6 +851,8 @@ void truthtracks(){
 			//incidentneutrinoanglesaccepted->Fill(probeangle);
 			fslanglesaccepted->Fill(fslanglegenie);
 			fslenergiesaccepted->Fill(fsleptonenergy);
+			eventq2accepted->Fill(Q2);
+			neutrinovertexQEaccepted->Fill(genie_x, genie_y, genie_z);
 		}
 		
 	}
@@ -667,6 +862,9 @@ void truthtracks(){
 	Double_t numbeamspillsperday = (24.*60.*60.*1000.)/133.3333;	// 24 hours in ms / 133.33 ms between spills
 	Double_t numdays = numbeamspills/numbeamspillsperday;
 	cout<<"Results based on "<<totalpots<<" POTs, or "<<numbeamspills<<" beam spills, or "<<numdays<<" days of data"<<endl;
+	cout<<"This produced "<<numneutrinoeventsintank<<" neutrino interactions in the tank, of which "<<numQEneutrinoeventsintank<<" were true QE events"<<endl;
+	
+	// TODO: neutrinovertex, neutrinovertexQE, neutrinovertexQEaccepted TH3D plots: save projections
 	
 	gROOT->cd();
 	// create scaled histograms with bin contents scaled to the number of POTs in input files:
@@ -678,6 +876,11 @@ void truthtracks(){
 	TH1D* fslenergiesacceptedscaled = new TH1D(*fslenergiesaccepted);
 	TH1D* fslanglesacceptedwcsimscaled = new TH1D(*fslanglesacceptedwcsim);
 	TH1D* fslenergiesacceptedwcsimscaled = new TH1D(*fslenergiesacceptedwcsim);
+	TH1D* eventq2allscaled = new TH1D(*eventq2all);
+	TH1D* eventq2acceptedscaled = new TH1D(*eventq2accepted);
+	TH1D* eventq2acceptedwcsimscaled = new TH1D(*eventq2acceptedwcsim);
+	
+	//TODO: save histos to root file so they can be scaled arbitrarily without regenerating!
 	
 	TH1D* thehistopointersarr[]{
 	incidentneutrinoenergiesallscaled,
@@ -687,18 +890,12 @@ void truthtracks(){
 	fslanglesacceptedwcsimscaled,
 	fslenergiesallscaled,
 	fslenergiesacceptedscaled,
-	fslenergiesacceptedwcsimscaled};
+	fslenergiesacceptedwcsimscaled,
+	eventq2allscaled,
+	eventq2acceptedscaled,
+	eventq2acceptedwcsimscaled};
 	//TODO: modify size if you add more histograms!!!
-	std::vector<TH1D*> scaledhistopointers(thehistopointersarr,thehistopointersarr+8);
-	
-	for(int i=0; i<scaledhistopointers.size(); i++){
-		TH1D* temp = scaledhistopointers.at(i);
-		for(int j=0; j<temp->GetNbinsX(); j++){
-			Double_t thecontent = temp->GetBinContent(j);
-			if(thecontent!=0){ thecontent /= numdays; }
-			temp->SetBinContent(j,thecontent);
-		}
-	}
+	std::vector<TH1D*> scaledhistopointers(thehistopointersarr,thehistopointersarr+11);
 	
 	TH1D* thehistopointersarr2[]{
 	incidentneutrinoenergiesall,
@@ -708,10 +905,29 @@ void truthtracks(){
 	fslanglesacceptedwcsim,
 	fslenergiesall,
 	fslenergiesaccepted,
-	fslenergiesacceptedwcsim};
+	fslenergiesacceptedwcsim,
+	eventq2all,
+	eventq2accepted,
+	eventq2acceptedwcsim};
 	//TODO: modify size if you add more histograms!!!
-	std::vector<TH1D*> histopointers(thehistopointersarr2,thehistopointersarr2+8);
+	std::vector<TH1D*> histopointers(thehistopointersarr2,thehistopointersarr2+11);
 	
+	Double_t norm = 1.;
+	for(int i=0; i<scaledhistopointers.size(); i++){
+		TH1D* temp = scaledhistopointers.at(i);
+		TH1D* temp2 = histopointers.at(i);
+		TString thetitle = temp2->GetTitle();
+		cout<<thetitle<<" has "<<temp2->GetEntries()<<" entries"<<endl;
+//		for(int j=1; j<(temp->GetNbinsX()-2); j++){
+//			Double_t thecontent = temp2->GetBinContent(j);
+//			if(thecontent!=0){ thecontent /= temp->GetEntries(); /*numdays*/}
+//			temp->SetBinContent(j,thecontent);
+//		}
+		temp->Scale(norm/temp->Integral());
+		temp->GetYaxis()->SetRangeUser(0.,0.1);
+		TString tempname = temp2->GetName();
+		temp->SetName(TString::Format("%s_scaled",tempname.Data()));
+	}
 	// draw the original histograms
 	// ============================
 //	Double_t win_width=500;
@@ -734,8 +950,8 @@ void truthtracks(){
 			canv->cd();
 			leg = new TLegend(0.5,0.78,0.7,0.88);
 			legendpointers.push_back(leg);
-			leg->AddEntry(hist,"incident","l");
 			hist->SetLineColor(kRed);
+			leg->AddEntry(hist,"incident","l");
 			hist->Draw();
 		} else if(i==1){
 			hist->SetLineColor(kBlue);
@@ -771,21 +987,27 @@ void truthtracks(){
 	for(int i=0; i<scaledhistopointers.size(); i++){
 		TLegend* leg;
 		TCanvas* canv;
+		TText* numentstitle;
 		TH1D* hist = scaledhistopointers.at(i);
+		TString statsstring="";
 		if(i==0){
 			canv = new TCanvas(TString::Format("cc%d",i),TString::Format("cc%d",i));
 			scaledcanvaspointers.push_back(canv);
 			canv->cd();
 			leg = new TLegend(0.5,0.78,0.7,0.88);
 			scaledlegendpointers.push_back(leg);
-			leg->AddEntry(hist,"incident","l");
 			hist->SetLineColor(kRed);
+			leg->AddEntry(hist,"incident","l");
+			numentstitle = new TText(.32,.9,"placeholder");
+			statsstring = TString::Format("incident events: %d\n",(int)hist->GetEntries());
 			hist->Draw();
 		} else if(i==1){
 			hist->SetLineColor(kBlue);
 			leg->AddEntry(hist,"accepted (truth)","l");
 			hist->Draw("same");
 			leg->Draw();
+			statsstring += TString::Format("accepted events: %d",(int)hist->GetEntries());
+			numentstitle->SetTitle(statsstring.Data());
 		} else if((i-2)%3==0){
 			canv = new TCanvas(TString::Format("cc%d",i),TString::Format("cc%d",i));
 			scaledcanvaspointers.push_back(canv);
@@ -811,10 +1033,36 @@ void truthtracks(){
 //	 draw other canvases
 	TCanvas* debug1 = new TCanvas("debug1","debug1");
 	debug1->cd();
-	fsltruetracklength->Draw();
-	debug1->SaveAs("muon track lengths.png");
+	TLegend* aleg = new TLegend(0.5,0.78,0.7,0.88);
+	aleg->AddEntry(fsltruetracklength,"Total track length","l");
+	aleg->AddEntry(fsltruetracklengthintank,"Tank track length","l");
+	fsltruetracklengthintank->SetLineColor(kRed);
+	fsltruetracklengthintank->Draw();
+	fsltruetracklength->SetLineColor(kBlue);
+	fsltruetracklength->Draw("same");
+	aleg->Draw();
+	debug1->SaveAs("muon_track_lengths.png");
 	if(fsltruetracklength) delete fsltruetracklength; fsltruetracklength=0;
+	if(fsltruetracklengthintank) delete fsltruetracklengthintank; fsltruetracklengthintank=0;
+	
+	debug1->Clear();
+	aleg->Clear();
+	aleg->AddEntry(muedepositionswcsim,"Mu Tank E Dep (all)","l");
+	aleg->AddEntry(muedepositionsacceptedwcsim,"Mu Tank E Dep (accepted)","l");
+	muedepositionswcsim->SetLineColor(kBlue);
+	muedepositionswcsim->Draw();
+	muedepositionsacceptedwcsim->SetLineColor(kRed);
+	muedepositionsacceptedwcsim->Draw("same");
+	aleg->Draw();
+	debug1->SaveAs("muon_tank_energy_depositions.png");
+	if(muedepositionswcsim) delete muedepositionswcsim; muedepositionswcsim=0;
+	if(muedepositionsacceptedwcsim) delete muedepositionsacceptedwcsim; muedepositionsacceptedwcsim=0;
+	
 	if(debug1) delete debug1; debug1=0;
+	if(aleg) delete aleg; aleg=0;
+	cout<<"total of "<<nummuontracksintank<<" muon tracks in the tank, of which "
+		<<nummuontracksintankpassedcut<<" had a track length > 50cm in the tank"<<endl;
+		
 	
 #ifdef WCSIMDEBUG
 	TCanvas* debug2 = new TCanvas("debug2","debug2");
@@ -910,8 +1158,10 @@ void truthtracks(){
 	
 	// delete histograms - do this after the canvas version, which saves them before deleting them
 	//cout<<"deleting histograms"<<endl;
+	histofileout->cd();
 	for(int i=0; i<histopointers.size(); i++){
 		TH1D* temp = histopointers.at(i);
+		temp->Write();
 		delete temp;
 	}
 	
@@ -919,9 +1169,11 @@ void truthtracks(){
 	//cout<<"deleting scaled histograms"<<endl;
 	for(int i=0; i<scaledhistopointers.size(); i++){
 		TH1D* temp = scaledhistopointers.at(i);
+		temp->Write();
 		delete temp;
 	}
 	cout<<"end"<<endl;
+	if(histofileout) histofileout->Close(); delete histofileout; histofileout=0;
 }
 
 

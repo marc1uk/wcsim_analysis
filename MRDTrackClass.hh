@@ -1,6 +1,6 @@
 /* vim:set noexpandtab tabstop=4 wrap */
-#ifndef _MRDTrack_VERBOSE_
-#define _MRDTrack_VERBOSE_ 1
+#ifndef MRDTrack_VERBOSE
+//#define MRDTrack_VERBOSE 1
 #endif
 
 #ifndef _MRDTrack_Class_
@@ -18,13 +18,15 @@
 #include <algorithm>
 #include <map>
 #include "MRDspecs.hh"
-#include "cMRDTrack_ReconstructionClasses.hh"	// defines classes used in DoReconstruction() function
+#include "MRDSubEvent_ReconstructionClasses.hh"
 
+class mrdcluster;
+class mrdcell;
 class cMRDTrack : public TObject {
 	
 	// Private members
 	// ===============
-	private:
+	public:	//TODO public for copy constructor
 	Int_t MRDtrackID;						// ID of this track within the subtrigger
 	Int_t tanktrackID;						// correlated tank track within the subtrigger
 	
@@ -43,8 +45,6 @@ class cMRDTrack : public TObject {
 //	std::vector<WCSimRootCherenkovDigiHit> digits;
 	
 	// Calculated/Reconstructed Info
-	std::vector<mrdcluster*> theclusters;	// vector of the clusters in the track
-	std::vector<mrdcell*> thecells;			// vector of the cells in the track
 	std::vector<Int_t> layers_hit;			// vector of MRD layers hit
 	std::vector<Double_t> eDepsInLayers;	// fixed length vector of energy deposited in each layer 
 	Double_t KEStart;						// from depth or estimate if fully penetrating
@@ -57,10 +57,6 @@ class cMRDTrack : public TObject {
 	Int_t trueTrackID;						// index in the WCSimRootTrack clones array
 //	WCSimRootTrack* trueTrack;				// from WCSim GetTracks. Should we keep this?
 	
-//	// Do we need these?
-//	std::vector<ROOT::Math::XYZTVector> mrdpoints;	// estimated times and positions of interaction points
-//	std::vector<ROOT::Math::XYZTVector> tankpoints;	// projected points from tank track, if available
-	
 	// These are needed for drawing the track in root
 	std::map<const char*, double> recovalshoriz;	// keys: "xycrossing", "zcrossing", "angmin" and "angmax"
 	std::map<const char*, double> recovalsvert;		// keys: "xycrossing", "zcrossing", "angmin" and "angmax"
@@ -68,6 +64,8 @@ class cMRDTrack : public TObject {
 	public:
 	// Track Level Getters
 	// ===================
+	Int_t GetTrackID(){return MRDtrackID;}
+	Int_t GetTankTrackID(){return tanktrackID;}
 	// Locate the track in file>run>event>trigger hierarchy
 	std::string GetFile(){return wcsimfile;}
 	Int_t GetRunID(){return run_id;}
@@ -81,6 +79,7 @@ class cMRDTrack : public TObject {
 	std::vector<Int_t> GetDigitIds(){return digi_ids;}
 	std::vector<Int_t> GetLayersHit(){return layers_hit;}
 	std::vector<Int_t> GetPMTsHit(){return pmts_hit;}
+//	Double_t GetPenetration(){return layers_hit.back().Z()-layers_hit.front().Z();}	// need to look up positions
 	
 	// Reconstructed Variables
 	std::vector<Double_t> GetEdeps(){return eDepsInLayers;}
@@ -111,34 +110,23 @@ class cMRDTrack : public TObject {
 //		catch(const std::out_of_range& oor){return 0;}
 //	}
 	
-	//---------------------------
-	// Geometric information about a given digit
-//	Int_t GetLayerNum(Int_t digitnum){return MRDlayers.at(digitnum);}
-//	Int_t GetPaddleNum(Int_t digitnum){return MRDpaddles.at(digitnum);}	// number of paddle within this panel
-//	std::pair<Double_t, Double_t> GetXrange(Int_t digitnum){return xranges.at(digitnum);}
-//	std::pair<Double_t, Double_t> GetYrange(Int_t digitnum){return yranges.at(digitnum);}
-//	std::pair<Double_t, Double_t> GetZrange(Int_t digitnum){return zranges.at(digitnum);}
-//	std::pair<Double_t, Double_t> GetTrange(Int_t digitnum){return tranges.at(digitnum);}
-	//---------------------------
-	// digit information not in WCSimRootCherenkovDigiHit
+//	// ---------------------------
+//	// digit information not in WCSimRootCherenkovDigiHit
+//	// Geometric information about a given digit
 //	std::vector<Int_t> MRDlayers;
 //	std::vector<Int_t> MRDpaddles;
 //	std::vector<std::pair<Double_t, Double_t> > xranges;	// from width of panel(s) hit
 //	std::vector<std::pair<Double_t, Double_t> > yranges;	// 
 //	std::vector<std::pair<Double_t, Double_t> > zranges;	// from depth of panel
 //	std::vector<std::pair<Double_t, Double_t> > tranges; 	// from uncertainty in PMT timing resoluton
-	//---------------------------
-	
-	// Geometric Variables
-//	std::vector<ROOT::Math::XYZTVector> GetMRDPoints(){return mrdpoints;} 			// do we need this?
-//	ROOT::Math::XYZTVector* GetPoint(Int_t i){										// 
-//		try{return &(mrdpoints.at(i));}
-//		catch(const std::out_of_range& oor){return 0;}
-//	}
-//	ROOT::Math::XYZTVector* GetFirstPoint(){return &(mrdpoints.front());}			// 
-//	ROOT::Math::XYZTVector* GetLastPoint(){return &(mrdpoints.back());}				// 
-//	Double_t GetPenetration(){return layers_hit.back().Z()-layers_hit.front().Z();}	// 
-	
+//	// ---------------------------
+//	Int_t GetLayerNum(Int_t digitnum){return MRDlayers.at(digitnum);}
+//	Int_t GetPaddleNum(Int_t digitnum){return MRDpaddles.at(digitnum);}	// number of paddle within this panel
+//	std::pair<Double_t, Double_t> GetXrange(Int_t digitnum){return xranges.at(digitnum);}
+//	std::pair<Double_t, Double_t> GetYrange(Int_t digitnum){return yranges.at(digitnum);}
+//	std::pair<Double_t, Double_t> GetZrange(Int_t digitnum){return zranges.at(digitnum);}
+//	std::pair<Double_t, Double_t> GetTrange(Int_t digitnum){return tranges.at(digitnum);}
+//	// ---------------------------
 	
 	// "Setters"
 	// =========
@@ -151,8 +139,6 @@ class cMRDTrack : public TObject {
 	private:
 	// Main track reconstruction code
 	void DoReconstruction();
-	// Used within DoReconstruction (CA version) 
-	void LeastSquaresMinimizer(Int_t numdatapoints, Double_t datapointxs[], Double_t datapointys[], Double_t datapointweights[], Double_t errorys[], Double_t &fit_gradient, Double_t &fit_offset, Double_t &chi2);
 	// check a prospective trajectory hits all layers
 	Bool_t AngValid(Int_t layerstart, Double_t angle, Int_t MaxMin, Int_t axis);
 	// check a trajectory hits a given layer
@@ -186,53 +172,38 @@ class cMRDTrack : public TObject {
 	tanktrackID(-1), layers_hit(), KEStart(-1.), KEEnd(-1.), particlePID(-1),
 	tracktype(-1), trueTrackID(-1), recovalshoriz(), recovalsvert() {
 		
-#ifdef _MRDTrack_VERBOSE_
-		cout<<"constructing a track with "<<digi_ids.size()<<" digits"<<endl;
+#ifdef MRDTrack_VERBOSE
+		cout<<endl<<"constructing a track with "<<digi_ids.size()<<" digits"<<endl;
 #endif
-//		if(fillstaticmembers){
-//			// fill static members
-//			std::vector<Int_t> temp(aspectrum, aspectrum+19);
-//			//aspectrumv.assign(temp.rbegin(), temp.rend());
-//			aspectrumv.assign(temp.begin(), temp.end());
-//			fillstaticmembers=false;
-//		}
 		eDepsInLayers.assign(numpanels, 0.);	// can't assign the size in the class def. 
 		DoReconstruction();
-		DrawMrdCanvases();
-		//assert(false);
 	}
 	
-	// Drawing
-	// =======
-	void DrawMrdCanvases();
-	void AddTrackLines();
-	static Bool_t fillstaticmembers;
-	static TCanvas* imgcanvas;
-	static TText* titleleft;
-	static TText* titleright;
-	static std::vector<TBox*> paddlepointers;
-	void ComputePaddleTransformation (const Int_t copyNo, TVector3 &origin, Bool_t &ishpaddle, Bool_t paddleishit);
-	//Int_t aspectrum[19] = {kYellow, kOrange, (kOrange-3), (kOrange+8), (kOrange+10), kRed, (kRed+1), (kPink+4), (kMagenta+2), (kMagenta+1), kMagenta, (kViolet-2), (kViolet-3), (kViolet+7), (kViolet+9), (kBlue+2), (kBlue+1), kAzure, (kAzure+7)};
-	static std::vector<Int_t> aspectrumv;
-	
-	std::pair<double, double> xupcorner1, xupcorner2, xdowncorner1, xdowncorner2, yupcorner1, yupcorner2, ydowncorner1, ydowncorner2;
-	
+	// Copy Constructor
+	// ================
+	cMRDTrack(cMRDTrack const &trackin) :
+	MRDtrackID(trackin.MRDtrackID), wcsimfile(trackin.wcsimfile), run_id(trackin.run_id),
+	event_id(trackin.event_id), subtrigger(trackin.subtrigger), digi_ids(trackin.digi_ids),
+	pmts_hit(trackin.pmts_hit), digi_qs(trackin.digi_qs), digi_ts(trackin.digi_ts),
+	digi_numphots(trackin.digi_numphots), digi_phot_ts(trackin.digi_phot_ts),
+	digi_phot_parents(trackin.digi_phot_parents), tanktrackID(trackin.tanktrackID), 
+	layers_hit(trackin.layers_hit), eDepsInLayers(trackin.eDepsInLayers), KEStart(trackin.KEStart),
+	KEEnd(trackin.KEEnd), particlePID(trackin.particlePID), tracktype(trackin.tracktype),
+	trueTrackID(trackin.trueTrackID), recovalshoriz(trackin.recovalshoriz), recovalsvert(trackin.recovalsvert)
+	/*, digits(trackin.digits), trueTrack(trackin.trueTrack)*/ 
+	{
+#ifdef MRDTrack_VERBOSE
+		cout<<endl<<"copy constructing a track with "<<digi_ids.size()<<" digits"<<endl;
+#endif
+	}
 	
 	// End class definition
 	// ====================
 	ClassDef(cMRDTrack,1);					// INCREMENT VERSION NUM EVERY TIME CLASS MEMBERS CHANGE
 };
 
-Bool_t cMRDTrack::fillstaticmembers=true;
-TCanvas* cMRDTrack::imgcanvas=0;
-TText* cMRDTrack::titleleft=0;
-TText* cMRDTrack::titleright=0;
-std::vector<TBox*> cMRDTrack::paddlepointers(nummrdpmts);
-//std::vector<Int_t> cMRDTrack::aspectrumv(19);
-std::vector<Int_t> cMRDTrack::aspectrumv = ( []()->std::vector<Int_t> { std::vector<Int_t> temp {kYellow, kOrange, (kOrange-3), (kOrange+8), (kOrange+10), kRed, (kRed+1), (kPink+4), (kMagenta+2), (kMagenta+1), kMagenta, (kViolet-2), (kViolet-3), (kViolet+7), (kViolet+9), (kBlue+2), (kBlue+1), kAzure, (kAzure+7)}; return temp; }() );
 
-#include "cMRDTrack_DoReconstruction2.cxx"	// contains reconstruction function definitions
-#include "makemrdimage.cxx"					// functions to draw the MRD top and side views
+#include "MRDTrack_DoReconstruction.cxx"	// contains reconstruction function definitions
 
 #endif
 

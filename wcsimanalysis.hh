@@ -52,7 +52,7 @@ class WCSimAnalysis : public TObject {
 	const Int_t MAXTRACKSPEREVENT=50;
 
 	int treeNumber;
-	Double_t maxtrackduration=30.;  // in ns?
+	Double_t maxsubeventduration=30.;  // in ns?
 	// canvas sizes
 	float win_scale;
 	int n_wide;
@@ -147,11 +147,14 @@ class WCSimAnalysis : public TObject {
 	TFile* mrdtrackfile=0;
 	TTree* recotree=0;
 	std::vector<Double_t> mrddigittimesthisevent;
+	Int_t nummrdsubeventsthisevent;
 	Int_t nummrdtracksthisevent;
+	TBranch* nummrdsubeventsthiseventb=0;
 	TBranch* nummrdtracksthiseventb=0;
+	TBranch* subeventsinthiseventb=0;
 	TBranch* tracksinthiseventb=0;
-	TClonesArray* aTrack;
-	TClonesArray aTracka;
+	TClonesArray* aTrack=0;
+	TClonesArray* aSubEvent=0;
 	
 	// DISABLING STUFF
 	// ~~~~~~~~~~~~~~

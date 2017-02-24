@@ -1,9 +1,10 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 // #######################################################################
+#include "MRDSubEventClass.hh"			// a class for defining subevents
 #include "MRDTrackClass.hh"				// a class for defining MRD tracks
 
-#ifndef MRDTRACKVERBOSE
-//#define MRDTRACKVERBOSE 1
+#ifndef MRDSPLITVERBOSE
+//#define MRDSPLITVERBOSE 1
 #endif
 
 // CREATE+OPEN OUTPUT FILE
@@ -16,8 +17,11 @@ void WCSimAnalysis::OpenMRDtrackOutfile(){
 	gROOT->cd();
 	
 	nummrdtracksthisevent=0;
-	aTrack = new TClonesArray("cMRDTrack");	// string is class name
+	aSubEvent = new TClonesArray("cMRDSubEvent");	// string is class name
+	aTrack = new TClonesArray("cMRDTrack");			// string is class name
 	
+	nummrdsubeventsthiseventb = recotree->Branch("nummrdsubeventsthisevent",&nummrdsubeventsthisevent);
+	subeventsinthiseventb = recotree->Branch("subeventsinthisevent",&aSubEvent, MAXTRACKSPEREVENT);
 	nummrdtracksthiseventb = recotree->Branch("nummrdtracksthisevent",&nummrdtracksthisevent);
 	tracksinthiseventb = recotree->Branch("tracksinthisevent",&aTrack, MAXTRACKSPEREVENT);
 	
@@ -28,7 +32,9 @@ void WCSimAnalysis::OpenMRDtrackOutfile(){
 // SPLIT HITS BY TIME
 // ==================
 void WCSimAnalysis::FindMRDtracksInEvent(){
-#ifdef MRDTRACKVERBOSE
+
+const Int_t minimumdigits =3;
+#ifdef MRDSPLITVERBOSE
 	cout<<"eventnum is "<<eventnum<<endl;
 #endif
 	//aTracka.Clear();
@@ -39,104 +45,117 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 	
 	if(mrddigittimesthisevent.size()<4){
 		// =====================================================================================
-		// NO TRACKS IN THIS EVENT
+		// NO DIGITS IN THIS EVENT
 		// ======================================
+		new((*aSubEvent)[0]) cMRDSubEvent();
 		new((*aTrack)[0]) cMRDTrack();
+		nummrdsubeventsthisevent=0;
 		nummrdtracksthisevent=0;
+		nummrdsubeventsthiseventb->Fill();
 		nummrdtracksthiseventb->Fill();
+		subeventsinthiseventb->Fill();
 		tracksinthiseventb->Fill();
-		//recotree->Fill();						// fill even though there are not tracks so the entries align.
+		//recotree->Fill();						// fill the branches so the entries align.
 		return;
 		// skip remainder
 		// ======================================================================================
 	}
 	
-	// MEASURE EVENT DURATION TO DETERMINE IF THERE IS MORE THAN ONE TRACK
-	// ===================================================================
-	std::vector<Int_t> digitidsinatrack;
-	std::vector<Int_t> tubeidsinatrack;
-	std::vector<Double_t> digitqsinatrack;
-	std::vector<Double_t> digittimesinatrack;
+	// MEASURE EVENT DURATION TO DETERMINE IF THERE IS MORE THAN ONE MRD SUB EVENT
+	// ===========================================================================
+	std::vector<Int_t> digitidsinasubevent;
+	std::vector<Int_t> tubeidsinasubevent;
+	std::vector<Double_t> digitqsinasubevent;
+	std::vector<Double_t> digittimesinasubevent;
 	std::vector<Int_t> digitnumtruephots;
-	std::vector<Int_t> particleidsinatrack;
-	std::vector<Double_t> photontimesinatrack;
+	std::vector<Int_t> particleidsinasubevent;
+	std::vector<Double_t> photontimesinasubevent;
 	
-	// first check: are all hits within a 30ns window (maxtrackduration) If so, just one track. 
-#ifdef MRDTRACKVERBOSE
+	// first check: are all hits within a 30ns window (maxsubeventduration) If so, just one subevent. 
+#ifdef MRDSPLITVERBOSE
 	cout<<"mrddigittimesthisevent.size()="<<mrddigittimesthisevent.size()<<endl;
 #endif
 	Double_t eventendtime = *std::max_element(mrddigittimesthisevent.begin(),mrddigittimesthisevent.end());
 	Double_t eventstarttime = *std::min_element(mrddigittimesthisevent.begin(),mrddigittimesthisevent.end());
 	Double_t eventduration = (eventendtime - eventstarttime);
-#ifdef MRDTRACKVERBOSE
+#ifdef MRDSPLITVERBOSE
 	cout<<"event start: "<<eventstarttime<<", end : "<<eventendtime<<", duration : "<<eventduration<<endl;
 #endif
 	
-	if(eventduration<maxtrackduration){
-	// JUST ONE TRACK
-	// ==============
-#ifdef MRDTRACKVERBOSE
-		cout<<"all hits this event within one track."<<endl;
+	if((eventduration<maxsubeventduration)&&(mrddigittimesthisevent.size()>minimumdigits)){
+	// JUST ONE SUBEVENT
+	// =================
+#ifdef MRDSPLITVERBOSE
+		cout<<"all hits this event within one subevent."<<endl;
 #endif
 		
-		// loop over digits and convert them into cMRDdigit objects that contain all their information
+		// loop over digits and extract info
 		for(Int_t thisdigit=0;thisdigit<mrddigittimesthisevent.size();thisdigit++){
-			digitidsinatrack.push_back(thisdigit);
-			WCSimRootCherenkovDigiHit* thedigihit = (WCSimRootCherenkovDigiHit*)atrigm->GetCherenkovDigiHits()->At(thisdigit);
+			digitidsinasubevent.push_back(thisdigit);
+			WCSimRootCherenkovDigiHit* thedigihit =
+				(WCSimRootCherenkovDigiHit*)atrigm->GetCherenkovDigiHits()->At(thisdigit);
 			Int_t thisdigitstubeid = thedigihit->GetTubeId();
-			tubeidsinatrack.push_back(thisdigitstubeid);
+			tubeidsinasubevent.push_back(thisdigitstubeid);
 			Int_t thisdigitsq = thedigihit->GetQ();
-			digitqsinatrack.push_back(thisdigitsq);
+			digitqsinasubevent.push_back(thisdigitsq);
 			double thisdigitstime = thedigihit->GetT();
-			digittimesinatrack.push_back(thisdigitstime);
-			// add all the unique parent ID's for digits contributing to this track (truth level info)
+			digittimesinasubevent.push_back(thisdigitstime);
+			// add all the unique parent ID's for digits contributing to this subevent (truth level info)
 			std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
 			digitnumtruephots.push_back(truephotonindices.size());
 			for(int truephoton=0; truephoton<truephotonindices.size(); truephoton++){
 				int thephotonsid = truephotonindices.at(truephoton);
 				WCSimRootCherenkovHitTime *thehittimeobject = (WCSimRootCherenkovHitTime*)atrigm->GetCherenkovHitTimes()->At(thephotonsid);
-				int thephotonsparenttrack = thehittimeobject->GetParentID();
-				int checkcount = std::count(particleidsinatrack.begin(), particleidsinatrack.end(), thephotonsparenttrack);
-				if(checkcount==0){ particleidsinatrack.push_back(thephotonsparenttrack); }
+				int thephotonsparentsubevent = thehittimeobject->GetParentID();
+				particleidsinasubevent.push_back(thephotonsparentsubevent);
 				double thephotonstruetime = thehittimeobject->GetTruetime();
-				photontimesinatrack.push_back(thephotonstruetime);
+				photontimesinasubevent.push_back(thephotonstruetime);
 			}
-			// append the digit - nah, just construct track with all digits
-			//aTracka.AppendDigit(thisdigitstime, thisdigitsq, thisdigitstubeid,
-			//											photontimesinatrack,particleidsinatrack);
+			// append the digit - nah, just construct subevent with all digits
+			//aSubEventa.AppendDigit(thisdigitstime, thisdigitsq, thisdigitstubeid,
+			//										photontimesinasubevent,particleidsinasubevent);
 		}
 		
-		// construct the track from all the digits
-		if(digitidsinatrack.size()>3){
-#ifdef MRDTRACKVERBOSE
-			cout<<"constructing a single track for this event"<<endl;
+		// construct the subevent from all the digits
+#ifdef MRDSPLITVERBOSE
+		cout<<"constructing a single subevent for this event"<<endl;
 #endif
-			new((*aTrack)[0]) cMRDTrack(0, currentfilestring, runnum, eventnum, subtriggernum, digitidsinatrack, tubeidsinatrack, digitqsinatrack, digittimesinatrack, digitnumtruephots, photontimesinatrack, particleidsinatrack);
-		}
-		// can also use 'cMRDTrack* = (cMRDTrack*)aTrack.ConstructedAt(0);' followed by a bunch of 'Set' calls
-		// to set all relevant fields. This bypasses the constructor, calling it only when necessary, 
-		// saving time. In that case, we do not need to call aTracka.Clear();
+		cMRDSubEvent* currentsubevent = new((*aSubEvent)[0]) cMRDSubEvent(0, currentfilestring, runnum, eventnum, subtriggernum, digitidsinasubevent, tubeidsinasubevent, digitqsinasubevent, digittimesinasubevent, digitnumtruephots, photontimesinasubevent, particleidsinasubevent);
+		// can also use 'cMRDSubEvent* = (cMRDSubEvent*)aSubEvent.ConstructedAt(0);' followed by a bunch of
+		// 'Set' calls to set all relevant fields. This bypasses the constructor, calling it only when 
+		// necessary, saving time. In that case, we do not need to call aSubEventa.Clear();
 		
-		nummrdtracksthisevent=1;
+#ifdef MRDSPLITVERBOSE
+		cout<<"the only subevent this event found "<<currentsubevent->GetTracks().size()<<" tracks"<<endl;
+#endif
+		// the SubEvent reconstruction may create a collection of cMRDTracks: copy them to the clonesarray
+		for(int i=0; i<currentsubevent->GetTracks().size(); i++){
+			new((*aTrack)[0]) cMRDTrack(*(currentsubevent->GetTracks().at(i)));
+			delete currentsubevent->GetTracks().at(i);
+		}
+		
+		nummrdsubeventsthisevent=1;
+		nummrdtracksthisevent=currentsubevent->GetTracks().size();
+		nummrdsubeventsthiseventb->Fill();
 		nummrdtracksthiseventb->Fill();
+		subeventsinthiseventb->Fill();
 		tracksinthiseventb->Fill();
-		//recotree->Fill();
 		
 	} else {
-	// MORE THAN ONE TRACK
-	// ===================
-		// this event has multiple tracks. Need to split hits into which track they belong to.
-		// scan over the times and look for gaps where no digits lie, using these to delimit 'tracks'
-		std::vector<Float_t> trackhittimesv;	// a vector of the starting times of a given 'track'
+	// MORE THAN ONE MRD SUBEVENT
+	// ===========================
+		// this event has multiple subevents. Need to split hits into which subevent they belong to.
+		// scan over the times and look for gaps where no digits lie, using these to delimit 'subevents'
+		std::vector<Float_t> subeventhittimesv;	// a vector of the starting times of a given subevent
 		std::vector<double> sorteddigittimes(mrddigittimesthisevent);
 		std::sort(sorteddigittimes.begin(), sorteddigittimes.end());
-		trackhittimesv.push_back(sorteddigittimes.at(0));
+		subeventhittimesv.push_back(sorteddigittimes.at(0));
 		for(Int_t i=0;i<sorteddigittimes.size()-1;i++){
 			Float_t timetonextdigit = sorteddigittimes.at(i+1)-sorteddigittimes.at(i);
-			if(timetonextdigit>maxtrackduration){
-				trackhittimesv.push_back(sorteddigittimes.at(i+1));
-#ifdef MRDTRACKVERBOSE
-				cout<<"Setting track time threshold at "<<trackhittimesv.back()<<endl;
+			if(timetonextdigit>maxsubeventduration){
+				subeventhittimesv.push_back(sorteddigittimes.at(i+1));
+#ifdef MRDSPLITVERBOSE
+				cout<<"Setting subevent time threshold at "<<subeventhittimesv.back()<<endl;
 //				cout<<"this digit is at "<<sorteddigittimes.at(i)<<endl;
 //				cout<<"next digit is at "<<sorteddigittimes.at(i+1)<<endl;
 //				try{
@@ -145,92 +164,105 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 #endif
 			}
 		}
-#ifdef MRDTRACKVERBOSE
-		cout<<trackhittimesv.size()<<" tracks this event"<<endl;
+#ifdef MRDSPLITVERBOSE
+		cout<<subeventhittimesv.size()<<" subevents this event"<<endl;
 #endif
 		
-		// a vector to record the track number for each hit, to know if we've allocated it yet.
-		std::vector<Int_t> tracknumthisevent(mrddigittimesthisevent.size(),-1);
+		// a vector to record the subevent number for each hit, to know if we've allocated it yet.
+		std::vector<Int_t> subeventnumthisevent(mrddigittimesthisevent.size(),-1);
 		
-		// now we need to sort the digits into the tracks they belong to:
-		// loop over tracks
-		Int_t actualtrackcounter=0;	// not all time groups will have enough digits
-		for(Int_t thistrack=0; thistrack<trackhittimesv.size(); thistrack++){
-#ifdef MRDTRACKVERBOSE
-			cout<<"Digits in MRD at = "<<trackhittimesv.at(thistrack)<<"ns in event "<<eventnum<<endl;
+		// now we need to sort the digits into the subevents they belong to:
+		// loop over subevents
+		Int_t mrdeventcounter=0;	// not all time groups will have enough digits
+		Int_t mrdtrackcounter=0;	// not all the subevents will have a track
+		for(Int_t thissubevent=0; thissubevent<subeventhittimesv.size(); thissubevent++){
+#ifdef MRDSPLITVERBOSE
+			cout<<"Digits in MRD at = "<<subeventhittimesv.at(thissubevent)<<"ns in event "<<eventnum<<endl;
 #endif
 			// don't need to worry about lower bound as we start from lowest t peak and 
 			// exclude already allocated hits
 			
-			Float_t endtime = (thistrack<(trackhittimesv.size()-1)) ? trackhittimesv.at(thistrack+1) : (eventendtime+1.);
-#ifdef MRDTRACKVERBOSE
-			cout<<"endtime for track "<<thistrack<<" is "<<endtime<<endl;
+			Float_t endtime = (thissubevent<(subeventhittimesv.size()-1)) ? 
+				subeventhittimesv.at(thissubevent+1) : (eventendtime+1.);
+#ifdef MRDSPLITVERBOSE
+			cout<<"endtime for subevent "<<thissubevent<<" is "<<endtime<<endl;
 #endif
-			// times are not ordered, so scan through all digits for each track
+			// times are not ordered, so scan through all digits for each subevent
 			for(Int_t thisdigit=0;thisdigit<mrddigittimesthisevent.size();thisdigit++){
-				if(tracknumthisevent.at(thisdigit)<0 && mrddigittimesthisevent.at(thisdigit)< endtime ){
-					// thisdigit is in thistrack
-#ifdef MRDTRACKVERBOSE
-					cout<<"adding digit at "<<mrddigittimesthisevent.at(thisdigit)<<" to track "<<thistrack<<endl;
+				if(subeventnumthisevent.at(thisdigit)<0 && mrddigittimesthisevent.at(thisdigit)< endtime ){
+					// thisdigit is in thissubevent
+#ifdef MRDSPLITVERBOSE
+					cout<<"adding digit at "<<mrddigittimesthisevent.at(thisdigit)<<" to subevent "<<thissubevent<<endl;
 #endif
-					digitidsinatrack.push_back(thisdigit);
-					tracknumthisevent.at(thisdigit)=thistrack;
+					digitidsinasubevent.push_back(thisdigit);
+					subeventnumthisevent.at(thisdigit)=thissubevent;
 					WCSimRootCherenkovDigiHit* thedigihit = (WCSimRootCherenkovDigiHit*)atrigm->GetCherenkovDigiHits()->At(thisdigit);
 					Int_t thisdigitstubeid = thedigihit->GetTubeId();
-					tubeidsinatrack.push_back(thisdigitstubeid);
+					tubeidsinasubevent.push_back(thisdigitstubeid);
 					Int_t thisdigitsq = thedigihit->GetQ();
-					digitqsinatrack.push_back(thisdigitsq);
+					digitqsinasubevent.push_back(thisdigitsq);
 					double thisdigitstime = thedigihit->GetT();
-					digittimesinatrack.push_back(thisdigitstime);
-					// add all the unique parent ID's for digits contributing to this track (truth level info)
+					digittimesinasubevent.push_back(thisdigitstime);
+					// add all the unique parent ID's for digits contributing to this subevent (truth level info)
 					std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
 					digitnumtruephots.push_back(truephotonindices.size());
 					for(int truephoton=0; truephoton<truephotonindices.size(); truephoton++){
 						int thephotonsid = truephotonindices.at(truephoton);
 						WCSimRootCherenkovHitTime *thehittimeobject = (WCSimRootCherenkovHitTime*)atrigm->GetCherenkovHitTimes()->At(thephotonsid);
-						int thephotonsparenttrack = thehittimeobject->GetParentID();
-						int checkcount = std::count(particleidsinatrack.begin(), particleidsinatrack.end(), thephotonsparenttrack);
-						if(checkcount==0){ particleidsinatrack.push_back(thephotonsparenttrack); }
+						int thephotonsparentsubevent = thehittimeobject->GetParentID();
+						particleidsinasubevent.push_back(thephotonsparentsubevent);
 						double thephotonstruetime = thehittimeobject->GetTruetime();
-						photontimesinatrack.push_back(thephotonstruetime);
+						photontimesinasubevent.push_back(thephotonstruetime);
 					}
 				}
 			}
 			
-			// construct the track from all the digits
-			if(digitidsinatrack.size()>3){	// must have enough for a track
-#ifdef MRDTRACKVERBOSE
-				cout<<"constructing track "<<actualtrackcounter<<" with "<<digitidsinatrack.size()<<" digits for this event"<<endl;
+			// construct the subevent from all the digits
+			if(digitidsinasubevent.size()>minimumdigits){	// must have enough for a subevent
+#ifdef MRDSPLITVERBOSE
+				cout<<"constructing subevent "<<mrdeventcounter<<" with "<<digitidsinasubevent.size()<<" digits"<<endl;
 #endif
-				new((*aTrack)[actualtrackcounter]) cMRDTrack(actualtrackcounter, currentfilestring, runnum, eventnum, subtriggernum, digitidsinatrack, tubeidsinatrack, digitqsinatrack, digittimesinatrack, digitnumtruephots, photontimesinatrack, particleidsinatrack);
-				actualtrackcounter++;
+				cMRDSubEvent* currentsubevent = new((*aSubEvent)[mrdeventcounter]) cMRDSubEvent(mrdeventcounter, currentfilestring, runnum, eventnum, subtriggernum, digitidsinasubevent, tubeidsinasubevent, digitqsinasubevent, digittimesinasubevent, digitnumtruephots, photontimesinasubevent, particleidsinasubevent);
+				mrdeventcounter++;
+#ifdef MRDSPLITVERBOSE
+				cout<<"subevent "<<thissubevent<<" found "<<currentsubevent->GetTracks().size()<<" tracks"<<endl;
+#endif
+				// copy cMRDTracks to the clonesarray. free heap versions aren't needed after copying.
+				for(int i=0; i<currentsubevent->GetTracks().size(); i++){
+					new((*aTrack)[mrdtrackcounter]) cMRDTrack(*(currentsubevent->GetTracks().at(i)));
+					delete currentsubevent->GetTracks().at(i);
+					mrdtrackcounter++;
+				}
 			}
-			// can also use 'cMRDTrack* = (cMRDTrack*)aTrack.ConstructedAt(0);' followed by a bunch of 'Set' calls
-			// to set all relevant fields. This bypasses the constructor, calling it only when necessary, 
-			// saving time. In that case, we do not need to call aTracka.Clear();
 			
-			// clear the vectors and loop to the next track
-			digitidsinatrack.clear();
-			tubeidsinatrack.clear();
-			digitqsinatrack.clear();
-			digittimesinatrack.clear();
-			particleidsinatrack.clear();
-			photontimesinatrack.clear();
+			// clear the vectors and loop to the next subevent
+			digitidsinasubevent.clear();
+			tubeidsinasubevent.clear();
+			digitqsinasubevent.clear();
+			digittimesinasubevent.clear();
+			particleidsinasubevent.clear();
+			photontimesinasubevent.clear();
 			digitnumtruephots.clear();
 			
 		}
 		
 		// quick scan to check for any unallocated hits
-		for(Int_t k=0;k<tracknumthisevent.size();k++){
-			if(tracknumthisevent.at(k)==-1){cout<<"*****unbinned hit!"<<k<<" "<<mrddigittimesthisevent.at(k)<<endl;}
+		for(Int_t k=0;k<subeventnumthisevent.size();k++){
+			if(subeventnumthisevent.at(k)==-1){cout<<"*****unbinned hit!"<<k<<" "<<mrddigittimesthisevent.at(k)<<endl;}
 		}
 		
-		nummrdtracksthisevent=trackhittimesv.size();
+		nummrdsubeventsthisevent=mrdeventcounter;
+		nummrdtracksthisevent=mrdtrackcounter;
+		nummrdsubeventsthiseventb->Fill();
 		nummrdtracksthiseventb->Fill();
+		subeventsinthiseventb->Fill();
 		tracksinthiseventb->Fill();
 		//recotree->Fill();
 		
-	}	// end multiple tracks case
+	}	// end multiple subevents case
+	
+	//if(eventnum==735){ assert(false); }
+	//if(nummrdtracksthisevent) std::this_thread::sleep_for (std::chrono::seconds(5));
 	
 	// WRITE+CLOSE OUTPUT FILES
 	// ========================
