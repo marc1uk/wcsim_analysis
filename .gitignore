@@ -1,0 +1,27 @@
+#ignore build results
+in/
+in_unused/
+out/
+
+#ignore gedit backups
+*~
+
+#ignore build products
+*.d
+*.o
+
+#ignore images
+*.png
+*.pdf
+
+#ignore files that are specific to the location you're building in
+*.pcm
+*.so
+
+#ignore output files i guess
+*.root
+
+# files to ignore
+geniefilestuff
+todo notes
+

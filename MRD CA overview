@@ -1,0 +1,44 @@
+0. merge two halves of detector so each view is complete
+1. define a cluster, by an id and it's position. 
+2. define a cell as an object containing an ID, a line-vector(?) (pair of cluster IDs?) that joins two clusters, an integer state (initialised to 0), and a vector of neighbor cell ids.
+3. find large clusters. where there are multiple hits in adjacent paddles within the same layer, these combine into a single cluster.
+4. make any remaining non-grouped hits their own cluster.
+5. generate a std::vector(?) all the possible cells 
+  a. for each layer
+  b.   loop over all clusters in the layer, and generate a cell between it and every cluster in the previous, and next, layers. 
+  c.   loop over all clusters in the layer again, this time generating a cell between it and every cluster in the previous previous, and next next, layers, provided there is not an intermediate cell. (??)
+     (do we place a restriction on how far separated the two cells should be? 
+      can we use this as an easier way to demonstrate 'intermediate' cells - 
+      i.e. if there is a cell in a layer between this one and the origin layer, 
+      connecting the cluster to a cluster with an offset... half.. this one? only if perfectly half and it's 2 offset in second layer (perfectly aligned cells)
+  d. possibly repeat for previous x3 and next x3? 
+      again omitting cells which are perfectly aligned?
+      how do we handle other view cells?
+     how many layers will we allow to be skipped?
+6. fill the neighborhood for each cell. the neighbors are defined considering a pair of cells:
+  0. if the two cells are not already neighbors
+  a. the two cells have a shared cluster (there will be two end clusters and a shared middle)
+  b. if the x^2 of a linear fit through all 3 cluster centres, with errors defined by paddle boundaries, is less than 1.5(?) 
+  -> then the cells are each neighbors of the other. Add each to the other.
+7. now the automation: loop over iterations
+  a. for each iteration, if any of the the upstream neighborhood cells have the same state as this cell, then increment this cell's state number
+  b. repeat if there is any cell with a neighbor that has the same state number.
+  
+8. cells with a state of >0 and no neighbors with larger state values are defined as the downstream track ends.
+9. from these cells they are combined with each upstream neighbor in turn until the cell with state value 0. this combination is the track. 
+
+
+
+	Double_t meanx=0.;
+	Double_t sumsqx=0.;
+	for(int i=0; i<numdatapoints; i++){ meanx += datapointxs[i]; sumsqx += (datapointxs[i])^2; }
+	meanx /= numdatapoints;
+	Double_t meany=0.;
+	Double_t sumsqy=0.
+	for(int i=0; i<numdatapoints; i++){ meany+=datapointys[i]; sumsqy += (datapointys[i])^2; }
+	meany /= numdatapoints;
+	Double_t ssx = sumsqx - (numdatapoints*(meanx^2));
+	Double_t ssy = sumsqy - (numdatapoints*(meany^2));
+	Double_t variancex = ssx/numdatapoints; 	// 'variance' = sigma^2
+	Double_t variancey = ssy/numdatapoints;
+
