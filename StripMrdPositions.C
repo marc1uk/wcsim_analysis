@@ -4,15 +4,20 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include "TSystem.h"
 using namespace std;
 //.x /annie/app/users/moflaher/wcsim/root_work/RegexTest.C+	<< standalone call
 
 int mrdcluster::StripMrdPositions(std::string fname="/annie/app/users/moflaher/wcsim/root_work/MRD_positions_raw"){
 	
+	TString pwd = gSystem->Getenv("PWD");
+	TString rawfilename = pwd + "/MRD_positions_raw";
+	
 	// input file reading infrastructure
-	std::ifstream input_file(fname);
+	//std::ifstream input_file(fname);
+	std::ifstream input_file(rawfilename);
 		if ( input_file.fail() ) {
-		cerr << "File open error!" << endl;
+		cerr << "Failed to open file " << rawfilename << "!" << endl;
 		exit(-1);
 	}
 	char linebuffer[256];
