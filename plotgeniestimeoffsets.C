@@ -106,7 +106,7 @@ leg->AddEntry(protons,"protons","l");
 leg->AddEntry(nucleons,"nucleons","l");
 leg->Draw();*/
 
-/*
+
 TCanvas* c1 = new TCanvas("c1","c1");
 c1->cd();
 c1->SetLogy();
@@ -123,7 +123,7 @@ TCanvas* c4 = new TCanvas("c4","c4");
 c4->cd();
 c4->SetLogy();
 secondaryranges->Draw();
-*/
+
 
 //TCanvas* c5 = new TCanvas("c5","c5");
 //c5->cd();
