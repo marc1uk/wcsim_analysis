@@ -20,6 +20,7 @@ out/
 
 #ignore output files i guess
 *.root
+TruthHistos.root
 
 # files to ignore
 geniefilestuff

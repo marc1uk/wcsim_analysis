@@ -1,10 +1,13 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 
-#ifndef PLOTVERBOSE
-#define PLOTVERBOSE
+#ifndef VERBOSE
+#define VERBOSE
 #endif
 #ifndef WCSIMDEBUG
 //#define WCSIMDEBUG
+#endif
+#ifndef MUTRACKDEBUG
+//#define MUTRACKDEBUG 1
 #endif
 #include "TROOT.h"
 #include "TSystem.h"
@@ -22,7 +25,12 @@
 #include "TCanvas.h"
 #include "TString.h"
 #include "TMath.h"
+#include "Math/Vector3D.h"
+#include "Math/Vector4D.h"
 #include "TLorentzVector.h"
+#ifdef __MAKECINT__
+#pragma link C++ class std::vector<TLorentzVector>+;
+#endif
 #include "TLegend.h"
 #include "TText.h"
 #include <regex>
@@ -34,7 +42,8 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream> 		//std::ofstream
-#include <stdlib.h> /* atoi */
+#include <stdlib.h> 	/* atoi */
+#include <valarray>
 
 // we need to #include all the WCSim headers.
 #include "WCSimRootEvent.hh"
@@ -88,6 +97,9 @@ const Float_t tank_yoffset = -14.46;        // tank y offset in cm
 tankouterRadius= 1.524*m;
 tankzoffset = 15.70*cm;
 */
+const Float_t fidcutradius=tank_radius*0.8;			// fiducial volume is slightly lesss than the full tank radius
+const Float_t fidcuty=50.;						// a meter total fiducial volume in the centre y
+const Float_t fidcutz=tank_start+tank_radius;	// fidcuial volume is before the tank centre.
 
 const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt";
 const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
@@ -154,8 +166,13 @@ void truthtracks(){
 	Double_t totalpots=0;					// count of POTs in all processed files
 	Double_t numneutrinoeventsintank=0.;
 	Double_t numQEneutrinoeventsintank=0.;
+	Double_t numQEneutrinoeventsinfidvol=0.;
+	Double_t numQEneutrinoeventsinfidvolmrd=0.;
 	Double_t nummuontracksintank=0.;
+	Double_t nummuontracksinfidvol=0.;
 	Double_t nummuontracksintankpassedcut=0.;
+	Double_t nummuontracksinmrd=0.;
+	Double_t nummuontracksinfidvolmrd=0.;
 	
 	// gtree
 	cout<<"creating new genie::NtpMCEventRecord"<<endl;
@@ -167,17 +184,22 @@ void truthtracks(){
 	TBranch* bp=0, *mp=0, *vp=0;
 	WCSimRootTrigger* atrigt=0, *atrigm=0, *atrigv=0;
 	
+	// geoT
+	WCSimRootGeom* geo = 0; 
+	
 	// information from genie:
 	//gROOT->cd();
 	TFile* histofileout = new TFile("TruthHistos.root","RECREATE");
-	TH1D* incidentneutrinoenergiesall = new TH1D("incidentneutrinoenergiesall","Distribution of Probe Neutrino Energies:Energy (GeV):Num Events",100,0,0.);
-	TH1D* incidentneutrinoenergiesaccepted = new TH1D("incidentneutrinoenergiesaccepted","Distribution of Accepted Probe Neutrino Energies:Energy (GeV):Num Events",100,0,0.);
-	TH1D* fslanglesall = new TH1D("fslanglesall","Distribution of Final State Lepton Angles:Angle (rads):Num Events",100,0.,TMath::Pi());
-	TH1D* fslenergiesall = new TH1D("fslenergiesall","Distribution of Final State Lepton Energies (GeV):Energy (GeV):Num Events",100,0.,3.);
-	TH1D* fslanglesaccepted = new TH1D("fslanglesaccepted","Distribution of Accepted Final State Lepton Angles:Angle (rads):Num Events",100,0.,TMath::Pi());
-	TH1D* fslenergiesaccepted = new TH1D("fslenergiesaccepted","Distribution of Accepted Final State Lepton Energies (GeV):Energy (GeV):Num Events",100,0.,3.);
-	TH1D* eventq2all = new TH1D("eventq2all","Distribution of Event Q^2 Values:Q^2 (GeV/c)^2:Num Events",100,0.,3.);
-	TH1D* eventq2accepted = new TH1D("eventq2accepted","Distribution of Accepted Event Q^2 Values:Q^2 (GeV/c)^2:Num Events",100,0.,3.);
+	
+	// genie histograms
+	TH1D* incidentneutrinoenergiesall = new TH1D("incidentneutrinoenergiesall","Distribution of Probe Neutrino Energies;Energy (GeV);Num Events",100,0,0.);
+	TH1D* incidentneutrinoenergiesaccepted = new TH1D("incidentneutrinoenergiesaccepted","Distribution of Accepted Probe Neutrino Energies;Energy (GeV);Num Events",100,0,0.);
+	TH1D* fslanglesall = new TH1D("fslanglesall","Distribution of Final State Lepton Angles;Angle (rads);Num Events",100,0.,TMath::Pi());
+	TH1D* fslanglesaccepted = new TH1D("fslanglesaccepted","Distribution of Accepted Final State Lepton Angles;Angle (rads);Num Events",100,0.,TMath::Pi());
+	TH1D* fslenergiesall = new TH1D("fslenergiesall","Distribution of Final State Lepton Energies;Energy (GeV);Num Events",100,0.,3.);
+	TH1D* fslenergiesaccepted = new TH1D("fslenergiesaccepted","Distribution of Accepted Final State Lepton Energies;Energy (GeV);Num Events",100,0.,3.);
+	TH1D* eventq2all = new TH1D("eventq2all","Distribution of Event Q^2 Values;Q^2 (GeV/c)^2;Num Events",100,0.,3.);
+	TH1D* eventq2accepted = new TH1D("eventq2accepted","Distribution of Accepted Event Q^2 Values;Q^2 (GeV/c)^2;Num Events",100,0.,3.);
 	
 	TH3D* neutrinovertex = new TH3D("neutrinovertex","Distribution of Neutrino Vertices in the tank",100,-tank_radius,tank_radius,100,tank_start,tank_start+(tank_radius*2),100,-tank_halfheight,tank_halfheight);
 	TH3D* neutrinovertexQE = new TH3D("neutrinovertexQE","Distribution of QE Neutrino Vertices in the tank",100,-tank_radius,tank_radius,100,tank_start,tank_start+(tank_radius*2),100,-tank_halfheight,tank_halfheight);
@@ -186,11 +208,35 @@ void truthtracks(){
 //	TH3D* neutronstopvertexaccepted = new TH3D("neutronstopvertexaccepted","Distribution of Primary Neutron Stopping Vertices With an Accepted MRD Track",100,-tank_radius,tank_radius,100,tank_start,tank_start+(tank_radius*2),100,-tank_halfheight,tank_halfheight);
 	
 	// information from WCSim: 
-	TH1D* fslanglesacceptedwcsim = new TH1D("fslanglesacceptedwcsim","Distribution of Accepted Final State Lepton Angles:Angle (rads):Num Events",100,0.,TMath::Pi());
-	TH1D* fslenergiesacceptedwcsim = new TH1D("fslenergiesacceptedwcsim","Distribution of Accepted Final State Lepton Energies (GeV):Energy (GeV):Num Events",100,0.,3.);
-	TH1D* eventq2acceptedwcsim = new TH1D("eventq2acceptedwcsim","Distribution of Accepted Event Q^2 Values:Q^2 (GeV/c)^2:Num Events",100,0.,3.);
-	TH1D* muedepositionswcsim = new TH1D("muedepositionswcsim","Distribution of Muon Energy Depositions In Tank:Energy (PMT Q):Num Events",100,0.,1);
-	TH1D* muedepositionsacceptedwcsim = new TH1D("muedepositionsacceptedwcsim","Distribution of Muon Energy Depositions In Tank, with MRD Selection:Energy (PMT Q):Num Events",100,0.,100);
+	TH1D* incidentneutrinoenergiesacceptedwcsim = new TH1D("incidentneutrinoenergiesacceptedwcsim","Distribution of Probe Neutrino Energies;Energy (GeV);Num Events",100,0,0.);
+	TH1D* fslanglesacceptedwcsim = new TH1D("fslanglesacceptedwcsim","Distribution of Accepted Final State Lepton Angles;Angle (rads);Num Events",100,0.,TMath::Pi());
+	TH1D* fslenergiesacceptedwcsim = new TH1D("fslenergiesacceptedwcsim","Distribution of Accepted Final State Lepton Energies;Energy (GeV);Num Events",100,0.,3.);
+	TH1D* eventq2acceptedwcsim = new TH1D("eventq2acceptedwcsim","Distribution of Accepted Event Q^2 Values;Q^2 (GeV/c)^2;Num Events",100,0.,3.);
+	
+	// separate one for wcsim, from digit integration
+	TH1D* muedepositionswcsim = new TH1D("muedepositionswcsim","Distribution of Muon Energy Depositions In Tank ;Energy (PMT Q);Num Events",100,0.,1);
+	TH1D* muedepositionsfidcut = new TH1D("muedepositionsfidcut","Distribution of Muon Energy Depositions In Tank (Fiducial);Energy (PMT Q);Num Events",100,0.,1);
+	
+	// Fiducial cut versions
+	// genie ones
+	TH1D* incidentneutrinoenergiesallfidcut = new TH1D("incidentneutrinoenergiesallfidcut","Distribution of Probe Neutrino Energies Fiducial;Energy (GeV);Num Events",100,0,0.);
+	TH1D* incidentneutrinoenergiesacceptedfidcut = new TH1D("incidentneutrinoenergiesacceptedfidcut","Distribution of Accepted Probe Neutrino Energies;Energy (GeV);Num Events",100,0,0.);
+	TH1D* fslanglesallfidcut = new TH1D("fslanglesallfidcut","Distribution of Accepted Final State Lepton Angles;Angle (rads);Num Events",100,0.,TMath::Pi());
+	TH1D* fslanglesacceptedfidcut = new TH1D("fslanglesacceptedfidcut","Distribution of Accepted Final State Lepton Angles;Angle (rads);Num Events",100,0.,TMath::Pi());
+	TH1D* fslenergiesallfidcut = new TH1D("fslenergiesallfidcut","Distribution of Accepted Final State Lepton Energies;Energy (GeV);Num Events",100,0.,3.);
+	TH1D* fslenergiesacceptedfidcut = new TH1D("fslenergiesacceptedfidcut","Distribution of Accepted Final State Lepton Energies;Energy (GeV);Num Events",100,0.,3.);
+	TH1D* eventq2allfidcut = new TH1D("eventq2allfidcut","Distribution of Accepted Event Q^2 Values;Q^2 (GeV/c)^2;Num Events",100,0.,3.);
+	TH1D* eventq2acceptedfidcut = new TH1D("eventq2acceptedfidcut","Distribution of Accepted Event Q^2 Values;Q^2 (GeV/c)^2;Num Events",100,0.,3.);
+	
+	// with reconstructed values
+	TH1D* incidentneutrinoenergiesacceptedwcsimfidcut = new TH1D("incidentneutrinoenergiesacceptedwcsimfidcut","Distribution of Accepted Probe Neutrino Energies;Energy (GeV);Num Events",100,0,0.);
+	TH1D* fslanglesacceptedwcsimfidcut = new TH1D("fslanglesacceptedwcsimfidcut","Distribution of Accepted Final State Lepton Angles;Angle (rads);Num Events",100,0.,TMath::Pi());
+	TH1D* fslenergiesacceptedwcsimfidcut = new TH1D("fslenergiesacceptedwcsimfidcut","Distribution of Accepted Final State Lepton Energies;Energy (GeV);Num Events",100,0.,3.);
+	TH1D* eventq2acceptedwcsimfidcut = new TH1D("eventq2acceptedwcsimfidcut","Distribution of Accepted Event Q^2 Values;Q^2 (GeV/c)^2;Num Events",100,0.,3.);
+	
+	
+	// yet to work due to all parents being 0.
+	TH1D* muedepositionsacceptedwcsim = new TH1D("muedepositionsacceptedwcsim","Distribution of Muon Energy Depositions In Tank, with MRD Selection;Energy (PMT Q);Num Events",100,0.,100);
 	
 //	// debugging:
 	TH1D* fsltruetracklength = new TH1D("fsltruetracklength", "Distribution of True Track Lengths", 100, 0., 1500.);
@@ -203,6 +249,51 @@ void truthtracks(){
 	TH3D* vetostopvertices = new TH3D("vetostopvertices", "Distribution of Veto Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
 	TH3D* mrdstopvertices = new TH3D("mrdstopvertices", "Distribution of MRD Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
 #endif
+	
+	// create the file for outputting true vertices and digits for tank reconstruction efforts
+	TFile* flateventfileout = new TFile("trueQEvertexinfo.root", "RECREATE");
+	flateventfileout->cd();
+	TLorentzVector filemuonstartvertex(0.,0.,0.,0.);
+	TLorentzVector filemuonstopvertex(0.,0.,0.,0.);
+	TVector3 filemuondirectionvector(0.,0.,0.);
+	std::vector<ROOT::Math::XYZTVector>  filedigitvertices;
+	std::vector<ROOT::Math::XYZTVector>* filedigitverticesp = &filedigitvertices;
+//	std::vector<TLorentzVector> filedigitvertices;
+//	std::vector<TLorentzVector>* filedigitverticesp = &filedigitvertices;
+	std::vector<Double_t> filedigitQs;
+	std::vector<Double_t>* filedigitQsp = &filedigitQs;
+	TTree* vertextreenocuts = new TTree("vertextreenocuts","All True Tank QE Events");
+	TBranch* MuonStartBranch = vertextreenocuts->Branch("MuonStartVertex",&filemuonstartvertex);
+	TBranch* MuonStopBranch = vertextreenocuts->Branch("MuonStopVertex", &filemuonstopvertex);
+	TBranch* MuonDirectionBranch = vertextreenocuts->Branch("MuonDirection", &filemuondirectionvector);
+	TBranch* DigitVertexBranch = vertextreenocuts->Branch("DigitVertices", "std::vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &filedigitverticesp);
+//	TBranch* DigitVertexBranch = vertextreenocuts->Branch("DigitVertices", "std::vector<TLorentzVector>", &filedigitverticesp);
+	TBranch* DigitChargeBranch = vertextreenocuts->Branch("DigitCharges", &filedigitQsp);
+	if(MuonStartBranch==0||MuonStopBranch==0||MuonDirectionBranch==0||DigitVertexBranch==0||DigitChargeBranch==0){ 
+		cerr<<"branches are zombies argh!"<<endl; 
+		cout<<"MuonStartBranch="<<MuonStartBranch<<endl
+			<<"MuonStopBranch="<<MuonStopBranch<<endl
+			<<"MuonDirectionBranch="<<MuonDirectionBranch<<endl
+			<<"DigitVertexBranch="<<DigitVertexBranch<<endl
+			<<"DigitChargeBranch="<<DigitChargeBranch<<endl;
+		assert(false&&"branches are zombies argh!");
+	}
+	
+	TTree* vertextreefiducialcut = new TTree("vertextreefiducialcut","True Tank QE Events in Fiducial Volume");
+	TBranch* MuonStartBranchFid = vertextreefiducialcut->Branch("MuonStartVertex",&filemuonstartvertex);
+	TBranch* MuonStopBranchFid = vertextreefiducialcut->Branch("MuonStopVertex", &filemuonstopvertex);
+	TBranch* MuonDirectionBranchFid = vertextreefiducialcut->Branch("MuonDirection", &filemuondirectionvector);
+	TBranch* DigitVertexBranchFid = vertextreefiducialcut->Branch("DigitVertices", "std::vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &filedigitverticesp);
+//	TBranch* DigitVertexBranchFid = vertextreefiducialcut->Branch("DigitVertices", "std::vector<TLorentzVector>", &filedigitverticesp);
+	TBranch* DigitChargeBranchFid = vertextreefiducialcut->Branch("DigitCharges", &filedigitQsp);
+	
+	TTree* vertextreefiducialmrd = new TTree("vertextreefiducialmrd","True Tank QE Events in Fiducial Volume With Muon in MRD");
+	TBranch* MuonStartBranchFidMRD = vertextreefiducialmrd->Branch("MuonStartVertex",&filemuonstartvertex);
+	TBranch* MuonStopBranchFidMRD = vertextreefiducialmrd->Branch("MuonStopVertex", &filemuonstopvertex);
+	TBranch* MuonDirectionBranchFidMRD = vertextreefiducialmrd->Branch("MuonDirection", &filemuondirectionvector);
+	TBranch* DigitVertexBranchFidMRD = vertextreefiducialmrd->Branch("DigitVertices", "std::vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &filedigitverticesp);
+//	TBranch* DigitVertexBranchFidMRD = vertextreefiducialmrd->Branch("DigitVertices", "std::vector<TLorentzVector>", &filedigitverticesp);
+	TBranch* DigitChargeBranchFidMRD = vertextreefiducialmrd->Branch("DigitCharges", &filedigitQsp);
 	
 	gROOT->cd();
 	cout<<"loading first tankflux tree from "<<chainpattern<<" tchain"<<endl;
@@ -225,7 +316,7 @@ void truthtracks(){
 //	numents=10000;
 	for(Int_t inputEntry=0; inputEntry<numents; inputEntry++){
 		/* 	1. Load next g4dirt entry */ 
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 		cout<<"loading entry "<<inputEntry<<endl;
 #endif
 		Long64_t localEntry = c->LoadTree(inputEntry);
@@ -283,6 +374,15 @@ void truthtracks(){
 				inputEntry += thistreesentries;	// skip the loop iterator forward by all the entries in this file
 				continue; 
 			}
+			// load the geometry tree and grab the geometry if we haven't already
+			if(geo==0){
+				TTree* geotree = (TTree*)wcsimfile->Get("wcsimGeoT");
+				if(geotree==0){ cout<<"NO GEOMETRY IN FIRST FILE?"<<endl; assert(false); }
+				geotree->SetBranchAddress("wcsimrootgeom", &geo);
+				if (geotree->GetEntries() == 0) { cout<<"geotree has no entries!"<<endl; exit(9); }
+				geotree->GetEntry(0);
+			}
+			// load the next set of wcsim event info
 			wcsimT = (TTree*)wcsimfile->Get("wcsimT");
 			if(!wcsimT){cout<<"wcsimT doesn't exist!"<<endl; break; }
 			numwcsimentries = wcsimT->GetEntries();
@@ -326,7 +426,7 @@ void truthtracks(){
 			
 			treeNumber=nextTreeNumber;
 		}
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 		cout<<"processing inputEntry "<<inputEntry<<", localEntry "<<localEntry
 		    <<"/"<<thistreesentries<<" in tree "<<treeNumber<<endl;
 #endif
@@ -348,7 +448,7 @@ void truthtracks(){
 		if(!primariesinthisentry){ continue; }	// dirt recorded particles weren't genie primaries
 		
 		/* 3. If so, load genie entry. */
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 		cout<<"getting genie info"<<endl;
 #endif
 		if(localEntry>numgenietentries){ cout<<"can't load localEntry "<<localEntry
@@ -370,7 +470,7 @@ void truthtracks(){
 		Double_t genie_x = genieVtx->X() * 100.;         // same info as nuvtx in g4dirt file
 		Double_t genie_y = genieVtx->Y() * 100.;         // GENIE uses meters
 		Double_t genie_z = genieVtx->Z() * 100.;         // GENIE uses meters
-//		Double_t genie_t = genieVtx->T() * second;       // GENIE uses seconds for time
+		Double_t genie_t = genieVtx->T() * 1000000000;   // GENIE uses seconds for time
 		
 		// neutrino information:
 		Double_t probeenergy = genieint->InitState().ProbeE(genie::kRfLab);	// GeV
@@ -478,9 +578,10 @@ void truthtracks(){
 				<<endl;
 		}
 		
+		numneutrinoeventsintank++;
 		/* 4. Check if interaction is QE - if not, continue */
 		if (!(isQE && isWeakCC)){ continue; }
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 		cout<<"filling incident neutrino histograms"<<endl;
 #endif
 		incidentneutrinoenergiesall->Fill(probeenergy);
@@ -489,19 +590,23 @@ void truthtracks(){
 		fslenergiesall->Fill(fsleptonenergy);
 		eventq2all->Fill(Q2);
 		neutrinovertex->Fill(genie_x, genie_y, genie_z);
-		numneutrinoeventsintank++;
-		numQEneutrinoeventsintank++;
 		neutrinovertexQE->Fill(genie_x, genie_y, genie_z);
+		numQEneutrinoeventsintank++;
 		
 		/* 4.5 Do fiducial volume cut: */
+		if( (TMath::Sqrt(TMath::Power(genie_x,2)+TMath::Power(genie_z,2)) < fidcutradius) && 
+			(TMath::Abs(genie_y-tank_yoffset) < fidcuty) && 
+			(TMath::Abs(genie_z-tank_start-tank_radius) < fidcutz) ){
+			incidentneutrinoenergiesallfidcut->Fill(probeenergy);
+			fslanglesallfidcut->Fill(fslanglegenie);
+			fslenergiesallfidcut->Fill(fsleptonenergy);
+			eventq2allfidcut->Fill(Q2);
+			numQEneutrinoeventsinfidvol++;
+		}
 		
-		/* 4.7 energy cut */
-		// require minimum npmts hit and total charge hit ... from n capture?
-		// fiducial cut of where neutron capture was: at top of cap
-		
-		/*5. If so, load wcsim detector response. */
+		/*5. primary neutrino true QE vertex in the tank: load wcsim detector response. */
 		// read only first subtrigger; delayed decay detector response is not interesting for primary FSL tracks
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 		cout<<"getting wcsim entry"<<endl;
 #endif
 		if(localEntry>numwcsimentries){ cout<<"can't load localEntry "<<localEntry
@@ -512,18 +617,20 @@ void truthtracks(){
 		atrigv = v->GetTrigger(0);
 		
 		Int_t numtracks = atrigt->GetNtrack();
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 		cout<<"wcsim event had "<<numtracks<<" truth tracks"<<endl;
 #endif
 		
+		std::vector<Float_t> neutrinoenergiesvector;
 		std::vector<Float_t> primaryenergiesvector;
 		std::vector<Double_t> scatteringanglesvector;
 		std::vector<Int_t> acceptedtrackids;
 		std::vector<Double_t> q2vector;
 		std::vector<Double_t> muonenergydepositions;
 		
-		// TODO before we search for muons that pass through the MRD, let's scan for neutron captures
+		/* yet TODO - scan for neutron captures here? */
 		
+		// now scan through the truth tracks, find the primary muon and save the wcsim info from it
 		for(int track=0; track<numtracks; track++){
 			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(track);
 			/* a WCSimRootTrack has methods: 
@@ -551,7 +658,7 @@ void truthtracks(){
 			
 			// is it a (anti)muon?
 			Int_t primarypdg = nextrack->GetIpnu();
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 			cout<<"primarypdg is "<<primarypdg<<endl;
 #endif
 			if(TMath::Abs(primarypdg)!=13) continue; 		// not a muon
@@ -567,7 +674,7 @@ void truthtracks(){
 				primarystartvol = 10;						// start depth is tank
 			}
 			
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 			cout<<"primarystartvol is "<<primarystartvol<<endl;
 #endif
 			if(primarystartvol!=10) continue;				// start volume is not the tank
@@ -582,12 +689,12 @@ void truthtracks(){
 			} else {
 				primarystopvol = 10;						// start depth is tank
 			}
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 			cout<<"primarystopvol is "<<primarystopvol<<endl;
 #endif
 			
-			TVector3 primarystartvertex(nextrack->GetStart(0),nextrack->GetStart(1),nextrack->GetStart(2));
-			TVector3 primarystopvertex(nextrack->GetStop(0), nextrack->GetStop(1), nextrack->GetStop(2));
+			TLorentzVector primarystartvertex(nextrack->GetStart(0),nextrack->GetStart(1),nextrack->GetStart(2), genie_t);
+			TLorentzVector primarystopvertex(nextrack->GetStop(0), nextrack->GetStop(1), nextrack->GetStop(2), nextrack->GetTime());
 			
 			Float_t oppx = primarystopvertex.X() - primarystartvertex.X();
 			Float_t adj = primarystopvertex.Z() - primarystartvertex.Z();
@@ -595,14 +702,16 @@ void truthtracks(){
 			Float_t oppy = primarystopvertex.Y() - primarystartvertex.Y();
 			Float_t avgtrackangley = TMath::ATan(oppy/adj);
 			
-			TVector3 differencevector  = (primarystopvertex-primarystartvertex);
+			TVector3 differencevector  = (primarystopvertex.Vect()-primarystartvertex.Vect());
 			fsltruetracklength->Fill(differencevector.Mag());
 			// to calculate track length _in water_ find distance from start vertex to the point
 			// where it intercepts the tank. if this length > total track length, use total track length
 			// otherwise use this length. 
 			
 			// first find out the z value where the tank would leave the radius of the tank
+#ifdef MUTRACKDEBUG
 			cout<<"z0 = "<<genie_z-tank_start-tank_radius<<", x0 = "<<genie_x<<endl;
+#endif
 			Double_t xatziszero = (genie_x - (genie_z-tank_start-tank_radius)*TMath::Tan(avgtrackanglex));
 			Double_t firstterm = -TMath::Tan(avgtrackanglex)*xatziszero;
 			Double_t thirdterm = 1+TMath::Power(TMath::Tan(avgtrackanglex),2.);
@@ -620,7 +729,7 @@ void truthtracks(){
 			tankendpointz += tank_start+tank_radius;
 			// now check if the particle would have exited through one of the caps before reaching this radius
 			Double_t tankendpointy = genie_y + (tankendpointz-genie_z)*TMath::Tan(avgtrackangley);
-			
+#ifdef MUTRACKDEBUG
 			cout<<"avgtrackanglex="<<avgtrackanglex<<endl;
 			cout<<"avgtrackangley="<<avgtrackangley<<endl;
 			cout<<"xatziszero="<<xatziszero<<endl;
@@ -634,6 +743,7 @@ void truthtracks(){
 			cout<<"tankendpointz="<<tankendpointz<<endl;
 			cout<<"tankendpointx="<<tankendpointx<<endl;
 			cout<<"tankendpointy="<<tankendpointy<<endl;
+#endif
 			
 			if(TMath::Abs(tankendpointy-tank_yoffset)>(tank_halfheight)){
 				// this trajectory exits through the cap. Need to recalculate x, z exiting points...!
@@ -647,23 +757,27 @@ void truthtracks(){
 			} else {
 				// this trajectory exited the tank by a side point; existing value is valid
 			}
+			Double_t maxtanktracklength = 
+				TMath::Sqrt(TMath::Power(tank_radius*2.,2.)+TMath::Power(tank_halfheight*2.,2.));
+#ifdef MUTRACKDEBUG
 			cout<<"values after cap exit check"<<endl;
 			cout<<"tankendpointz="<<tankendpointz<<endl;
 			cout<<"tankendpointx="<<tankendpointx<<endl;
 			cout<<"tankendpointy="<<tankendpointy<<endl;
-			Double_t maxtanktracklength = 
-				TMath::Sqrt(TMath::Power(tank_radius*2.,2.)+TMath::Power(tank_halfheight*2.,2.));
 			cout<<"max tank track length is "<<maxtanktracklength<<endl;
+#endif
 			
 			// we're now able to determine muon track length in the tank:
 			Double_t mutracklengthintank = TMath::Sqrt(
 				TMath::Power((tankendpointx-genie_x),2)+
 				TMath::Power((tankendpointy-genie_y),2)+
 				TMath::Power((tankendpointz-genie_z),2) );
+#ifdef MUTRACKDEBUG
 			cout<<"muon tank track length: ("<<(tankendpointx-genie_x)<<", "<<(tankendpointy-genie_y)<<", "
 				<<(tankendpointz-genie_z)<<") = "<<mutracklengthintank<<"cm total"<<endl;
 			cout<<"muon tank exit point: ("<<tankendpointx<<", "<<tankendpointy<<", "<<tankendpointz<<") ";
 			cout<<"muon start point : ("<<genie_x<<", "<<genie_y<<", "<<genie_z<<")"<<endl;
+#endif
 			if(mutracklengthintank > maxtanktracklength){
 				cout<<"Track length is impossibly long!"<<endl;
 				assert(false);
@@ -672,8 +786,8 @@ void truthtracks(){
 				cout<<"NaN RESULT FROM MU TRACK LENGTH IN TANK?!"<<endl;
 				assert(false);
 			}
-			fsltruetracklengthintank->Fill(mutracklengthintank);
 			nummuontracksintank++;
+			fsltruetracklengthintank->Fill(mutracklengthintank);
 			if(mutracklengthintank>50){ nummuontracksintankpassedcut++; }
 			
 			///////////////////////////////////////////////////
@@ -681,18 +795,52 @@ void truthtracks(){
 			// Now how about calculating the energy detected by tank PMTs from this track?
 			// search for all digits, select those whose photons have this muon as their parent,
 			// and make a list of those digits and their Q. Then, sum the Q's. 
-			cout<<endl<<"calculating muon energy deposition, mu track id "<<nextrack->GetId()<<endl;
+			//cout<<endl<<"calculating muon energy deposition, mu track id "<<nextrack->GetId()<<endl;
 			std::vector<int> numphotsinthedigits;
 			std::vector<int> numphotsfromthemuoninthedigits;
 			std::vector<double> chargesinthedigits;
 			Int_t numdigitsthisevent = atrigt->GetCherenkovDigiHits()->GetEntries();
-			cout<<"this event has "<<numdigitsthisevent<<" digits"<<endl;
-/*
+			//cout<<"this event has "<<numdigitsthisevent<<" digits"<<endl;
+
+			filedigitvertices.clear();
+			filedigitQs.clear();
 			for(Int_t i=0; i<numdigitsthisevent; i++){
 				// retrieve the digit information
-				// ============================
+				// ==============================
+				// 1. note all in a flat tree reconstruction dev
+				// 2. add up charges in digits whose parent photons are the primary muon, for muon tank Edep
 				WCSimRootCherenkovDigiHit* thedigihit = 
 					(WCSimRootCherenkovDigiHit*)atrigt->GetCherenkovDigiHits()->At(i);
+				double digitsq = thedigihit->GetQ();
+				/////////////////
+				// digit times not working; for now save one (or more) of the true hit times
+				/////////////////
+				//double digitst = thedigihit->GetT(); 
+				double digitst = 0.;
+				std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
+				std::vector<double> thetruetimes;
+				for(int truephoton=0; truephoton</*truephotonindices.size()*/1; truephoton++){
+					int thephotonsid = truephotonindices.at(truephoton);
+					WCSimRootCherenkovHitTime *thehittimeobject = 
+						(WCSimRootCherenkovHitTime*)atrigt->GetCherenkovHitTimes()->At(thephotonsid);
+					double ahittime = thehittimeobject->GetTruetime();
+					thetruetimes.push_back(ahittime);
+				}
+				std::valarray<double> truetimes2(&thetruetimes.front(), thetruetimes.size());
+				digitst = (truetimes2.sum())/(truetimes2.size());
+				/////////////////
+				Int_t digitstubeid = thedigihit->GetTubeId();
+				WCSimRootPMT pmt = geo->GetPMT(digitstubeid);
+				double digitsx = pmt.GetPosition(0);
+				double digitsy = pmt.GetPosition(1);
+				double digitsz = pmt.GetPosition(2);
+				//TLorentzVector* adigitvector = new TLorentzVector(digitsx,digitsy,digitsz,digitst);
+				ROOT::Math::XYZTVector adigitvector = ROOT::Math::XYZTVector(digitsx,digitsy,digitsz,digitst);
+				filedigitvertices.push_back(adigitvector);
+//				TLorentzVector adigitvector = TLorentzVector(digitsx,digitsy,digitsz,digitst);
+//				filedigitvertices.push_back(adigitvector);
+				filedigitQs.push_back(digitsq);
+/* - disabled, parents not saved for some reason!
 				// scan through the parents ID's for the photons contributing to this digit
 				// and see if any of them are this muon
 				std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
@@ -717,8 +865,29 @@ void truthtracks(){
 					numphotsfromthemuoninthedigits.push_back(numphotonsfromthismuon);
 					chargesinthedigits.push_back(thedigihit->GetQ());
 				}
-			}
 */
+			}
+			// Save vertex and digit information to a flat tree for reconstruction development
+			filemuonstartvertex = primarystartvertex;
+			filemuonstopvertex = primarystopvertex;
+			filemuondirectionvector = differencevector.Unit();
+		
+			MuonStartBranch->Fill();
+			MuonStopBranch->Fill();
+			MuonDirectionBranch->Fill();
+			DigitVertexBranch->Fill();
+			DigitChargeBranch->Fill();
+			if( (TMath::Sqrt(TMath::Power(genie_x,2)+TMath::Power(genie_z,2)) < fidcutradius) && 
+				(TMath::Abs(genie_y-tank_yoffset) < fidcuty) && 
+				(TMath::Abs(genie_z-tank_start-tank_radius) < fidcutz) ){
+					MuonStartBranchFid->Fill();
+					MuonStopBranchFid->Fill();
+					MuonDirectionBranchFid->Fill();
+					DigitVertexBranchFid->Fill();
+					DigitChargeBranchFid->Fill();
+					nummuontracksinfidvol++;
+			}
+			
 			// Now sum up the energy by adding the charges in the digits, scaled by photonic contribution
 			Double_t energydepositionofmuon=0.;
 			for(int idigit=0; idigit<chargesinthedigits.size(); idigit++){
@@ -808,13 +977,15 @@ void truthtracks(){
 			// and can break once it is found, but... let's just see. Keep wcsim trackID in case.
 			Int_t primarytrackid = nextrack->GetId();
 			
-#ifdef PLOTVERBOSE
+#ifdef VERBOSE
 			cout<<"found a suitable primary track"<<endl;
 #endif
+			neutrinoenergiesvector.push_back(neutrinoenergyguess);
 			scatteringanglesvector.push_back(scatteringangle);
 			primaryenergiesvector.push_back(primaryenergy);
 			acceptedtrackids.push_back(primarytrackid);
 			q2vector.push_back(calculatedq2);
+			nummuontracksinmrd++;
 		}
 		
 		if(scatteringanglesvector.size()>1) {
@@ -830,27 +1001,54 @@ void truthtracks(){
 			
 			std::vector<Int_t>::iterator minit = std::min_element(acceptedtrackids.begin(), acceptedtrackids.end());		
 			Int_t indextouse = std::distance(acceptedtrackids.begin(),minit);
+			incidentneutrinoenergiesacceptedwcsim->Fill(neutrinoenergiesvector.at(indextouse));
 			fslanglesacceptedwcsim->Fill(scatteringanglesvector.at(indextouse));
 			fslenergiesacceptedwcsim->Fill(primaryenergiesvector.at(indextouse));
 			eventq2acceptedwcsim->Fill(q2vector.at(indextouse));
 			muedepositionsacceptedwcsim->Fill(muonenergydepositions.at(indextouse));
+			
+			// fiducial cut versions
+			if( (TMath::Sqrt(TMath::Power(genie_x,2)+TMath::Power(genie_z,2)) < fidcutradius) && 
+				(TMath::Abs(genie_y-tank_yoffset) < fidcuty) && 
+				(TMath::Abs(genie_z-tank_start-tank_radius) < fidcutz) ){
+				incidentneutrinoenergiesacceptedwcsimfidcut->Fill(neutrinoenergiesvector.at(indextouse));
+				fslanglesacceptedwcsimfidcut->Fill(scatteringanglesvector.at(indextouse));
+				fslenergiesacceptedwcsimfidcut->Fill(primaryenergiesvector.at(indextouse));
+				eventq2acceptedwcsimfidcut->Fill(q2vector.at(indextouse));
+			}
 		} else if (scatteringanglesvector.size()==1) { // just one matched wcsim track. 
+			incidentneutrinoenergiesacceptedwcsim->Fill(neutrinoenergiesvector.at(0));
 			fslanglesacceptedwcsim->Fill(scatteringanglesvector.at(0));
 			fslenergiesacceptedwcsim->Fill(primaryenergiesvector.at(0));
 			eventq2acceptedwcsim->Fill(q2vector.at(0));
 			muedepositionsacceptedwcsim->Fill(muonenergydepositions.at(0));
-			
+			// fiducial cut versions
+			if( (TMath::Sqrt(TMath::Power(genie_x,2)+TMath::Power(genie_z,2)) < fidcutradius) && 
+				(TMath::Abs(genie_y-tank_yoffset) < fidcuty) && 
+				(TMath::Abs(genie_z-tank_start-tank_radius) < fidcutz) ){
+				// fiducial cut versions
+				incidentneutrinoenergiesacceptedwcsimfidcut->Fill(neutrinoenergiesvector.at(0));
+				fslanglesacceptedwcsimfidcut->Fill(scatteringanglesvector.at(0));
+				fslenergiesacceptedwcsimfidcut->Fill(primaryenergiesvector.at(0));
+				eventq2acceptedwcsimfidcut->Fill(q2vector.at(0));
+			}
+#ifdef VERBOSE
 			cout<<"wcsim lepton angle = "<<scatteringanglesvector.at(0)<<endl;
 			cout<<"wcsim lepton energy = "<<primaryenergiesvector.at(0)<<endl;
 			cout<<"wcsim lepton trackid = "<<acceptedtrackids.at(0)<<endl;
 			cout<<"compare to:"<<endl;
 			cout<<"genie lepton angle = "<<fslanglegenie<<endl;
 			cout<<"genie lepton energy = "<<fsleptonenergy<<endl;
+#endif
 		} else {
+#ifdef VERBOSE
 			cout<<"no accepted wcsim track"<<endl;
+#endif
 		}
 		if(scatteringanglesvector.size()!=0){
+#ifdef VERBOSE
 			cout<<"MATCHED A TRACK YEEEEAH"<<endl; /*return;*/
+#endif
 			// by getting this far we've found a primary muon that penetrated the MRD.
 			// fill genie 'accepted' histograms.
 			incidentneutrinoenergiesaccepted->Fill(probeenergy);
@@ -859,8 +1057,34 @@ void truthtracks(){
 			fslenergiesaccepted->Fill(fsleptonenergy);
 			eventq2accepted->Fill(Q2);
 			neutrinovertexQEaccepted->Fill(genie_x, genie_y, genie_z);
+			// if it passes the fiducial cut, we've also accepted it, fill.
+			if( (TMath::Sqrt(TMath::Power(genie_x,2)+TMath::Power(genie_z,2)) < fidcutradius) && 
+				(TMath::Abs(genie_y-tank_yoffset) < fidcuty) && 
+				(TMath::Abs(genie_z-tank_start-tank_radius) < fidcutz) ){
+				// genie values
+				incidentneutrinoenergiesacceptedfidcut->Fill(probeenergy);
+				fslanglesacceptedfidcut->Fill(fslanglegenie);
+				fslenergiesacceptedfidcut->Fill(fsleptonenergy);
+				eventq2acceptedfidcut->Fill(Q2);
+				// fill flat tree for reconstruction dev
+				MuonStartBranchFidMRD->Fill();
+				MuonStopBranchFidMRD->Fill();
+				MuonDirectionBranchFidMRD->Fill();
+				DigitVertexBranchFidMRD->Fill();
+				DigitChargeBranchFidMRD->Fill();
+				numQEneutrinoeventsinfidvolmrd++;
+				nummuontracksinfidvolmrd+=scatteringanglesvector.size();
+			}
 		}
 		
+		vertextreenocuts->SetEntries(MuonStartBranch->GetEntries());
+		vertextreefiducialcut->SetEntries(MuonStartBranchFid->GetEntries());
+		vertextreefiducialmrd->SetEntries(MuonStartBranchFidMRD->GetEntries());
+		flateventfileout->Write("",TObject::kOverwrite);
+//		flateventfileout->cd();
+//		vertextreenocuts->Write();
+//		vertextreefiducialcut->Write();
+//		vertextreefiducialmrd->Write();
 	}
 	
 	cout<<"generating scaled histograms"<<endl;
@@ -868,7 +1092,14 @@ void truthtracks(){
 	Double_t numbeamspillsperday = (24.*60.*60.*1000.)/133.3333;	// 24 hours in ms / 133.33 ms between spills
 	Double_t numdays = numbeamspills/numbeamspillsperday;
 	cout<<"Results based on "<<totalpots<<" POTs, or "<<numbeamspills<<" beam spills, or "<<numdays<<" days of data"<<endl;
-	cout<<"This produced "<<numneutrinoeventsintank<<" neutrino interactions in the tank, of which "<<numQEneutrinoeventsintank<<" were true QE events"<<endl;
+	cout<<"There were "<<numneutrinoeventsintank<<" neutrino interactions in the tank, of which "<<numQEneutrinoeventsintank<<" were true QE events."<<endl;
+	cout<<"Of those, "<<numQEneutrinoeventsinfidvol<<"were within the fiducial volume."<<endl;
+	cout<<"Of those in turn, "<<numQEneutrinoeventsinfidvolmrd<<"produced an accepted MRD muon"<<endl;
+	cout<<"There were "<<nummuontracksintank<<" muons in the tank, of which "
+		<<nummuontracksinfidvol<<" were from events in the fiducial volume."<<endl;
+	cout<<"There were "<<nummuontracksinmrd<<" muons from tank events which passed through 3 MRD layers"
+		<<" of which "<<nummuontracksinfidvolmrd<<" originated from vertices in the fiducial volume"<<endl;
+	
 	
 	// TODO: neutrinovertex, neutrinovertexQE, neutrinovertexQEaccepted TH3D plots: save projections
 	
@@ -876,52 +1107,194 @@ void truthtracks(){
 	// create scaled histograms with bin contents scaled to the number of POTs in input files:
 	TH1D* incidentneutrinoenergiesallscaled = new TH1D(*incidentneutrinoenergiesall);
 	TH1D* incidentneutrinoenergiesacceptedscaled = new TH1D(*incidentneutrinoenergiesaccepted);
+	TH1D* incidentneutrinoenergiesacceptedwcsimscaled = new TH1D(*incidentneutrinoenergiesacceptedwcsim);
 	TH1D* fslanglesallscaled = new TH1D(*fslanglesall);
-	TH1D* fslenergiesallscaled = new TH1D(*fslenergiesall);
 	TH1D* fslanglesacceptedscaled = new TH1D(*fslanglesaccepted);
-	TH1D* fslenergiesacceptedscaled = new TH1D(*fslenergiesaccepted);
 	TH1D* fslanglesacceptedwcsimscaled = new TH1D(*fslanglesacceptedwcsim);
+	TH1D* fslenergiesallscaled = new TH1D(*fslenergiesall);
+	TH1D* fslenergiesacceptedscaled = new TH1D(*fslenergiesaccepted);
 	TH1D* fslenergiesacceptedwcsimscaled = new TH1D(*fslenergiesacceptedwcsim);
 	TH1D* eventq2allscaled = new TH1D(*eventq2all);
 	TH1D* eventq2acceptedscaled = new TH1D(*eventq2accepted);
 	TH1D* eventq2acceptedwcsimscaled = new TH1D(*eventq2acceptedwcsim);
 	
+	TH1D* incidentneutrinoenergiesallfidcutscaled = new TH1D(*incidentneutrinoenergiesallfidcut);
+	TH1D* incidentneutrinoenergiesacceptedfidcutscaled = new TH1D(*incidentneutrinoenergiesacceptedfidcut);
+	TH1D* incidentneutrinoenergiesacceptedwcsimfidcutscaled = new TH1D(*incidentneutrinoenergiesacceptedwcsimfidcut);
+	TH1D* fslanglesallfidcutscaled = new TH1D(*fslanglesallfidcut);
+	TH1D* fslanglesacceptedfidcutscaled = new TH1D(*fslanglesacceptedfidcut);
+	TH1D* fslanglesacceptedwcsimfidcutscaled = new TH1D(*fslanglesacceptedwcsimfidcut);
+	TH1D* fslenergiesallfidcutscaled = new TH1D(*fslenergiesallfidcut);
+	TH1D* fslenergiesacceptedfidcutscaled = new TH1D(*fslenergiesacceptedfidcut);
+	TH1D* fslenergiesacceptedwcsimfidcutscaled = new TH1D(*fslenergiesacceptedwcsimfidcut);
+	TH1D* eventq2allfidcutscaled = new TH1D(*eventq2allfidcut);
+	TH1D* eventq2acceptedfidcutscaled = new TH1D(*eventq2acceptedfidcut);
+	TH1D* eventq2acceptedwcsimfidcutscaled = new TH1D(*eventq2acceptedwcsimfidcut);
+	
 	//TODO: save histos to root file so they can be scaled arbitrarily without regenerating!
 	
-	TH1D* thehistopointersarr[]{
-	incidentneutrinoenergiesallscaled,
-	incidentneutrinoenergiesacceptedscaled,
-	fslanglesallscaled,
-	fslanglesacceptedscaled,
-	fslanglesacceptedwcsimscaled,
-	fslenergiesallscaled,
-	fslenergiesacceptedscaled,
-	fslenergiesacceptedwcsimscaled,
-	eventq2allscaled,
-	eventq2acceptedscaled,
-	eventq2acceptedwcsimscaled};
-	//TODO: modify size if you add more histograms!!!
-	std::vector<TH1D*> scaledhistopointers(thehistopointersarr,thehistopointersarr+11);
+	TH1D* placeholder=0;
 	
-	TH1D* thehistopointersarr2[]{
-	incidentneutrinoenergiesall,
-	incidentneutrinoenergiesaccepted,
-	fslanglesall,
-	fslanglesaccepted,
-	fslanglesacceptedwcsim,
-	fslenergiesall,
-	fslenergiesaccepted,
-	fslenergiesacceptedwcsim,
-	eventq2all,
-	eventq2accepted,
-	eventq2acceptedwcsim};
-	//TODO: modify size if you add more histograms!!!
-	std::vector<TH1D*> histopointers(thehistopointersarr2,thehistopointersarr2+11);
+	std::vector<TH1D*> scaledhistopointers {
+		incidentneutrinoenergiesallscaled,
+		incidentneutrinoenergiesacceptedscaled,
+		incidentneutrinoenergiesacceptedwcsimscaled,
+		fslanglesallscaled,
+		fslanglesacceptedscaled,
+		fslanglesacceptedwcsimscaled,
+		fslenergiesallscaled,
+		fslenergiesacceptedscaled,
+		fslenergiesacceptedwcsimscaled,
+		eventq2allscaled,
+		eventq2acceptedscaled,
+		eventq2acceptedwcsimscaled,
+		
+		incidentneutrinoenergiesallfidcutscaled,
+		incidentneutrinoenergiesacceptedfidcutscaled,
+		incidentneutrinoenergiesacceptedwcsimfidcutscaled,
+		fslanglesallfidcutscaled,
+		fslanglesacceptedfidcutscaled,
+		fslanglesacceptedwcsimfidcutscaled,
+		fslenergiesallfidcutscaled,
+		fslenergiesacceptedfidcutscaled,
+		fslenergiesacceptedwcsimfidcutscaled,
+		eventq2allfidcutscaled,
+		eventq2acceptedfidcutscaled,
+		eventq2acceptedwcsimfidcutscaled,
+		
+		incidentneutrinoenergiesallscaled,
+		incidentneutrinoenergiesallfidcutscaled,
+		placeholder,
+		fslanglesallscaled,
+		fslanglesallfidcutscaled,
+		placeholder,
+		fslenergiesallscaled,
+		fslenergiesallfidcutscaled,
+		placeholder,
+		eventq2allscaled,
+		eventq2allfidcutscaled,
+		placeholder,
+		
+		incidentneutrinoenergiesallscaled,
+		incidentneutrinoenergiesacceptedfidcutscaled,
+		placeholder,
+		fslanglesallscaled,
+		fslanglesacceptedfidcutscaled,
+		placeholder,
+		fslenergiesallscaled,
+		fslenergiesacceptedfidcutscaled,
+		placeholder,
+		eventq2allscaled, 
+		eventq2acceptedfidcutscaled,
+		placeholder
+	};
+	
+	std::vector<TH1D*> histopointers {
+		incidentneutrinoenergiesall,
+		incidentneutrinoenergiesaccepted,
+		incidentneutrinoenergiesacceptedwcsim,
+		fslanglesall,
+		fslanglesaccepted,
+		fslanglesacceptedwcsim,
+		fslenergiesall,
+		fslenergiesaccepted,
+		fslenergiesacceptedwcsim,
+		eventq2all,
+		eventq2accepted,
+		eventq2acceptedwcsim,
+		
+		incidentneutrinoenergiesallfidcut,
+		incidentneutrinoenergiesacceptedfidcut,
+		incidentneutrinoenergiesacceptedwcsimfidcut,
+		fslanglesallfidcut,
+		fslanglesacceptedfidcut,
+		fslanglesacceptedwcsimfidcut,
+		fslenergiesallfidcut,
+		fslenergiesacceptedfidcut,
+		fslenergiesacceptedwcsimfidcut,
+		eventq2allfidcut,
+		eventq2acceptedfidcut,
+		eventq2acceptedwcsimfidcut,
+		
+		incidentneutrinoenergiesall,
+		incidentneutrinoenergiesallfidcut,
+		placeholder,
+		fslanglesall,
+		fslanglesallfidcut,
+		placeholder,
+		fslenergiesall,
+		fslenergiesallfidcut,
+		placeholder,
+		eventq2all,
+		eventq2allfidcut,
+		placeholder,
+		
+		incidentneutrinoenergiesall,
+		incidentneutrinoenergiesacceptedfidcut,
+		placeholder,
+		fslanglesall,
+		fslanglesacceptedfidcut,
+		placeholder,
+		fslenergiesall,
+		fslenergiesacceptedfidcut,
+		placeholder,
+		eventq2all,
+		eventq2acceptedfidcut,
+		placeholder
+	};
+	
+	std::vector<std::string> legendstrings {
+		// first 4 graphs, 3 plots each, compare effect of MRD cut on all true tank QE events
+		"all incident",
+		"MRD cut (truth)",
+		"MRD cut (reco)",
+		"all incident",
+		"MRD cut (truth)",
+		"MRD cut (reco)",
+		"all incident",
+		"MRD cut (truth)",
+		"MRD cut (reco)",
+		"all incident",
+		"MRD cut (truth)",
+		"MRD cut (reco)",
+		// next 4 graphs, 3 plots each, compare effect of MRD cut on all true QE events within fiducial volume
+		"fiducial incident",
+		"fiducial w/ MRD cut (truth)",
+		"fiducial w/ MRD cut (reco)",
+		"fiducial incident",
+		"fiducial w/ MRD cut (truth)",
+		"fiducial w/ MRD cut (reco)",
+		"fiducial incident",
+		"fiducial w/ MRD cut (truth)",
+		"fiducial w/ MRD cut (reco)",
+		"fiducial incident",
+		"fiducial w/ MRD cut (truth)",
+		"fiducial w/ MRD cut (reco)",
+		// next 4 graphs, 2 plots each, compare effect of fiducial cut on true tank QE all events
+		"all incident", 
+		"fiducial incident",
+		"all incident", 
+		"fiducial incident",
+		"all incident", 
+		"fiducial incident",
+		"all incident", 
+		"fiducial incident",
+		// final 4 graphs, 2 plots each, compare effect of combined fiducial+MRD cuts on all true tank QE events
+		"all incident", 
+		"fiducial w/ MRD cut (truth)",
+		"all incident", 
+		"fiducial w/ MRD cut (truth)",
+		"all incident", 
+		"fiducial w/ MRD cut (truth)",
+		"all incident", 
+		"fiducial w/ MRD cut (truth)"
+	};
 	
 	Double_t norm = 1.;
 	for(int i=0; i<scaledhistopointers.size(); i++){
 		TH1D* temp = scaledhistopointers.at(i);
 		TH1D* temp2 = histopointers.at(i);
+		if(temp==0||temp2==0) continue;
 		TString thetitle = temp2->GetTitle();
 		cout<<thetitle<<" has "<<temp2->GetEntries()<<" entries"<<endl;
 //		for(int j=1; j<(temp->GetNbinsX()-2); j++){
@@ -934,6 +1307,7 @@ void truthtracks(){
 		TString tempname = temp2->GetName();
 		temp->SetName(TString::Format("%s_scaled",tempname.Data()));
 	}
+	
 	// draw the original histograms
 	// ============================
 //	Double_t win_width=500;
@@ -946,41 +1320,39 @@ void truthtracks(){
 	cout<<"drawing histograms"<<endl;
 	std::vector<TCanvas*> canvaspointers;
 	std::vector<TLegend*> legendpointers;
+	Int_t legendindex=0;
 	for(int i=0; i<histopointers.size(); i++){
 		TLegend* leg;
 		TCanvas* canv;
 		TH1D* hist = histopointers.at(i);
-		if(i==0){
+		if(hist==0) continue;
+		TH1D* upnext=0;
+		if((i+1)<histopointers.size()){
+			upnext = histopointers.at(i+1);
+		}
+		if(i%3==0){
 			canv = new TCanvas(TString::Format("c%d",i),TString::Format("c%d",i));
 			canvaspointers.push_back(canv);
 			canv->cd();
 			leg = new TLegend(0.5,0.78,0.7,0.88);
 			legendpointers.push_back(leg);
-			hist->SetLineColor(kRed);
-			leg->AddEntry(hist,"incident","l");
-			hist->Draw();
-		} else if(i==1){
-			hist->SetLineColor(kBlue);
-			leg->AddEntry(hist,"accepted (truth)","l");
-			hist->Draw("same");
-			leg->Draw();
-		} else if((i-2)%3==0){
-			canv = new TCanvas(TString::Format("c%d",i),TString::Format("c%d",i));
-			canvaspointers.push_back(canv);
-			canv->cd();
-			leg = new TLegend(0.5,0.78,0.7,0.88);
-			legendpointers.push_back(leg);
-			leg->AddEntry(hist,"incident","l");
+			leg->AddEntry(hist,legendstrings.at(legendindex).c_str(),"l");
+			legendindex++;
 			hist->SetLineColor(kRed);
 			hist->Draw();
-		} else if((i-2)%3==1){
+		} else if(i%3==1){
 			hist->SetLineColor(kBlue);
-			leg->AddEntry(hist,"accepted (truth)","l");
+			leg->AddEntry(hist,legendstrings.at(legendindex).c_str(),"l");
+			legendindex++;
 			hist->Draw("same");
+			if(upnext==0){
+				leg->Draw();
+			}
 		} else {
 			hist->SetLineColor(kViolet);
 			hist->SetLineStyle(2);
-			leg->AddEntry(hist,"accepted (reco)","l");
+			leg->AddEntry(hist,legendstrings.at(legendindex).c_str(),"l");
+			legendindex++;
 			hist->Draw("same");
 			leg->Draw();
 		}
@@ -990,47 +1362,40 @@ void truthtracks(){
 	// ==========================
 	std::vector<TCanvas*> scaledcanvaspointers;
 	std::vector<TLegend*> scaledlegendpointers;
+	legendindex=0;
 	for(int i=0; i<scaledhistopointers.size(); i++){
 		TLegend* leg;
 		TCanvas* canv;
 		TText* numentstitle;
 		TH1D* hist = scaledhistopointers.at(i);
-		TString statsstring="";
-		if(i==0){
+		if(hist==0) continue;
+		TH1D* upnext=0;
+		if((i+1)<scaledhistopointers.size()){
+			upnext = scaledhistopointers.at(i+1);
+		}
+		if(i%3==0){
 			canv = new TCanvas(TString::Format("cc%d",i),TString::Format("cc%d",i));
 			scaledcanvaspointers.push_back(canv);
 			canv->cd();
 			leg = new TLegend(0.5,0.78,0.7,0.88);
 			scaledlegendpointers.push_back(leg);
-			hist->SetLineColor(kRed);
-			leg->AddEntry(hist,"incident","l");
-			numentstitle = new TText(.32,.9,"placeholder");
-			statsstring = TString::Format("incident events: %d\n",(int)hist->GetEntries());
-			hist->Draw();
-		} else if(i==1){
-			hist->SetLineColor(kBlue);
-			leg->AddEntry(hist,"accepted (truth)","l");
-			hist->Draw("same");
-			leg->Draw();
-			statsstring += TString::Format("accepted events: %d",(int)hist->GetEntries());
-			numentstitle->SetTitle(statsstring.Data());
-		} else if((i-2)%3==0){
-			canv = new TCanvas(TString::Format("cc%d",i),TString::Format("cc%d",i));
-			scaledcanvaspointers.push_back(canv);
-			canv->cd();
-			leg = new TLegend(0.5,0.78,0.7,0.88);
-			scaledlegendpointers.push_back(leg);
-			leg->AddEntry(hist,"incident","l");
+			leg->AddEntry(hist,legendstrings.at(legendindex).c_str(),"l");
+			legendindex++;
 			hist->SetLineColor(kRed);
 			hist->Draw();
-		} else if((i-2)%3==1){
+		} else if(i%3==1){
 			hist->SetLineColor(kBlue);
-			leg->AddEntry(hist,"accepted (truth)","l");
+			leg->AddEntry(hist,legendstrings.at(legendindex).c_str(),"l");
+			legendindex++;
 			hist->Draw("same");
+			if(upnext==0){
+				leg->Draw();
+			}
 		} else {
 			hist->SetLineColor(kViolet);
 			hist->SetLineStyle(2);
-			leg->AddEntry(hist,"accepted (reco)","l");
+			leg->AddEntry(hist,legendstrings.at(legendindex).c_str(),"l");
+			legendindex++;
 			hist->Draw("same");
 			leg->Draw();
 		}
@@ -1167,19 +1532,25 @@ void truthtracks(){
 	histofileout->cd();
 	for(int i=0; i<histopointers.size(); i++){
 		TH1D* temp = histopointers.at(i);
-		temp->Write();
-		delete temp;
+		if(temp) temp->Write();
+		// some histograms are in the vector twice, so only delete it if it doesn't appear again
+		if(std::count((histopointers.begin()+i), histopointers.end(), histopointers.at(i))==0) delete temp;
 	}
 	
 	// delete scaled histograms
 	//cout<<"deleting scaled histograms"<<endl;
 	for(int i=0; i<scaledhistopointers.size(); i++){
 		TH1D* temp = scaledhistopointers.at(i);
-		temp->Write();
-		delete temp;
+		if(temp) temp->Write(); 
+		// some histograms are in the vector twice, so only delete it if it doesn't appear again
+		if(std::count((scaledhistopointers.begin()+i), scaledhistopointers.end(), scaledhistopointers.at(i))==0) delete temp;
 	}
 	cout<<"end"<<endl;
 	if(histofileout) histofileout->Close(); delete histofileout; histofileout=0;
+	
+	// delete flat file output
+	//cout<<"deleting flat file output"<<endl;
+	if(flateventfileout) flateventfileout->Close(); delete flateventfileout;
 }
 
 
