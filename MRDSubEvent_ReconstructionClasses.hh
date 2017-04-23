@@ -147,7 +147,7 @@ std::vector<Double_t> mrdcluster::paddle_originz(nummrdpmts);
 std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsx(nummrdpmts);
 std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsy(nummrdpmts);
 std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsz(nummrdpmts);
-int nothing = mrdcluster::StripMrdPositions(/*"/annie/app/users/moflaher/wcsim/root_work/MRD_positions_raw"*/);
+int nothing = mrdcluster::StripMrdPositions();
 
 // ===================================================================================================
 // 2. define a cell as an object containing an ID, a line-segment (pair of clusters), an integer state (initialised to 0), and a vector of neighbour cell ids.

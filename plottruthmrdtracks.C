@@ -69,6 +69,11 @@
 //ROOT_INCLUDE_PATH=${ROOT_INCLUDE_PATH}:${GENIE}/../include/GENIE
 //ROOT_LIBRARY_PATH=${ROOT_LIBRARY_PATH}:${GENIE}/../lib
 
+void MakePMTmap(WCSimRootGeom* geo, std::map<int, std::pair<int,int> > &topcappositionmap, std::map<int, std::pair<int,int> > &bottomcappositionmap, std::map<int, std::pair<int,int> > &wallpositionmap);
+#include "makepmtmaps_standalone.cxx"	// definition of this function
+
+void ColourPlotStyle();
+
 const Float_t MRD_width = (305./2.);      // half width of steel in cm
 const Float_t MRD_height = (274./2.);     // half height of steel in cm
 const Float_t MRD_layer2 = 290.755;       // position in wcsim coords of second scint layer in cm
@@ -89,6 +94,13 @@ const Float_t MRD_depth = 139.09;         // total depth of the MRD in cm
 ########## MRD scintillator layer 9  (V) at z=375.525 ##########
 ########## MRD scintillator layer 10 (H) at z=387.635 ########## */
 
+const Int_t numtankpmts=128+2*(26); // 26 pmts and lappds on each cap
+const Int_t nummrdpmts=307;
+const Int_t numvetopmts=26;
+const Int_t caparraysize=8;         // pmts on the cap form an nxn grid where caparraysize=n
+const Int_t pmtsperring=16;         // pmts around each ring of the main walls
+const Int_t numpmtrings=8;          // num rings around the main walls
+
 const Float_t tank_start = 15.70;          // front face of the tank in cm
 const Float_t tank_radius = 152.4;         // tank radius in cm
 const Float_t tank_halfheight = 198.;      // tank half height in cm
@@ -101,6 +113,11 @@ const Float_t fidcutradius=tank_radius*0.8;			// fiducial volume is slightly les
 const Float_t fidcuty=50.;						// a meter total fiducial volume in the centre y
 const Float_t fidcutz=tank_start+tank_radius;	// fidcuial volume is before the tank centre.
 
+// needed for drawing tank 2D map histograms
+std::map<int, std::pair<int,int> > topcappositionmap;
+std::map<int, std::pair<int,int> > bottomcappositionmap;
+std::map<int, std::pair<int,int> > wallpositionmap;
+
 const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt";
 const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
 const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim";
@@ -110,6 +127,8 @@ const char* outpath="/annie/app/users/moflaher/wcsim/root_work";
 const Bool_t printneutrinoevent=false;
 
 void truthtracks(){
+	ColourPlotStyle();
+	
 	// load WCSim library for reading WCSim files
 	cout<<"loading "<<wcsimlibrarypath<<endl;
 	gSystem->Load(wcsimlibrarypath);
@@ -164,6 +183,7 @@ void truthtracks(){
 	TBranch* potsbranch=0;
 	Double_t pots;
 	Double_t totalpots=0;					// count of POTs in all processed files
+	
 	Double_t numneutrinoeventsintank=0.;
 	Double_t numQEneutrinoeventsintank=0.;
 	Double_t numQEneutrinoeventsinfidvol=0.;
@@ -249,6 +269,18 @@ void truthtracks(){
 	TH3D* vetostopvertices = new TH3D("vetostopvertices", "Distribution of Veto Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
 	TH3D* mrdstopvertices = new TH3D("mrdstopvertices", "Distribution of MRD Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
 #endif
+	
+	// test the hypothesis that track length in water can be estimated from total light in tank
+	TH2D* tracklengthvsmuonlight = new TH2D("tracklengthvsmuonlight", "Muon Track Length vs Total Light from Muon", 100, 0., 1500., 100, 0., 50.);
+	
+	// EFFECTS OF PIONS IN FINAL STATE
+	// ===============================
+	// record map of hits on the wall with both charge and time of the hits
+	TH3D* chargemap_nopions = new TH2D("chargemap_nopions", "Charge Distribution for CC0pi events", pmtsperring+2,-1,pmtsperring+1,numpmtrings+2,-1,numpmtrings+1, 100, 0., 1400.);
+	
+	// Just to test the inside/outside cherenkov cone algorithm
+	TH2D* chargemap_incone = new TH2D("chargemap_incone", "Charge Distribution Inside Cherenkov Cone", pmtsperring+2,-1,pmtsperring+1,numpmtrings+2,-1,numpmtrings+1);
+	TH2D* chargemap_outcone = new TH2D("chargemap_outcone", "Charge Distribution Outside Cherenkov Cone", pmtsperring+2,-1,pmtsperring+1,numpmtrings+2,-1,numpmtrings+1);
 	
 	// create the file for outputting true vertices and digits for tank reconstruction efforts
 	TFile* flateventfileout = new TFile("trueQEvertexinfo.root", "RECREATE");
@@ -381,6 +413,7 @@ void truthtracks(){
 				geotree->SetBranchAddress("wcsimrootgeom", &geo);
 				if (geotree->GetEntries() == 0) { cout<<"geotree has no entries!"<<endl; exit(9); }
 				geotree->GetEntry(0);
+				MakePMTmap(WCSimRootGeom* geo, topcappositionmap, bottomcappositionmap, wallpositionmap);
 			}
 			// load the next set of wcsim event info
 			wcsimT = (TTree*)wcsimfile->Get("wcsimT");
@@ -804,6 +837,8 @@ void truthtracks(){
 
 			filedigitvertices.clear();
 			filedigitQs.clear();
+			Double_t chargeinsidecherenkovcone=0;
+			Double_t chargeoutsidecherenkovcone=0;
 			for(Int_t i=0; i<numdigitsthisevent; i++){
 				// retrieve the digit information
 				// ==============================
@@ -840,7 +875,27 @@ void truthtracks(){
 //				TLorentzVector adigitvector = TLorentzVector(digitsx,digitsy,digitsz,digitst);
 //				filedigitvertices.push_back(adigitvector);
 				filedigitQs.push_back(digitsq);
-/* - disabled, parents not saved for some reason!
+//TODO: Scan through tubes/digits contribution and look for light from this muon trackID
+// Can we make a plot of just the light from this muon, and the light from everything else?
+// Moreover, add up all Q from digits on tubes inside & outside the muon ring
+// for this we need to check if the digit lies within the cherenkov angle from the muon start vertex
+// ***********************************************************************************************
+				TVector3 digitvector(digitsx-genie_x, digitsy-genie_y, digitsz-genie_z);
+				Double_t dotproduct = (digitvector.Unit()).Dot(differencevector.Unit());
+				Double_t digitmuonangle = TMath::ACos(dotproduct);
+				if(digitmuonangle<((42.0*TMath::Pi())/180.0)){
+					chargeinsidecherenkovcone+=digitsq;
+					FillTankMapHist(geo, digitstubeid, chargemap_incone); 
+					
+					//FillTankMapHist(WCSimRootGeom* geo, int tubeID, TH1* histowall=0, TH1* histotop=0, TH1* histobottom=0, double weight=1)
+					
+				} else { 
+					chargeoutsidecherenkovcone+=digitsq;
+					chargemap_outcone->Fill(
+					
+					FillTankMapHist(WCSimRootGeom* geo, int tubeID, TH1* histowall, TH1* histotop, TH1* histobottom, double weight=1)
+				}
+				
 				// scan through the parents ID's for the photons contributing to this digit
 				// and see if any of them are this muon
 				std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
@@ -865,7 +920,6 @@ void truthtracks(){
 					numphotsfromthemuoninthedigits.push_back(numphotonsfromthismuon);
 					chargesinthedigits.push_back(thedigihit->GetQ());
 				}
-*/
 			}
 			// Save vertex and digit information to a flat tree for reconstruction development
 			filemuonstartvertex = primarystartvertex;
@@ -1570,3 +1624,63 @@ void truthtracks(){
 //    target energy?
 /////////////////////////////
 //    $GENIE/src/stdapp/gNtpConv.cxx
+
+void ColourPlotStyle(){
+	const Int_t NRGBs = 5;
+	const Int_t NCont = 255;
+
+	Double_t stops[NRGBs] = { 0.00, 0.34, 0.61, 0.84, 1.00 };
+	Double_t red[NRGBs]   = { 0.00, 0.00, 0.87, 1.00, 0.51 };
+	Double_t green[NRGBs] = { 0.00, 0.81, 1.00, 0.20, 0.00 };
+	Double_t blue[NRGBs]  = { 0.51, 1.00, 0.12, 0.00, 0.00 };
+	TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);
+	gStyle->SetNumberContours(NCont);
+}
+
+void FillTankMapHist(WCSimRootGeom* geo, int tubeID, TH1* histowall=0, TH1* histotop=0, TH1* histobottom=0, double weight=1){
+	//Fill a bin on a 2D map of PMTs 
+	WCSimRootPMT pmt = geo->GetPMT(tubeID - 1);	// TUBE ID NEEDS -1 IN GEO FILE
+	// WCSimRootPMT has members GetTubeNo(), GetCylLoc(), GetPosition(j), GetOrientation(j)
+	// GetCylLoc(): 0=top cap, 2=bottom cap, 1=wall, 4=mrd, 5=veto, 3=obselete outer veto (shouldnt come up)
+	// GetPosition(j), j=0..2: Returns x,y,z coordinates of the center of the sphere that forms the PMT.
+	// GetOrientation(j), j=0..2: Returns the x,y,z components of a vector of the direction the PMT faces.
+	// GetPMT(j) Returns a pmt object - NOT a pointer to a PMT object.
+	//cout<<"Filling histogram for cylloc "<<pmt.GetCylLoc()<<" for tubeID "<<tubeID<<endl;
+	switch(pmt.GetCylLoc()){
+		case 0: {
+			if(topcappositionmap.count(tubeID)){
+				std::pair<int,int> thebins = topcappositionmap.at(tubeID);
+				if(histotop) histotop->Fill(thebins.first, thebins.second, digihit->GetT());
+			} else {cout<<"bad pmt: ID "<<tubeID<<" in CylLoc "<<pmt.GetCylLoc()<<endl;}
+			break;
+		}
+		case 1: {
+			if(wallpositionmap.count(tubeID)){
+				std::pair<int,int> thebins = wallpositionmap.at(tubeID);
+				if(histowall) histowall->Fill(thebins.first+0.5, thebins.second, digihit->GetT());
+			} else {cout<<"bad pmt: ID "<<tubeID<<" in CylLoc "<<pmt.GetCylLoc()<<endl;}
+			break;
+		}
+		case 2: {
+			if(bottomcappositionmap.count(tubeID)){
+				std::pair<int,int> thebins = bottomcappositionmap.at(tubeID);
+				if(histobottom) histobottom->Fill(thebins.first, thebins.second, digihit->GetT());
+			} else {cout<<"bad pmt: ID "<<tubeID<<" in CylLoc "<<pmt.GetCylLoc()<<endl;}
+			break;
+		}
+		case 4: {
+//				std::pair<int,int> thebins = mrdpositionmap.at(tubeID);
+//				mrdhist->Fill(thebins.first, thebins.second);
+			break;
+		}
+		case 5: {
+//				std::pair<int,int> thebins = faccpositionmap.at(tubeID);
+//				facchist->Fill(thebins.first, thebins.second);
+			break;
+		}
+		default: {
+			//cout<<"PMT "<<tubeID<<" has unknown location "<<pmt.GetCylLoc()<<"!"<<endl; 
+			break;
+		}
+	}
+}
