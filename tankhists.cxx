@@ -76,6 +76,7 @@ void WCSimAnalysis::FillTankDigiHitsHist(WCSimRootCherenkovDigiHit* digihit){
 	// GetPMT(j) Returns a pmt object - NOT a pointer to a PMT object.
 	//cout<<"Filling histogram for cylloc "<<pmt.GetCylLoc()<<" for tubeID "<<tubeID<<endl;
 	switch(pmt.GetCylLoc()){
+		//TODO: weighting by time doesn't make sense unless you can assure each PMT only has one hit
 		case 0: {
 			if(topcappositionmap.count(tubeID)){
 				std::pair<int,int> thebins = topcappositionmap.at(tubeID);
