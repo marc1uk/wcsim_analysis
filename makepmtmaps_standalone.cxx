@@ -37,8 +37,8 @@ void MakePMTmap(WCSimRootGeom* geo, std::map<int, std::pair<int,int> > &topcappo
 				walltubeids.push_back(p.GetTubeNo());
 				// make a vector of all the pmt positions
 				thezval -= geo->GetWCOffset(2); // z offset of the tank origin
-				double thethetaval = TMath::ATan(thexval/thezval);
-				if(thezval<0.){ (thexval<0.) ? thethetaval+=(2*TMath::Pi()) : thethetaval-=(2*TMath::Pi()); }
+				double thethetaval = TMath::ATan(thexval/TMath::Abs(thezval));
+				if(thezval<0.){ (thexval<0.) ? thethetaval=(-TMath::Pi()+thethetaval) : thethetaval=(TMath::Pi()-thethetaval); }
 				wallthetavalsall.push_back(thethetaval);
 				wallyvalsall.push_back(theyval);
 				// add the position to the vectors if it's a new one

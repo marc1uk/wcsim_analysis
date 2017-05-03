@@ -1,7 +1,7 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 
 #ifndef VERBOSE
-#define VERBOSE
+//#define VERBOSE
 #endif
 #ifndef WCSIMDEBUG
 //#define WCSIMDEBUG
@@ -46,6 +46,12 @@
 #include <fstream> 		//std::ofstream
 #include <stdlib.h> 	/* atoi */
 #include <valarray>
+#ifdef __MAKECINT__
+#pragma link C++ class std::map<std::string,bool>+;	// <<<< REQUIRED TO SAVE THIS KIND TO TREE
+#endif
+#include <thread>         // std::this_thread::sleep_for
+#include <chrono>         // std::chrono::seconds
+#include <time.h>         // clock_t, clock, CLOCKS_PER_SEC
 
 // we need to #include all the WCSim headers.
 #include "../wcsim/include/WCSimRootEvent.hh"
@@ -75,7 +81,8 @@ void MakePMTmap(WCSimRootGeom* geo, std::map<int, std::pair<int,int> > &topcappo
 #include "makepmtmaps_standalone.cxx"     // definition of this function
 
 void ColourPlotStyle();
-void FillTankMapHist(WCSimRootGeom* geo, int tubeID, bool incone, std::map<std::string, TH2D*> &maphistos, double weight=1);
+void FillTankMapHist(WCSimRootGeom* geo, int tubeID, bool incone, std::map<std::string, TH2D*> &maphistos, double weight);
+void ClearMapHistos(std::map<std::string,TH2D*> maphistos);	// clear the histograms
 
 #include "genieinfo_struct.cxx"           // definition of a struct to hold genie info
 // function to fill the into
@@ -92,15 +99,15 @@ const Float_t MRD_depth = 139.09;         // total depth of the MRD in cm
 ########## MRD scintillator layer 0  (H) at z=266.535 ##########
 ########## MRD scintillator layer 1  (V) at z=278.645 ##########
 ########## MRD scintillator layer 2  (H) at z=290.755 ##########
-########## MRD scintillator layer 3  (V) at z=302.865 ##########
-########## MRD scintillator layer 4  (H) at z=314.975 ##########
-########## MRD scintillator layer 5  (V) at z=327.085 ##########
-########## MRD scintillator layer 6  (H) at z=339.195 ##########
-########## MRD scintillator layer 7  (V) at z=351.305 ##########
+########## MRD scintillator layer 3  (V) at z=302.865 ##########  // TODO: these layers are all too
+########## MRD scintillator layer 4  (H) at z=314.975 ##########  // small by MRD_depth/2.
+########## MRD scintillator layer 5  (V) at z=327.085 ##########  // now fixed in WCSim, but these nums
+########## MRD scintillator layer 6  (H) at z=339.195 ##########  // need regenerating.
+########## MRD scintillator layer 7  (V) at z=351.305 ##########  // Once done, update mrdscintlayers
 ########## MRD scintillator layer 8  (H) at z=363.415 ##########
 ########## MRD scintillator layer 9  (V) at z=375.525 ##########
 ########## MRD scintillator layer 10 (H) at z=387.635 ########## */
-const std::vector<double> mrdscintlayers{266.535, 278.645, 290.755, 302.865, 314.975, 327.085, 339.195, 351.305, 363.415, 375.525, 387.635};
+std::vector<double> mrdscintlayers{336.080, 348.190, 360.300, 372.410, 384.520, 396.630, 408.740, 420.850, 432.960, 445.070, 457.180 }; // this now includes the MRD_depth/2. offset, hence difference from above
 
 const Int_t numtankpmts=128+2*(26); // 26 pmts and lappds on each cap
 const Int_t nummrdpmts=307;
@@ -158,6 +165,7 @@ void truthtracks(){
 	Int_t numwcsimentries=0;
 	
 	TFile* dirtfile=0;
+	std::string dirtfilename;
 	TTree* tankflux=0;
 	TTree* tankmeta=0;
 	
@@ -217,9 +225,58 @@ void truthtracks(){
 	fileout->cd();
 	TTree* treeout = new TTree("treeout","Tank Event Properties");
 	
+	// store the file and event num info for further lookup later if needed
+	TString geniefilestring;
+	TBranch* bGenieFileString = treeout->Branch("GenieFile",&geniefilestring);
+	long int genieeventnum=-1;
+	TBranch* bGenieEventNum = treeout->Branch("GenieEventNum",&genieeventnum);
+	TString dirtfilestring;
+	TBranch* bDirtFileString = treeout->Branch("DirtFile",&dirtfilestring);
+	long int dirteventnum=-1;
+	TBranch* bDirtEventNum = treeout->Branch("DirtEventNum",&dirteventnum);
+	TString wcsimfilestring;
+	TBranch* bWCSimFileString = treeout->Branch("WCSimFile",&wcsimfilestring);
+	long int wcsimeventnum=-1;
+	TBranch* bWCSimEventNum = treeout->Branch("WCSimEventNum",&wcsimeventnum);
+	// now information about the event
 	std::map<std::string,bool> eventtypes;
 	std::map<std::string,bool>* eventtypesp=&eventtypes;
 	TBranch* bEventType = treeout->Branch("TypesMap",&eventtypesp);
+	// using a map is a bad idea! It means you can't use the event type in tree->Draw calls!!! 
+	// plus you need to load a CollectionProxy by putting the following code:
+	//		#include <map>
+	//		#ifdef __MAKECINT__
+	//		#pragma link C++ class std::map<std::string,bool>+;
+	//		#endif
+	// into a file and calling '.L thefile.C+' before you can even read that tree with Tree/Branch->GetEntry!
+	// so use the genie method, and save a bunch of bools
+	bool IsQuasiElastic=false;
+	TBranch* bIsQuasiElastic = treeout->Branch("IsQuasiElastic",&IsQuasiElastic);
+	bool IsResonant=false;
+	TBranch* bIsResonant = treeout->Branch("IsResonant",&IsResonant);
+	bool IsDeepInelastic=false;
+	TBranch* bIsDeepInelastic = treeout->Branch("IsDeepInelastic",&IsDeepInelastic);
+	bool IsCoherent=false;
+	TBranch* bIsCoherent = treeout->Branch("IsCoherent",&IsCoherent);
+	bool IsDiffractive=false;
+	TBranch* bIsDiffractive = treeout->Branch("IsDiffractive",&IsDiffractive);
+	bool IsInverseMuDecay=false;
+	TBranch* bIsInverseMuDecay = treeout->Branch("IsInverseMuDecay",&IsInverseMuDecay);
+	bool IsIMDAnnihilation=false;
+	TBranch* bIsIMDAnnihilation = treeout->Branch("IsIMDAnnihilation",&IsIMDAnnihilation);
+	bool IsSingleKaon=false;
+	TBranch* bIsSingleKaon = treeout->Branch("IsSingleKaon",&IsSingleKaon);
+	bool IsNuElectronElastic=false;
+	TBranch* bIsNuElectronElastic = treeout->Branch("IsNuElectronElastic",&IsNuElectronElastic);
+	bool IsEM=false;
+	TBranch* bIsEM = treeout->Branch("IsEM",&IsEM);
+	bool IsWeakCC=false;
+	TBranch* bIsWeakCC = treeout->Branch("IsWeakCC",&IsWeakCC);
+	bool IsWeakNC=false;
+	TBranch* bIsWeakNC = treeout->Branch("IsWeakNC",&IsWeakNC);
+	bool IsMEC=false;
+	TBranch* bIsMEC = treeout->Branch("IsMEC",&IsMEC);
+	// ok, moving on
 	bool isintank=false;
 	TBranch* bInTank = treeout->Branch("NuVtxInTank",&isintank);
 	bool isinfiducialvol=false;
@@ -233,9 +290,11 @@ void truthtracks(){
 	bool hasmuon=false;
 	TBranch* bEventHasMuon = treeout->Branch("EventHasMuon",&hasmuon);
 	TVector3 mustartvtx(0,0,0);
-	TBranch*bMuonStartVtx = treeout->Branch("MuonStartVertex",&mustartvtx);
+	TBranch* bMuonStartVtx = treeout->Branch("MuonStartVertex",&mustartvtx);
 	TVector3 mustopvtx(0,0,0);
 	TBranch* bMuonStopVtx = treeout->Branch("MuonStopVertex",&mustopvtx);
+	double muonangle=0.;
+	TBranch* bMuonAngle = treeout->Branch("MuonAngle",&muonangle);
 	double mustartE=0.;
 	TBranch* bMuonStartE = treeout->Branch("MuonStartEnergy",&mustartE);
 //	double muendE=0.;
@@ -254,11 +313,54 @@ void truthtracks(){
 	TBranch* bMuonTrackLengthInMRD = treeout->Branch("MuonTrackLengthInMRD",&mutracklengthinMRD);
 	double mutracklengthintank=0.;
 	TBranch* bMuonTrackLengthInTank = treeout->Branch("MuonTrackLengthInTank",&mutracklengthintank);
-	double totchargefrommuon=0.;
-	TBranch* bTotalChargeFromMuon = treeout->Branch("TotalChargeFromMuon",&totchargefrommuon);
+	double totaltankcharge=0.;
+	TBranch* bTotalTankCharge = treeout->Branch("TotalTankCharge",&totaltankcharge);
+	double tankchargefrommuon=0.;
+	TBranch* bTankChargeFromMuon = treeout->Branch("TankChargeFromMuon",&tankchargefrommuon);
 	double fractionalchargeincone=0.;
 	TBranch* bFractionOfMuonChargeInCone = 
 		treeout->Branch("FractionOfMuonChargeInCone",&fractionalchargeincone);
+	double upstreamcharge=0.;
+	TBranch* bTotalUpstreamCharge = treeout->Branch("TotalUpstreamCharge",&upstreamcharge);
+	double downstreamcharge=0.;
+	TBranch* bTotalDownstreamCharge = treeout->Branch("TotalDownstreamCharge",&downstreamcharge);
+	double topcapcharge=0.;
+	TBranch* bTopCapCharge = treeout->Branch("TotalTopCapCharge",&topcapcharge);
+	double bottomcapcharge=0.;
+	TBranch* bBottomCapCharge = treeout->Branch("TotalBottomCapCharge",&bottomcapcharge);
+	// save presence of other particles: how many events have additional pions, etc
+	// store number of charged particle tracks in the event! and their energy, direction... 
+	int numpizerotracks=-1;
+	TBranch* bNumPiZeroTracks = treeout->Branch("NumPiZeroTracks",&numpizerotracks);
+	int numpiplustracks=-1;
+	TBranch* bNumPiPlusTracks = treeout->Branch("NumPiPlusTracks",&numpiplustracks);
+	int numpiminustracks=-1;
+	TBranch* bNumPiMinusTracks = treeout->Branch("NumPiMinusTracks",&numpiminustracks);
+	int nummutracks=-1;
+	TBranch* bNumMuTracks = treeout->Branch("NumMuTracks",&nummutracks);
+	// information from the MRD PMTs
+	int numMRDdigits=0;
+	TBranch* bTotalMrdDigits = treeout->Branch("TotalMrdDigits",&numMRDdigits);
+	double totMRDcharge=0.;
+	TBranch* bTotalMrdCharge = treeout->Branch("TotalMrdCharge",&totMRDcharge);
+	int numMRDdigitsfrommu=0;
+	TBranch* bMrdDigitsFromMu = treeout->Branch("MrdDigitsFromMu",&numMRDdigitsfrommu);
+	double MRDchargefrommu=0.;
+	TBranch* bMrdChargeFromMu = treeout->Branch("MrdChargeFromMu",&MRDchargefrommu);
+	std::vector<int> mrdtubeshitbymu;
+	TBranch* bMrdTubesHitByMu = treeout->Branch("MrdTubesHitByMu",&mrdtubeshitbymu);
+	
+	
+	// pmt masking
+	
+	std::vector<TBranch*> thebranches{ bInTank, bEventType, bEventQ2, bEventEnu, bNeutrinoPdg, bInFidVol, bEventHasMuon, bMuonStartVtx, bMuonStopVtx, bMuonStartE, bMuonTrackLengthInTank, bMuonMrdPenetrationInCm, bMuonMrdPenetrationLayers, bMuonEntersMRD, bMuonStopsInMRD, bMuonRangesOutMRD, bMuonTrackLengthInMRD, bTotalChargeFromMuon, bFractionOfMuonChargeInCone};
+	int someit=0;
+	bool haszombies=false;
+	for(auto abranch : thebranches){
+		if(abranch==0){ cout<<"branch "<<someit<<" is a zombie"<<endl; haszombies=true; }
+		someit++;
+	}
+	assert(!haszombies&&"output file branches have zombies");
 	
 	// ==============================================================================================
 	// ==============================================================================================
@@ -455,7 +557,7 @@ void truthtracks(){
 			// first pull out the new file name
 			tankflux = c->GetTree();
 			dirtfile = tankflux->GetCurrentFile();
-			std::string nextdirtfilename(dirtfile->GetName());
+			dirtfilename(dirtfile->GetName());
 			thistreesentries = tankflux->GetEntries();
 			cout<<"tankflux has "<<thistreesentries<<" entries in this file"<<endl;
 			
@@ -483,10 +585,10 @@ void truthtracks(){
 			// filename is of the form "annie_tank_flux.####.root"
 			// #### is input file num. Need this to match against genie/wcsim file names
 			std::regex theexpression (".*/[^0-9]+\\.([0-9]+)\\.root");
-			cout<<"matching regex for filename "<<nextdirtfilename<<endl;
-			std::regex_match (nextdirtfilename, submatches, theexpression);
+			cout<<"matching regex for filename "<<dirtfilename<<endl;
+			std::regex_match (dirtfilename, submatches, theexpression);
 			std::string submatch = (std::string)submatches[0];	// match 0 is 'whole match' or smthg
-			if(submatch==""){ cout<<"unrecognised input file pattern: "<<nextdirtfilename<<endl; return; }
+			if(submatch==""){ cout<<"unrecognised input file pattern: "<<dirtfilename<<endl; return; }
 			submatch = (std::string)submatches[1];
 			cout<<"extracted submatch is "<<submatch<<endl;
 			int filenum = atoi(submatch.c_str());
@@ -555,6 +657,11 @@ void truthtracks(){
 			treeNumber=nextTreeNumber;
 		}
 		
+		geniefilestring=geniefilepath;
+		dirtfilestring=TString(dirtfilename);
+		wcsimfilestring=wcsimfilepath;
+		dirteventnum=localEntry;
+		
 		/* 2. Check if genie primary, and volume is in tank - if not, continue */
 		//====================================================================================================
 		//====================================================================================================
@@ -565,7 +672,7 @@ void truthtracks(){
 		// cout<<"getting wcsim info"<<endl;
 		nTankBranch->GetEntry(localEntry);
 		vertexmaterialbranch->GetEntry(localEntry);
-		if(strcmp(vertexmaterial,"TankWater")!=0){ continue; }	// neutrino intx wasn't in tank water
+		if(strcmp(vertexmaterial,"TankWater")!=0){ cout<<"neutrino vtx not in tank"<<endl; continue; }
 		if(nuprimarybranchval){delete[] nuprimarybranchval;}
 		nuprimarybranchval = new Int_t[ntankbranchval];
 		nuprimaryBranch->SetAddress(nuprimarybranchval);
@@ -575,7 +682,7 @@ void truthtracks(){
 		for(int i=0;i<ntankbranchval;i++){
 			if(nuprimarybranchval[i]==1){ primariesinthisentry=true; break; }
 		}
-		if(!primariesinthisentry){ continue; }	// dirt recorded particles weren't genie primaries
+		if(!primariesinthisentry){ cout<<"wcsim primaries not genie primaries"<<endl; continue; }	// dirt recorded particles weren't genie primaries
 		numneutrinoeventsintank++;
 		isintank=true;
 		
@@ -594,18 +701,35 @@ void truthtracks(){
 		
 		GetGenieEntryInfo(gevtRec, genieint, thegenieinfo);  // fill thegenieinfo struct with all the genie info
 		
+		genieeventnum=genieentry;
 		eventtypes=thegenieinfo.eventtypes;
+		// then all the bools
+		IsQuasiElastic=thegenieinfo.eventtypes.at("IsQuasiElastic");
+		IsResonant=thegenieinfo.eventtypes.at("IsResonant");
+		IsDeepInelastic=thegenieinfo.eventtypes.at("IsDeepInelastic");
+		IsCoherent=thegenieinfo.eventtypes.at("IsCoherent");
+		IsDiffractive=thegenieinfo.eventtypes.at("IsDiffractive");
+		IsInverseMuDecay=thegenieinfo.eventtypes.at("IsInverseMuDecay");
+		IsIMDAnnihilation=thegenieinfo.eventtypes.at("IsIMDAnnihilation");
+		IsSingleKaon=thegenieinfo.eventtypes.at("IsSingleKaon");
+		IsNuElectronElastic=thegenieinfo.eventtypes.at("IsNuElectronElastic");
+		IsEM=thegenieinfo.eventtypes.at("IsEM");
+		IsWeakCC=thegenieinfo.eventtypes.at("IsWeakCC");
+		IsWeakNC=thegenieinfo.eventtypes.at("IsWeakNC");
+		IsMEC=thegenieinfo.eventtypes.at("IsMEC");
+		// ok, and the other info
 		eventq2=thegenieinfo.Q2;
 		eventEnu=thegenieinfo.probeenergy;
 		neutrinopdg=thegenieinfo.probepdg;
-		if(eventtypes.at("isWeakCC")) numCCneutrinoeventsintank++;
-		else if(eventtypes.at("isWeakNC")) numNCneutrinoeventsintank++;
-		if(eventtypes.at("isWeakCC")&&eventtypes.at("isQE")){ numCCQEneutrinoeventsintank++; }
+		muonangle=thegenieinfo.fslanglegenie;
+		if(eventtypes.at("IsWeakCC")) numCCneutrinoeventsintank++;
+		else if(eventtypes.at("IsWeakNC")) numNCneutrinoeventsintank++;
+		if(eventtypes.at("IsWeakCC")&&eventtypes.at("IsQuasiElastic")){ numCCQEneutrinoeventsintank++; }
 		
 		/* 4. Check if interaction is QE - if not, continue */
 		//====================================================================================================
 		//====================================================================================================
-		//if(!(eventtypes.at("isWeakCC")&&eventtypes.at("isQE"))) continue; 
+		//if(!(eventtypes.at("IsWeakCC")&&eventtypes.at("IsQuasiElastic"))) continue; 
 		// disable for now: we'll check how many NC and CC-Other events have muons<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 		
 #ifdef VERBOSE
@@ -617,15 +741,15 @@ void truthtracks(){
 		fslenergiesall->Fill(thegenieinfo.fsleptonenergy);
 		eventq2all->Fill(thegenieinfo.Q2);
 		neutrinovertex->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
-		if(eventtypes.at("isWeakCC") && eventtypes.at("isQE"))
+		if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic"))
 			neutrinovertexQE->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
 		
 		/* 4.5 Do fiducial volume cut: */
 		//====================================================================================================
 		//====================================================================================================
 		isinfiducialvol=false;
-		if( (TMath::Sqrt(TMath::Power(thegenieinfo.genie_x,2) 
-			+ TMath::Power(thegenieinfo.genie_z,2)) < fidcutradius) && 
+		if( (TMath::Sqrt(TMath::Power(thegenieinfo.genie_x, 2) 
+			+ TMath::Power(thegenieinfo.genie_z-tank_start-tank_radius,2)) < fidcutradius) && 
 			(TMath::Abs(thegenieinfo.genie_y-tank_yoffset) < fidcuty) && 
 			(TMath::Abs(thegenieinfo.genie_z-tank_start-tank_radius) < fidcutz) ){
 			isinfiducialvol=true;
@@ -650,6 +774,8 @@ void truthtracks(){
 		atrigm = m->GetTrigger(0);
 		atrigv = v->GetTrigger(0);
 		
+		wcsimeventnum=localEntry;
+		
 		Int_t numtracks = atrigt->GetNtrack();
 #ifdef VERBOSE
 		cout<<"wcsim event had "<<numtracks<<" truth tracks"<<endl;
@@ -663,6 +789,10 @@ void truthtracks(){
 		std::vector<Double_t> muonenergydepositions;
 		
 		/* yet TODO - scan for neutron captures here? */
+		
+		numpizerotracks=0;
+		numpiplustracks=0;
+		numpiminustracks=0;
 		
 		// now scan through the truth tracks, find the primary muon and save the wcsim info from it
 		for(int track=0; track<numtracks; track++){
@@ -691,17 +821,23 @@ void truthtracks(){
 			// ----------------------------------------------------------------------------------------------
 			// Check if it's a primary muon starting in the tank
 			// ----------------------------------------------------------------------------------------------
-			// for now we use truth information
-			// is it a primary?
-			Int_t primaryparentpdg = nextrack->GetParenttype();
-			if(primaryparentpdg!=0) continue;
-			
 			// is it a (anti)muon?
 			Int_t primarypdg = nextrack->GetIpnu();
 #ifdef VERBOSE
 			cout<<"primarypdg is "<<primarypdg<<endl;
 #endif
+			switch (primarypdg){
+				case 111: numpizerotracks++; break;
+				case 211: numpiplustracks++; break;
+				case -211: numpiminustracks++; break;
+				case 13: nummutracks++; break;
+			}
 			if(TMath::Abs(primarypdg)!=13) continue;       // not a muon
+			
+			// for now we use truth information
+			// is it a primary?
+			Int_t primaryparentpdg = nextrack->GetParenttype();
+			if(primaryparentpdg!=0) continue;
 			
 			// does it start in the tank?
 			Int_t primarystartvol = nextrack->GetStartvol();
@@ -843,13 +979,25 @@ void truthtracks(){
 				if(TMath::Abs(primarystopvertex.X())<MRD_width){
 					trackZlengthbeforeMRDXexit=primarystopvertex.Z()-primarystartvertex.Z();
 				} else {
-					trackZlengthbeforeMRDXexit= MRD_width/TMath::Tan(avgtrackanglex);
+					double trackXdistanceinMRD=0.;
+					if(primarystopvertex.X()>0){
+						trackXdistanceinMRD=MRD_width-primarystartvertex.X();
+					} else {
+						trackXdistanceinMRD=-MRD_width-primarystartvertex.X();
+					}
+					trackZlengthbeforeMRDXexit= trackXdistanceinMRD/TMath::Tan(avgtrackanglex);
 				}
 				Float_t trackZlengthbeforeMRDYexit;
 				if(TMath::Abs(primarystopvertex.Y())<MRD_height){
 					trackZlengthbeforeMRDYexit=primarystopvertex.Z()-primarystartvertex.Z();
 				} else {
-					trackZlengthbeforeMRDYexit= MRD_height/TMath::Tan(avgtrackangley);
+					double trackYdistanceinMRD=0.;
+					if(primarystopvertex.Y()>0){
+						trackYdistanceinMRD=MRD_height-primarystartvertex.Y();
+					} else {
+						trackYdistanceinMRD=-MRD_height-primarystartvertex.Y();
+					}
+					trackZlengthbeforeMRDYexit= trackYdistanceinMRD/TMath::Tan(avgtrackangley);
 				}
 				Float_t trackZlengthbeforeMRDexit=
 					TMath::Min(trackZlengthbeforeMRDXexit,trackZlengthbeforeMRDYexit);
@@ -875,36 +1023,29 @@ void truthtracks(){
 						muonstopsinMRD=false;
 					} else {
 						muonrangesoutMRD=false;
-						muonstopsinMRD=true;
+						if(mrdexitpoint>primarystopvertex.Z()) muonstopsinMRD=true;
+						// corrected! Current results didn't have this requirement: also include
+						// tracks that exit from the sides of the MRD!
 					}
 					
 					// calculate total distance travelled in MRD
 					////////////////////////////////////////////
 					double muXdistanceinMRD, muYdistanceinMRD;
 					double muXexitpoint, muYexitpoint;
-					int signstartX=(primarystartvertex.X())/(TMath::Abs(primarystartvertex.X()));
-					int signstartY=(primarystartvertex.Y())/(TMath::Abs(primarystartvertex.Y()));
-					int signstopX=(primarystopvertex.X())/(TMath::Abs(primarystopvertex.X()));
-					int signstopY=(primarystopvertex.Y())/(TMath::Abs(primarystopvertex.Y()));
 					if(trackZlengthbeforeMRDexit==trackZlengthbeforeMRDXexit){
 						// track exits the MRD through one of the sides
-						muXexitpoint=MRD_width;
+						(primarystopvertex.X()>0) ? muXexitpoint=MRD_width : muXexitpoint=-MRD_width;
+						muXdistanceinMRD=muXexitpoint-primarystartvertex.X();
 						muYexitpoint=
 							primarystartvertex.Y()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackangley));
-					} else {
-						muYexitpoint=MRD_height;
-						muXexitpoint=
-							primarystartvertex.X()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackanglex));
-					}
-					if((signstartY*signstopY)>0){
 						muYdistanceinMRD=muYexitpoint-primarystartvertex.Y();
 					} else {
-						muYdistanceinMRD=muYexitpoint+primarystartvertex.Y();
-					}
-					if((signstartX*signstopX)>0){
+						// track exits through the top or bottom of the MRD
+						(primarystopvertex.Y()>0) ? muYexitpoint=MRD_height : muYexitpoint=-MRD_height;
+						muYdistanceinMRD=muYexitpoint-primarystartvertex.Y();
+						muXexitpoint=
+							primarystartvertex.X()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackanglex));
 						muXdistanceinMRD=muXexitpoint-primarystartvertex.X();
-					} else {
-						muXdistanceinMRD=muXexitpoint+primarystartvertex.X();
 					}
 					mutracklengthinMRD=
 						TMath::Sqrt(TMath::Power(muXdistanceinMRD,2)+TMath::Power(muYdistanceinMRD,2)
@@ -1047,7 +1188,13 @@ void truthtracks(){
 			filedigitQs.clear();
 			Double_t chargeinsidecherenkovcone=0;
 			Double_t chargeoutsidecherenkovcone=0;
-			Double_t energydepositionofmuon=0.;
+			Double_t tankchargefrommuon=0.;
+			upstreamcharge=0.;
+			downstreamcharge=0.;
+			topcapcharge=0.;
+			bottomcapcharge=0.;
+			//TH3D hitpositions = TH3D("hitpositions","tiel",100,-tank_radius,tank_radius, 100,tank_start,tank_start+2*tank_radius,100,-tank_halfheight+tank_yoffset,tank_halfheight+tank_yoffset);
+			//ClearMapHistos(maphistos);
 			for(Int_t i=0; i<numdigitsthisevent; i++){
 				// retrieve the digit information
 				/////////////////////////////////
@@ -1078,6 +1225,12 @@ void truthtracks(){
 				double digitsx = pmt.GetPosition(0);
 				double digitsy = pmt.GetPosition(1);
 				double digitsz = pmt.GetPosition(2);
+				int thepmtsloc = pmt.GetCylLoc();
+				switch (thepmtsloc){
+					case 0: topcapcharge+=digitsq; break;
+					case 2: bottomcapcharge+=digitsq; break;
+					case 1: ((digitsz-tank_start-tank_radius)<0) ? upstreamcharge+=digitsq : downstreamcharge+=digitsq; break;
+				}
 				
 				// if we want photon times; do this
 				////////////////////////////////////
@@ -1099,16 +1252,17 @@ void truthtracks(){
 				// TODO: Add up all Q from digits on tubes inside & outside the muon ring
 				// (do by checking if the digit lies within the cherenkov angle from the muon start vertex)
 				///////////////////////////////////////////////////////////////////////////////////////////
-				TVector3 digitvector(digitsx-thegenieinfo.genie_x, digitsy-thegenieinfo.genie_y, 
-					digitsz-thegenieinfo.genie_z);
+				TVector3 digitvector(digitsx-primarystartvertex.X(), digitsy-primarystartvertex.Y(), 
+					digitsz-primarystartvertex.Z());
 				Double_t dotproduct = (digitvector.Unit()).Dot(differencevector.Unit());
-				Double_t digitmuonangle = TMath::ACos(dotproduct);
+				Double_t digitmuonangle = TMath::ACos(dotproduct);  // returns [0, Pi]
 				if(digitmuonangle<((42.0*TMath::Pi())/180.0)){
 					chargeinsidecherenkovcone+=digitsq;
-					FillTankMapHist(geo, digitstubeid, true, maphistos, digitsq);
-				} else { 
+					//FillTankMapHist(geo, digitstubeid, true, maphistos, digitsq);
+					//hitpositions.Fill(digitsx, digitsz, digitsy);
+				} else {
 					chargeoutsidecherenkovcone+=digitsq;
-					FillTankMapHist(geo, digitstubeid, false, maphistos, digitsq);
+					//FillTankMapHist(geo, digitstubeid, false, maphistos, digitsq);
 				}
 				
 				// Calculate total charge from muon
@@ -1138,7 +1292,9 @@ void truthtracks(){
 				if(numphotonsfromthismuon!=0){   //this digit had contribution from the muon!
 					//cout<<"muon digit "<<i<<" had charge "<< digitsq << " and " << truephotonindices.size()
 					//	<<" true photons, of which "<<numphotonsfromthismuon <<" were from this muon"<<endl
-					energydepositionofmuon += digitsq * (numphotonsfromthismuon/truephotonindices.size());
+					
+					tankchargefrommuon += 
+						digitsq * ((double)numphotonsfromthismuon/(double)truephotonindices.size());
 				}
 				
 				// add the digit info for simplified file format
@@ -1152,11 +1308,37 @@ void truthtracks(){
 				
 			}  // end loop over digits
 			
-			muedepositionswcsim->Fill(energydepositionofmuon);
-			muonenergydepositions.push_back(energydepositionofmuon);
-			totchargefrommuon=energydepositionofmuon;
+			// debug: check the in and out of cone charge maps to check digits are being assigned correctly
+			/*
+			if(hitpositions.GetEntries() > 10){
+				TCanvas c1("c1");
+				c1.cd();
+				TH1* histowall=(TH1*)maphistos.at("inconehistowall");
+				histowall->Draw("colz");
+				TCanvas c4("c4");
+				c4.cd();
+				histowall=maphistos.at("outconehistowall");
+				histowall->Draw("colz");
+				TCanvas c5("c5");
+				c5.cd();
+				hitpositions.SetMarkerStyle(20);
+				hitpositions.Draw();
+				gPad->WaitPrimitive();
+				//std::this_thread::sleep_for (std::chrono::seconds(15));  // wait so we can look at histos
+			}
+			*/
 			
-			fractionalchargeincone=chargeinsidecherenkovcone/chargeoutsidecherenkovcone;
+			muedepositionswcsim->Fill(tankchargefrommuon);
+			muonenergydepositions.push_back(tankchargefrommuon);
+			tankchargefrommuon=tankchargefrommuon;
+			totaltankcharge=atrigt->GetSumQ();
+			
+			if((chargeinsidecherenkovcone+chargeoutsidecherenkovcone)!=0){
+				fractionalchargeincone=
+				chargeinsidecherenkovcone/(chargeinsidecherenkovcone+chargeoutsidecherenkovcone);
+			} else {
+				fractionalchargeincone=0;
+			}
 			
 			// Fill simplified file for reconstruction dev
 			///////////////////////////////////////////////
@@ -1179,13 +1361,105 @@ void truthtracks(){
 			
 			// end of digit analysis
 			////////////////////////////////////////////////
-			// if we've got as far as this (i.e. haven't triggered a 'continue' above)
-			// then we've had a muon track. Let's just consider one muon for now
-			// otherwise we need to add _ALL_ this stuff to vectors and scan through that. 
-			break;
 			
+			// ----------------------------------------------------------------------------------------------
+			// mrd digit analysis
+			// ----------------------------------------------------------------------------------------------
+			numMRDdigits = atrigm->GetCherenkovDigiHits()->GetEntries();
+			totMRDcharge = atrigm->GetSumQ();
+			numMRDdigitsfrommu=0;
+			MRDchargefrommu=0.;
+			for(Int_t i=0; i<numMRDdigits; i++){
+				// retrieve the digit information
+				/////////////////////////////////
+				WCSimRootCherenkovDigiHit* thedigihit = 
+					(WCSimRootCherenkovDigiHit*)atrigm->GetCherenkovDigiHits()->At(i);
+				int digitstubeid = thedigihit->GetTubeId();
+				if(std::find(mrdtubeshitbymu.begin(), mrdtubeshitbymu.end(), digitstubeid)==mrdtubeshitbymu.end()){
+					mrdtubeshitbymu.push_back(digitstubeid);
+				}
+				double digitsq = thedigihit->GetQ();
+				// we need to correct the indices returned by GetPhotonIds with the PMT offset
+				// to be able to retrieve digit parents and extract digits from primary mu
+				int timeArrayOffset=-1;
+				int ncherenkovhits=atrigm->GetNcherenkovhits();
+				for(int ipmt = 0; ipmt < ncherenkovhits; ipmt++) {
+					WCSimRootCherenkovHit* hitobject = 
+						(WCSimRootCherenkovHit*)atrigm->GetCherenkovHits()->At(ipmt);
+					int tubeNumber = hitobject->GetTubeID();
+					if(tubeNumber==digitstubeid) {
+						timeArrayOffset = hitobject->GetTotalPe(0);
+						break;
+					}
+				}
+				// Calculate total charge from muon
+				////////////////////////////////////
+				std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
+				int numphotonsfromthismuon=0;
+				for(int truephoton=0; truephoton<truephotonindices.size(); truephoton++){
+					int thephotonsid = truephotonindices.at(truephoton);
+					thephotonsid+=timeArrayOffset;   //TODO: DISABLE THIS WHEN ANALYSING 01-05-17 SAMPLE
+					WCSimRootCherenkovHitTime *thehittimeobject = 
+						(WCSimRootCherenkovHitTime*)atrigm->GetCherenkovHitTimes()->At(thephotonsid);
+					Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
+					if(thephotonsparenttrackid==nextrack->GetId()) {
+						numphotonsfromthismuon++;
+					}
+				}
+				// scale each digit charge by the fraction of hits in the digit which come from the muon
+				if(numphotonsfromthismuon!=0){
+					MRDchargefrommu+= 
+						digitsq * ((double)numphotonsfromthismuon/(double)truephotonindices.size());
+					numMRDdigitsfrommu++;
+				}
+				
+			}  // end loop over mrd digits
+			
+			// end of mrd digit analysis
+			////////////////////////////////////////////////
+			
+//			for(std::map<std::string,bool>::iterator mapit=eventtypes.begin(); mapit!=eventtypes.end(); mapit++)
+//				cout<<"eventtypes."<<mapit->first<<" = "<<mapit->second<<endl;
+//			cout<<"isintank="<<isintank<<endl;
+//			cout<<"isinfiducialvol="<<isinfiducialvol<<endl;
+//			cout<<"eventq2="<<eventq2<<endl;
+//			cout<<"eventEnu="<<eventEnu<<endl;
+//			cout<<"neutrinopdg="<<neutrinopdg<<endl;
+//			cout<<"hasmuon="<<hasmuon<<endl;
+//			cout<<"mustartvtx=("<<mustartvtx.X()<<","<<mustartvtx.Y()<<","<<mustartvtx.Z()<<")"<<endl;
+//			cout<<"mustopvtx=("<<mustopvtx.X()<<","<<mustopvtx.Y()<<","<<mustopvtx.Z()<<")"<<endl;
+//			cout<<"mustartE="<<mustartE<<endl;
+//			cout<<"muonentersMRD="<<muonentersMRD<<endl;
+//			cout<<"muonstopsinMRD="<<muonstopsinMRD<<endl;
+//			cout<<"muonrangesoutMRD="<<muonrangesoutMRD<<endl;
+//			cout<<"mrdpenetrationcm="<<mrdpenetrationcm<<endl;
+//			cout<<"mrdpenetrationlayers="<<mrdpenetrationlayers<<endl;
+//			cout<<"mutracklengthinMRD="<<mutracklengthinMRD<<endl;
+//			cout<<"mutracklengthintank="<<mutracklengthintank<<endl;
+//			cout<<"tankchargefrommuon="<<tankchargefrommuon<<endl;
+//			cout<<"fractionalchargeincone="<<fractionalchargeincone<<endl;
+			
+			bGenieFileString->Fill();
+			bGenieEventNum->Fill();
+			bDirtFileString->Fill();
+			bDirtEventNum->Fill();
+			bWCSimFileString->Fill();
+			bWCSimEventNum->Fill();
 			bInTank->Fill();
 			bEventType->Fill();
+			bIsQuasiElastic->Fill();
+			bIsResonant->Fill();
+			bIsDeepInelastic->Fill();
+			bIsCoherent->Fill();
+			bIsDiffractive->Fill();
+			bIsInverseMuDecay->Fill();
+			bIsIMDAnnihilation->Fill();
+			bIsSingleKaon->Fill();
+			bIsNuElectronElastic->Fill();
+			bIsEM->Fill();
+			bIsWeakCC->Fill();
+			bIsWeakNC->Fill();
+			bIsMEC->Fill();
 			bEventQ2->Fill();
 			bEventEnu->Fill();
 			bNeutrinoPdg->Fill();
@@ -1193,6 +1467,7 @@ void truthtracks(){
 			bEventHasMuon->Fill();
 			bMuonStartVtx->Fill();
 			bMuonStopVtx->Fill();
+			bMuonAngle->Fill();
 			bMuonStartE->Fill();
 			bMuonTrackLengthInTank->Fill();
 			bMuonMrdPenetrationInCm->Fill();
@@ -1203,6 +1478,25 @@ void truthtracks(){
 			bMuonTrackLengthInMRD->Fill();
 			bTotalChargeFromMuon->Fill();
 			bFractionOfMuonChargeInCone->Fill();
+			bTotalTankCharge->Fill();
+			bTotalUpstreamCharge->Fill();
+			bTotalDownstreamCharge->Fill();
+			bTopCapCharge->Fill();
+			bBottomCapCharge->Fill();
+			bNumPiZeroTracks->Fill();
+			bNumPiPlusTracks->Fill();
+			bNumPiMinusTracks->Fill();
+			bNumMuTracks->Fill();
+			bTotalMrdDigits->Fill();
+			bTotalMrdCharge->Fill();
+			bMrdDigitsFromMu->Fill();
+			bMrdChargeFromMu->Fill();
+			bMrdTubesHitByMu->Fill();
+			
+			// if we've got as far as this (i.e. haven't triggered a 'continue' above)
+			// then we've had a muon track. Let's just consider one muon for now
+			// otherwise we need to add _ALL_ this stuff to vectors and scan through that. 
+			// break; // or maybe not... mayb it'll work just as is. 
 			
 		}  // end of loop over tracks
 		
@@ -1311,13 +1605,14 @@ void truthtracks(){
 	Double_t numbeamspillsperday = (24.*60.*60.*1000.)/133.3333;	// 24 hours in ms / 133.33 ms between spills
 	Double_t numdays = numbeamspills/numbeamspillsperday;
 	cout<<"Results based on "<<totalpots<<" POTs, or "<<numbeamspills<<" beam spills, or "<<numdays<<" days of data"<<endl;
-	cout<<"There were "<<numneutrinoeventsintank<<" neutrino interactions in the tank, of which "<<numCCQEneutrinoeventsintank<<" were true QE events."<<endl;
-	cout<<"Of those, "<<numCCQEneutrinoeventsinfidvol<<"were within the fiducial volume."<<endl;
-	cout<<"Of those in turn, "<<numCCQEneutrinoeventsinfidvolmrd<<"produced an accepted MRD muon"<<endl;
+	cout<<"There were "<<numneutrinoeventsintank<<" neutrino interactions in the tank, of which "<<numCCQEneutrinoeventsintank<<" were true CCQE events."<<endl;
+	cout<<"Of those, "<<numCCQEneutrinoeventsinfidvol<<" were within the fiducial volume."<<endl;
+	cout<<"Of those in turn, "<<numCCQEneutrinoeventsinfidvolmrd<<" produced an accepted MRD muon"<<endl;
 	cout<<"There were "<<nummuontracksintank<<" muons in the tank, of which "
-		<<nummuontracksinfidvol<<" were from events in the fiducial volume."<<endl;
-	cout<<"There were "<<nummuontracksinmrd<<" muons from tank events which passed through 3 MRD layers"
-		<<" of which "<<nummuontracksinfidvolmrd<<" originated from vertices in the fiducial volume"<<endl;
+		<<nummuontracksinfidvol<<" were from (CCQE?) events in the fiducial volume."<<endl;
+	/* cout<<"There were "<<nummuontracksinmrd<<" muons from tank events which passed through 3 MRD layers"
+		<<" of which "<<nummuontracksinfidvolmrd<<" originated from vertices in the fiducial volume"<<endl;*/
+	// ^^^ this is currently disabled.
 	
 	
 	// TODO: neutrinovertex, neutrinovertexQE, neutrinovertexQEaccepted TH3D plots: save projections
@@ -1535,11 +1830,11 @@ void truthtracks(){
 //	Int_t n_wide=2;
 //	Int_t n_high=3;
 //	TCanvas* c1 = new TCanvas("c1","c1",win_width*n_wide*win_scale,win_height*n_high*win_scale);
-	
 	cout<<"drawing histograms"<<endl;
 	std::vector<TCanvas*> canvaspointers;
 	std::vector<TLegend*> legendpointers;
 	Int_t legendindex=0;
+#ifdef DRAW_HISTOS
 	for(int i=0; i<histopointers.size(); i++){
 		TLegend* leg;
 		TCanvas* canv;
@@ -1576,12 +1871,14 @@ void truthtracks(){
 			leg->Draw();
 		}
 	}
+#endif
 	
 	// draw the scaled histograms
 	// ==========================
 	std::vector<TCanvas*> scaledcanvaspointers;
 	std::vector<TLegend*> scaledlegendpointers;
 	legendindex=0;
+#ifdef DRAW_HISTOS
 	for(int i=0; i<scaledhistopointers.size(); i++){
 		TLegend* leg;
 		TCanvas* canv;
@@ -1632,9 +1929,11 @@ void truthtracks(){
 	fsltruetracklength->Draw("same");
 	aleg->Draw();
 	debug1->SaveAs("muon_track_lengths.png");
+#endif
 	if(fsltruetracklength) delete fsltruetracklength; fsltruetracklength=0;
 	if(fsltruetracklengthintank) delete fsltruetracklengthintank; fsltruetracklengthintank=0;
 	
+#ifdef DRAW_HISTOS
 	debug1->Clear();
 	aleg->Clear();
 	aleg->AddEntry(muedepositionswcsim,"Mu Tank E Dep (all)","l");
@@ -1652,7 +1951,7 @@ void truthtracks(){
 	if(aleg) delete aleg; aleg=0;
 	cout<<"total of "<<nummuontracksintank<<" muon tracks in the tank, of which "
 		<<nummuontracksintankpassedcut<<" had a track length > 50cm in the tank"<<endl;
-		
+	
 	
 #ifdef WCSIMDEBUG
 	TCanvas* debug2 = new TCanvas("debug2","debug2");
@@ -1694,7 +1993,8 @@ void truthtracks(){
 	delete vetostopvertices;
 	delete mrdstopvertices;
 	delete debug3;
-#endif
+#endif  // WCSIMDEBUG
+#endif  // DRAW_HISTOS
 	
 	// cleanup
 	// =======
@@ -1730,7 +2030,7 @@ void truthtracks(){
 	//cout<<"deleting canvases and legends"<<endl;
 	for(int i=0; i<canvaspointers.size(); i++){
 		TCanvas* canv = canvaspointers.at(i);
-		canv->SaveAs(TString::Format("%s/histograms_%d.png",outpath,i));
+		if(canv) canv->SaveAs(TString::Format("%s/histograms_%d.png",outpath,i));
 		if(canv) delete canv; canv=0;
 		TLegend* leg = legendpointers.at(i);
 		if(leg) delete leg; leg=0;
@@ -1740,7 +2040,7 @@ void truthtracks(){
 	//cout<<"deleting scaled canvases and legends"<<endl;
 	for(int i=0; i<scaledcanvaspointers.size(); i++){
 		TCanvas* canv = scaledcanvaspointers.at(i);
-		canv->SaveAs(TString::Format("%s/scaled_histograms_%d.png",outpath,i));
+		if(canv) canv->SaveAs(TString::Format("%s/scaled_histograms_%d.png",outpath,i));
 		if(canv) delete canv; canv=0;
 		TLegend* leg = scaledlegendpointers.at(i);
 		if(leg) delete leg; leg=0;
@@ -2055,5 +2355,11 @@ void FillTankMapHist(WCSimRootGeom* geo, int tubeID, bool incone, std::map<std::
 			//cout<<"PMT "<<tubeID<<" has unknown location "<<pmt.GetCylLoc()<<"!"<<endl; 
 			break;
 		}
+	}
+}
+
+void ClearMapHistos(std::map<std::string,TH2D*> maphistos){
+	for(std::map<std::string,TH2D*>::iterator it= maphistos.begin(); it!=maphistos.end(); it++){
+		it->second->Reset();
 	}
 }
