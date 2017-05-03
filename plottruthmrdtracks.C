@@ -537,7 +537,7 @@ void truthtracks(){
 		
 		// target nucleus:
 		Int_t targetnucleuspdg = genieint->InitState().Tgt().Pdg();
-		TParticlePDG * targetnucleus = genie::PDGLibrary::Instance()->Find( targetnucleuspdg );
+		TParticlePDG* targetnucleus = genie::PDGLibrary::Instance()->Find( targetnucleuspdg );
 		TString targetnucleusname = "unknown";
 		if(targetnucleus){ targetnucleusname = targetnucleus->GetName(); }
 		Int_t targetnucleusZ = genieint->InitState().Tgt().Z();
