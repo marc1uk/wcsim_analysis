@@ -62,6 +62,30 @@ const Int_t nummrdpmts=306;
 const std::vector<int> layeroffsets {0, 26, 56, 82, 112, 138, 168, 194, 224, 250, 280, 306};
 // ids of the first pmt in each layer.                                   KEEP an extra ^^^
 
+const Float_t MRD_width = ((numpaddlesperpanelv/2)*(scintfullxlen+scintbordergap))/2.;
+const Float_t MRD_height = ((numpaddlesperpanelh/2)*(scintfullxlen+scintbordergap))/2.;
+const Float_t MRD_layer2 = 290.755;             // position in wcsim coords of second scint layer in cm
+const Float_t MRD_start = 325.5;                // position in wcsim coord of MRD front face in cm
+const Float_t MRD_depth = 139.09;               // total depth of the MRD in cm
+const Float_t MRD_steel_width = (305./2.);      // half width of steel in cm
+const Float_t MRD_steel_height = (274./2.);     // half height of steel in cm
+/* output from WCSim:
+########## MRD front face: 325.5                     ##########
+########## MRD total Z length: 139.09                ##########
+########## MRD scintillator layer 0  (H) at z=336.08 ##########     1
+########## MRD scintillator layer 1  (V) at z=348.19 ########## 1
+########## MRD scintillator layer 2  (H) at z=360.30 ##########     2
+########## MRD scintillator layer 3  (V) at z=372.41 ########## 2
+########## MRD scintillator layer 4  (H) at z=384.52 ##########     3
+########## MRD scintillator layer 5  (V) at z=396.63 ########## 3
+########## MRD scintillator layer 6  (H) at z=408.74 ##########     4
+########## MRD scintillator layer 7  (V) at z=420.85 ########## 4
+########## MRD scintillator layer 8  (H) at z=432.96 ##########     5
+########## MRD scintillator layer 9  (V) at z=445.07 ########## 5
+########## MRD scintillator layer 10 (H) at z=457.18 ##########
+*/
+std::vector<double> mrdscintlayers{336.080, 348.190, 360.300, 372.410, 384.520, 396.630, 408.740, 420.850, 432.960, 445.070, 457.180 };
+
 //totMRD_box = new G4Box("totMRD",(maxwidth/2),(maxheight/2),mrdZlen/2);
 
 #endif 

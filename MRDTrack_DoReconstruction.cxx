@@ -15,7 +15,7 @@
 // ^^^^^^^^^^^^^^^^^^^^^^^^
 
 #ifndef MRDTrack_RECO_VERBOSE
-//#define MRDTrack_RECO_VERBOSE
+#define MRDTrack_RECO_VERBOSE
 #endif
 
 void cMRDTrack::DoReconstruction(){
@@ -32,11 +32,36 @@ void cMRDTrack::DoReconstruction(){
 	Tracks starting from a point in this region must have the appropriate angle to hit the crossing vertex.
 	The two sets of constraints in x and y are independent and define a non-trivial geometry when combined.*/
 	
+	int numdigits = digi_ids.size();
 	std::vector<TVector3> bottompoints;
 	std::vector<TVector3> toppoints;
-	for(Int_t i=0;i<digi_ids.size();i++){
+	// sort the hits in digi_ids, pmts_hit (and correspondingly layers_hit) by tube id:
+	// useful for debugging but shouldn't be necessary for functionality - better not to.
+	std::vector<std::pair<int,int>> digisandtubeids;
+	for(int i=0; i<numdigits; i++){
+		digisandtubeids.emplace_back(pmts_hit.at(i),i);
+	}
+	std::sort(digisandtubeids.begin(), digisandtubeids.end()); // sorts by first of pair by default
+	std::vector<int> digi_ids_dup(digi_ids), pmts_hit_dup(pmts_hit);
+	for(int i=0; i<numdigits; i++){
+		int sortedindex = digisandtubeids.at(i).second;
+		pmts_hit.at(i) = pmts_hit_dup.at(sortedindex);
+		digi_ids.at(i) = digi_ids_dup.at(sortedindex);
+	}
+	
+	// FIXME: CURRENTLY NOT WORKING: implemented counting number of hit layers to do a 'best fit'
+	// selection for events where no straight line will hit all paddles in the track.
+	// but projection signing(?) is not working - when using MRD_muon_sample, turn up verbosity and see
+	// event 0.
+	// But this method is being abandoned for a better chi2 fit method using the cluster extents
+	// as errors.
+	
+	for(Int_t i=0;i<numdigits;i++){
 		// get the extent of the corresponding paddle
-		Int_t tube_id = pmts_hit.at(i);
+		Int_t tube_id = pmts_hit.at(digi_ids.at(i));
+#ifdef MRDTrack_RECO_VERBOSE
+		cout<<"getting ranges for tube "<<tube_id<<endl;
+#endif
 		std::pair<Double_t, Double_t> thexrange = mrdcluster::paddle_extentsx.at(tube_id);
 		std::pair<Double_t, Double_t> theyrange = mrdcluster::paddle_extentsy.at(tube_id);
 		std::pair<Double_t, Double_t> thezrange = mrdcluster::paddle_extentsz.at(tube_id);
@@ -74,8 +99,9 @@ void cMRDTrack::DoReconstruction(){
 	// have had and still hit all recorded layers (note: this may be negative, indicating a particle was
 	// going downward - in this case angmin is the angle at which it went downward _least_ steeply)
 	// angle is measured from the positive z axis
-	for(int startlayer=0; startlayer<digi_ids.size(); startlayer++){
-		for(int nextlayer=(startlayer+1); nextlayer<digi_ids.size(); nextlayer++){
+	int maxmatches=0; // the most layers hit by one trajectory so far
+	for(int startlayer=0; startlayer<numdigits; startlayer++){
+		for(int nextlayer=(startlayer+1); nextlayer<numdigits; nextlayer++){
 			Double_t opp = toppoints.at(nextlayer).X()-bottompoints.at(startlayer).X();
 			Double_t adj = bottompoints.at(nextlayer).Z()-bottompoints.at(startlayer).Z();
 			// really it should be an average for Z points
@@ -88,6 +114,7 @@ void cMRDTrack::DoReconstruction(){
 				<<", z="<<bottompoints.at(nextlayer).Z()
 				<<", at angle= "<<TMath::RadToDeg()*ang<<"degs"<<endl;
 #endif
+/*
 			if(TMath::IsNaN(xangmin)||(ang>xangmin)){
 				if(AngValid(startlayer,ang,0, 0)){	// check this angle actually hits all paddles
 #ifdef MRDTrack_RECO_VERBOSE
@@ -97,17 +124,32 @@ void cMRDTrack::DoReconstruction(){
 					xlayermin=startlayer;			// to define a trajectory we also need a starting point
 				}
 			}
+*/
+			if(TMath::IsNaN(xangmin)||(ang>xangmin)||(maxmatches<(numdigits-1))){
+				// instead count for how many paddles this trajectory is valid:
+				int nummatches = AngMatchCount(startlayer,ang,0,0);
+				if( (nummatches>maxmatches) ||
+					( (nummatches==maxmatches)&&(ang>xangmin) ) ){
+#ifdef MRDTrack_RECO_VERBOSE
+					cout<<"setting this x angle as the new most upgoing"<<endl;
+#endif
+					xangmin=ang;					// set this as the lower bound angle
+					xlayermin=startlayer;			// to define a trajectory we also need a starting point
+				}
+				if(nummatches>maxmatches) maxmatches=nummatches;
+			}
 		}
 	}
 #ifdef MRDTrack_RECO_VERBOSE
 	cout<<"finished calculating most upgoing x angle"<<endl;
 #endif
-	if(TMath::IsNaN(xangmin)){cout<<" ####### NO UPGOING X ANGLE FOUND ########## "<<endl;}
+	if(TMath::IsNaN(xangmin)){cout<<" ####### NO UPGOING X ANGLE FOUND ########## "<<endl; return;}
 	
 	// angmax: this time scan from top of each layer to bottom of next layer, looking 
 	// for the uppermost entering trajectory
-	for(Int_t startlayer=0;startlayer<digi_ids.size();startlayer++){
-		for(Int_t nextlayer=(startlayer+1);nextlayer<digi_ids.size(); nextlayer++){
+	maxmatches=0;
+	for(Int_t startlayer=0;startlayer<numdigits;startlayer++){
+		for(Int_t nextlayer=(startlayer+1);nextlayer<numdigits; nextlayer++){
 			Double_t opp = toppoints.at(startlayer).X() - bottompoints.at(nextlayer).X();
 			// negative if upgoing
 			Double_t adj = bottompoints.at(nextlayer).Z()-bottompoints.at(startlayer).Z();
@@ -121,6 +163,7 @@ void cMRDTrack::DoReconstruction(){
 				<<", z="<<bottompoints.at(nextlayer).Z()
 				<<", at angle= "<<TMath::RadToDeg()*ang<<endl;
 #endif
+/*
 			if(TMath::IsNaN(xangmax)||(ang>xangmax)){
 				if(AngValid(startlayer,ang,1, 0)){		// project both forward and back from 
 					xangmax=ang;						// bottom vertex of nextlayer to all other layers 
@@ -130,16 +173,31 @@ void cMRDTrack::DoReconstruction(){
 #endif
 				}
 			}
+*/
+			if(TMath::IsNaN(xangmax)||(ang>xangmax)||(maxmatches<(numdigits-1))){
+				// instead count for how many paddles this trajectory is valid:
+				int nummatches = AngMatchCount(startlayer,ang,1,0);
+				if( (nummatches>maxmatches) ||
+					( (nummatches==maxmatches)&&(ang>xangmax) ) ){
+#ifdef MRDTrack_RECO_VERBOSE
+					cout<<"setting this x angle as the new most downgoing"<<endl;
+#endif
+					xangmax=ang;					// set this as the lower bound angle
+					xlayermax=startlayer;			// to define a trajectory we also need a starting point
+				}
+				if(nummatches>maxmatches) maxmatches=nummatches;
+			}
 		}
 	}
 #ifdef MRDTrack_RECO_VERBOSE
 	cout<<"finished calculating most downgoing x angle"<<endl;
 #endif
-	if(TMath::IsNaN(xangmax)){cout<<" ####### NO DOWNGOING X ANGLE FOUND ########## "<<endl;}
+	if(TMath::IsNaN(xangmax)){cout<<" ####### NO DOWNGOING X ANGLE FOUND ########## "<<endl; return;}
 	
 	//now find angles and layers for y projections
-	for(Int_t startlayer=0;startlayer<digi_ids.size();startlayer++){
-		for(Int_t nextlayer=startlayer+1;nextlayer<digi_ids.size(); nextlayer++){
+	maxmatches=0;
+	for(Int_t startlayer=0;startlayer<numdigits;startlayer++){
+		for(Int_t nextlayer=startlayer+1;nextlayer<numdigits; nextlayer++){
 			Double_t opp = toppoints.at(nextlayer).Y()-bottompoints.at(startlayer).Y();
 			Double_t adj = bottompoints.at(nextlayer).Z()-bottompoints.at(startlayer).Z();
 			// really it should be an average for Z points
@@ -152,6 +210,7 @@ void cMRDTrack::DoReconstruction(){
 				<<", z="<<bottompoints.at(nextlayer).Z()
 				<<", at angle= "<<TMath::RadToDeg()*ang<<"degs"<<endl;
 #endif
+/*
 			if(TMath::IsNaN(yangmin)||(ang>yangmin)){
 				if(AngValid(startlayer,ang,0, 1)){			// check this angle actually hits all paddles
 					yangmin=ang;							// set this as the lower bound angle
@@ -161,16 +220,31 @@ void cMRDTrack::DoReconstruction(){
 #endif
 				}
 			}
+*/
+			if(TMath::IsNaN(yangmin)||(ang>yangmin)||(maxmatches<(numdigits-1))){
+				// instead count for how many paddles this trajectory is valid:
+				int nummatches = AngMatchCount(startlayer,ang,0,1);
+				if( (nummatches>maxmatches) ||
+					( (nummatches==maxmatches)&&(ang>yangmin) ) ){
+#ifdef MRDTrack_RECO_VERBOSE
+					cout<<"setting this y angle as the new most upgoing"<<endl;
+#endif
+					yangmin=ang;					// set this as the lower bound angle
+					ylayermin=startlayer;			// to define a trajectory we also need a starting point
+				}
+				if(nummatches>maxmatches) maxmatches=nummatches;
+			}
 		}
 	}
 #ifdef MRDTrack_RECO_VERBOSE
 	cout<<"finished calculating most upgoing y angle"<<endl;
 #endif
-	if(TMath::IsNaN(yangmin)){cout<<" ####### NO UPGOING Y ANGLE FOUND ########## "<<endl;}
+	if(TMath::IsNaN(yangmin)){cout<<" ####### NO UPGOING Y ANGLE FOUND ########## "<<endl; return;}
 	
 	//now find angles and layers for y projections
-	for(Int_t startlayer=0;startlayer<digi_ids.size();startlayer++){
-		for(Int_t nextlayer=startlayer+1;nextlayer<digi_ids.size(); nextlayer++){
+	maxmatches=0;
+	for(Int_t startlayer=0;startlayer<numdigits;startlayer++){
+		for(Int_t nextlayer=startlayer+1;nextlayer<numdigits; nextlayer++){
 			// angmax: same, this time scan from top of each layer 
 			// to bottom of next layer, for the uppermost entering trajectory
 			Double_t opp = toppoints.at(startlayer).Y() - bottompoints.at(nextlayer).Y();
@@ -186,6 +260,7 @@ void cMRDTrack::DoReconstruction(){
 				<<", z="<<bottompoints.at(nextlayer).Z()
 				<<", at angle= "<<TMath::RadToDeg()*ang<<endl;
 #endif
+/*
 			if(TMath::IsNaN(yangmax)||(ang>yangmax)){
 				if(AngValid(startlayer,ang,1, 1)){		// project both forward and back from
 					yangmax=ang;						// bottom vertex of nextlayer to all other layers
@@ -195,12 +270,26 @@ void cMRDTrack::DoReconstruction(){
 #endif
 				}
 			}
+*/
+			if(TMath::IsNaN(yangmax)||(ang>yangmax)||(maxmatches<(numdigits-1))){
+				// instead count for how many paddles this trajectory is valid:
+				int nummatches = AngMatchCount(startlayer,ang,1,1);
+				if( (nummatches>maxmatches) ||
+					( (nummatches==maxmatches)&&(ang>yangmax) ) ){
+#ifdef MRDTrack_RECO_VERBOSE
+					cout<<"setting this y angle as the new most downgoing"<<endl;
+#endif
+					yangmax=ang;					// set this as the lower bound angle
+					ylayermax=startlayer;			// to define a trajectory we also need a starting point
+				}
+				if(nummatches>maxmatches) maxmatches=nummatches;
+			}
 		}
 	}
 #ifdef MRDTrack_RECO_VERBOSE
 	cout<<"finished calculating most downgoing y angle"<<endl;
 #endif
-	if(TMath::IsNaN(yangmax)){cout<<" ####### NO DOWNGOING Y ANGLE FOUND ########## "<<endl;}
+	if(TMath::IsNaN(yangmax)){cout<<" ####### NO DOWNGOING Y ANGLE FOUND ########## "<<endl; return;}
 
 	recovalshoriz.emplace("angminzval",bottompoints.at(xlayermin).Z());
 	recovalshoriz.emplace("angminxval",bottompoints.at(xlayermin).X());
@@ -247,6 +336,39 @@ Bool_t cMRDTrack::AngValid(Int_t layerstart, Double_t angle, Int_t MaxMin, Int_t
 	cout<<"from layer "<<layerstart<<" at angle "<<TMath::RadToDeg()*angle<<" hits all other layers"<<endl;
 #endif
 	return true;
+}
+
+// =====================================================================
+// ********* trajectory reconstruction: scan projections to all layers *****************
+Int_t cMRDTrack::AngMatchCount(Int_t layerstart, Double_t angle, Int_t MaxMin, Int_t axis){
+#ifdef MRDTrack_RECO_VERBOSE
+//	cout<<"checking if ";
+//	if(axis){cout<<"y ";} else {cout<<"x ";}
+//	cout<<"trajectory, going ";
+//	if(MaxMin){cout<<"downwards ";} else {cout<<"upwards ";}
+//	cout<<"from layer "<<layerstart<<" at angle "<<TMath::RadToDeg()*angle<<" hits other layers"<<endl;
+#endif
+	Int_t matchcount=0;
+	for(Int_t layerend=0;layerend<digi_ids.size();layerend++){
+		if(layerstart==layerend){continue;}  // don't check from a layer to itself
+		bool angvalid = CheckIntersection(layerstart, layerend, angle, MaxMin, axis);
+		if(angvalid){ matchcount++;
+#ifdef MRDTrack_RECO_VERBOSE
+			cout<<"trajectory hits layer "<<layerend<<endl;
+#endif
+		}
+	}
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"trajectory hits "<<matchcount<<" layers of "<<digi_ids.size()<<endl;
+	if(matchcount==(digi_ids.size()-1)){
+		if(axis){cout<<"y ";} else {cout<<"x ";}
+		cout<<"trajectory, going ";
+		if(MaxMin){cout<<"downwards ";} else {cout<<"upwards ";}
+		cout<<"from layer "<<layerstart<<" at angle "<<TMath::RadToDeg()*angle
+			<<" hits all other layers"<<endl;
+	}
+#endif
+	return matchcount;
 }
 
 // =====================================================================

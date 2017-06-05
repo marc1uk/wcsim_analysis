@@ -59,7 +59,7 @@ int mrdcluster::StripMrdPositions(std::string fname="/annie/app/users/moflaher/w
 		if(stringtomatch=="") break;
 		std::regex_match (stringtomatch, submatches, theexpression);
 		if(submatches.size()==0) { 
-			cout<<stringtomatch<<" was not matched"<<endl; return 0;
+			cerr<<stringtomatch<<" was not matched"<<endl; return 0;
 		} else {
 //			cout << "whole match was "<<(std::string)submatches[0]<<endl;
 //			for(int i=1; i<submatches.size(); i++){
@@ -69,7 +69,10 @@ int mrdcluster::StripMrdPositions(std::string fname="/annie/app/users/moflaher/w
 			int pmt_id=std::stoi(submatches[1]);
 			//pmt_ids.push_back(pmt_id);	// 1:1 mapping, no need
 			//cout<<"setting stats for pmt "<<pmt_id<<endl;
-			(submatches[2]=="H") ? paddle_orientations.push_back(0) : paddle_orientations.push_back(1);
+			string orientationstring = submatches[2];
+//			cout<<"orientation of pmt "<<linenum<<" is "<<orientationstring.c_str()<<endl;
+//			if(strcmp(orientationstring.c_str(),"H")==0) cout<<"it's horizontal"<<endl; else cout<<"it's vertical"<<endl;
+			(strcmp(orientationstring.c_str(),"H")==0) ? paddle_orientations.at(pmt_id)=0 : paddle_orientations.at(pmt_id)=1;
 			paddle_layers.at(pmt_id)=(std::stoi(submatches[3]));
 			paddle_originx.at(pmt_id)=(std::stod(submatches[4]));
 			paddle_originy.at(pmt_id)=(std::stod(submatches[5]));
@@ -113,8 +116,8 @@ int mrdcluster::StripMrdPositions(std::string fname="/annie/app/users/moflaher/w
 //		cout<<"originys is "<<paddle_originy.at(i)<<endl;
 //		cout<<"originzs is "<<paddle_originz.at(i)<<endl;
 //		cout<<"extentsx is "<<paddle_extentsx.at(i).first<<", "<<paddle_extentsx.at(i).second<<endl;
-//		cout<<"extentsy is "<<paddle_extentsy.at(i).first<<", "<<paddle_extentsx.at(i).second<<endl;
-//		cout<<"extentsz is "<<paddle_extentsz.at(i).first<<", "<<paddle_extentsx.at(i).second<<endl;
+//		cout<<"extentsy is "<<paddle_extentsy.at(i).first<<", "<<paddle_extentsy.at(i).second<<endl;
+//		cout<<"extentsz is "<<paddle_extentsz.at(i).first<<", "<<paddle_extentsz.at(i).second<<endl;
 //	}
 	return 1;
 }

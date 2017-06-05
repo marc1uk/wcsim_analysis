@@ -12,12 +12,13 @@
 #include "MRDSubEventClass.hh"
 
 #ifndef TRACKFINDVERBOSE
-//#define TRACKFINDVERBOSE 1
+#define TRACKFINDVERBOSE 1
 #endif
 
 class mrdcluster;
 class mrdcell;
-const Int_t mintracklength=1;	// tracks must have (mintracklength+1) cells to qualify
+const Int_t mintracklength=0;	// tracks must have (mintracklength+1) cells to qualify
+								// be generous - allow 1-cell tracks. We'll require tank coincidence anyway.
 const Double_t chi2limit=40.0;	// max chi^2 from a linear least squares fit to all 3 clusters for those
 								// to be classed as clusters in the same track
 
@@ -63,9 +64,7 @@ void cMRDSubEvent::DoReconstruction(){
 	
 	// first make note of clusters spanning two or more adjacent pmts in the same layer
 	// loop over layers, looking for multiple digits in adjacent pmts
-	// VVVV this has been skipped. Particles can't hit two paddles in the MRD, showers should be separate tracks
 	std::vector<Int_t> donedigits;
-	/*
 	for(int thislayer=0; thislayer<numpanels; thislayer++){
 		if(digits_by_layer.at(thislayer).size()==0) continue;
 		std::vector<Int_t> digitsinthislayer = digits_by_layer.at(thislayer);
@@ -115,10 +114,10 @@ void cMRDSubEvent::DoReconstruction(){
 			Int_t tube_id = digitssortedbytube.at(thisdigit).first;
 			Int_t tube_id2 = digitssortedbytube.at(thisdigit+1).first;
 			// if the next digit's tube_id is adjacent to that of this digit
-			if(tube_id2==(tube_id+2)){	// offset is 2 because +1 is in the other half of the MRD
+			if(TMath::Abs(tube_id-tube_id2)<4){ // this permits adjacency in either or both directions
 				// they're a cluster! grab the digi_ids
-			Int_t adigiindex = digitssortedbytube.at(thisdigit).second;
-			Int_t adigiindex2 = digitssortedbytube.at(thisdigit+1).second;
+				Int_t adigiindex = digitssortedbytube.at(thisdigit).second;
+				Int_t adigiindex2 = digitssortedbytube.at(thisdigit+1).second;
 				//check if this digit is already in a cluster
 				if(thisdigitscluster==nullptr){
 					// it's not: make a cluster and add both digits
@@ -146,7 +145,7 @@ void cMRDSubEvent::DoReconstruction(){
 #ifdef TRACKFINDVERBOSE
 		cout<<"found "<<theclusters.size()<<" multi-digit clusters in this layer"<<endl;
 #endif
-	} */
+	}
 	
 	// 4. make any remaining non-grouped hits their own cluster.
 #ifdef TRACKFINDVERBOSE
@@ -164,6 +163,14 @@ void cMRDSubEvent::DoReconstruction(){
 #ifdef TRACKFINDVERBOSE
 	cout<<"constructed "<<theclusters.size()<<" total clusters from "<<digi_ids.size()<<" digits"<<endl;
 #endif
+	// When generating cells we run over a nested loop: the clusters should be ordered by layer,
+	// so that cells between adjacent layers are generated before looking for cells spanning two
+	// layers. Multi-digit clusters therefore need to be sorted into place. 
+	for(int index=0; index<theclusters.size()-1; index++){
+		if((theclusters.at(index)->layer)>(theclusters.at(index+1)->layer)) 
+			std::swap(theclusters.at(index),theclusters.at(index+1));
+	}
+	
 	// 5. generate a std::vector all the possible cells for each layer
 	for(int thislayer=0; thislayer<numpanels; thislayer++){
 	// loop over all clusters in the layer ... 
@@ -179,14 +186,17 @@ void cMRDSubEvent::DoReconstruction(){
 				for(int thiscluster2=0; thiscluster2<theclusters.size(); thiscluster2++){
 					mrdcluster* endcluster = theclusters.at(thiscluster2);
 					Int_t nextlayer = endcluster->layer;
-					if((nextlayer>thislayer)&&((nextlayer-thislayer)<3)&&((nextlayer-thislayer)%2==0)){
+					// TODO: to be able to reconstruct tracks with skipped layers,
+					// this needs to be doable with cMRDTrack::DoReconstruction.
+					if((nextlayer>thislayer)&&((nextlayer-thislayer)<5)&&((nextlayer-thislayer)%2==0)){
 						// if making a cell between two adjacent layers, make the cell - 
 						// no need to check for equivalent cells with intermediate layers
 						if(((nextlayer-thislayer)==2)||(thisclusterscells.size()==0)){
 #ifdef TRACKFINDVERBOSE
 							cout<<"generating a cell between cluster "<<thiscluster
 								<<" with centre "<<startcluster->GetCentreIndex()<<" in layer "<<thislayer
-								<<" and cluster "<<thiscluster2<<" with centre "<<endcluster->GetCentreIndex()
+								<<" and cluster "<<thiscluster2
+								<<" with centre "<<endcluster->GetCentreIndex()
 								<<" in layer "<<nextlayer<<endl;
 #endif
 							// generate the cell between these thiscluster and thiscluster2
@@ -200,7 +210,8 @@ void cMRDSubEvent::DoReconstruction(){
 #ifdef TRACKFINDVERBOSE
 							cout<<"scanning for intermediate cells between cluster "<<thiscluster
 								<<" with centre "<<startcluster->GetCentreIndex()<<" in layer "<<thislayer
-								<<" and cluster "<<thiscluster2<<" with centre "<<endcluster->GetCentreIndex()
+								<<" and cluster "<<thiscluster2
+								<<" with centre "<<endcluster->GetCentreIndex()
 								<<" in layer "<<nextlayer<<endl;
 #endif
 							Bool_t foundintermediate=false;
@@ -217,7 +228,6 @@ void cMRDSubEvent::DoReconstruction(){
 								// existing cell is in the intermediate layer - 
 								// does the projection to nextlayer hit this cluster?
 								double startclustercentre = startcluster->GetCentreIndex();
-								// need to make sure we extract the downstream (not necessarily second) cluster
 								mrdcluster* secondcluster = acell->clusters.second;
 								double midclustercentre = secondcluster->GetCentreIndex();
 								int xdiff = midclustercentre-startclustercentre;
@@ -228,7 +238,8 @@ void cMRDSubEvent::DoReconstruction(){
 									<<projectedendpoint<<", compared to present cluster's centre of "
 									<<endcluster->GetCentreIndex()<<endl;
 #endif
-								if(projectedendpoint==endcluster->GetCentreIndex()) {
+								// relaxed limit from perfect alignment to alignment within 1 paddle
+								if(TMath::Abs(projectedendpoint-endcluster->GetCentreIndex())<2){
 									foundintermediate=true;  // same as existing cell
 #ifdef TRACKFINDVERBOSE
 									cout<<"this is an intermediate, skipping this endpoint cluster."<<endl;
@@ -319,13 +330,13 @@ void cMRDSubEvent::DoReconstruction(){
 #ifdef TRACKFINDVERBOSE
 				cout<<"fit produces gradient "<<fit_gradient<<", offset "<<fit_offset<<", chi^2 "<<chi2<<endl;
 #endif
-				if(chi2<chi2limit){
+				if(chi2>=0&&chi2<chi2limit){  // fit can fail with negative chi2. 
 #ifdef TRACKFINDVERBOSE
 					cout<<"chi2 is good, checking for existing neighbours and daughters"<<endl;
 #endif
 					// these cells are neighbours! 
-					// determine the track direction to see how to proceed
-					if(upcell->isdownstreamgoing&&downcell->isdownstreamgoing){
+					// determine the track direction to see how to proceed << FUDGED. 
+					if(true||(upcell->isdownstreamgoing&&downcell->isdownstreamgoing)){
 						// both are cells of a downstream going track.
 						// now we need to check if this cell is already the upstream neighbour of
 						// another cell - i.e. does the track split here
@@ -486,7 +497,7 @@ void cMRDSubEvent::DoReconstruction(){
 	
 	// 9. These cells are combined with upstream neighbours until the cell with state 0 (upstream edge). 
 	//    This combination is the track. 
-	std::vector<std::vector<mrdcell*> > alltracks;
+	std::vector<std::vector<mrdcell*> > hpaddletracks, vpaddletracks;
 	for(int atracki=0; atracki<trackstartindices.size(); atracki++){
 		std::vector<mrdcell*> thistrack;
 		mrdcell* thiscell = thecells.at(trackstartindices.at(atracki));
@@ -512,14 +523,285 @@ void cMRDSubEvent::DoReconstruction(){
 #ifdef TRACKFINDVERBOSE
 		cout<<"track "<<atracki<<" has a total of "<<thistrack.size()<<" cells"<<endl;
 #endif
-		if(thistrack.size()) alltracks.push_back(thistrack);
+		if(thistrack.size()){
+			if((thiscell->clusters.first->layer)%2==0) hpaddletracks.push_back(thistrack);
+			else vpaddletracks.push_back(thistrack);
+		}
 	}
 	
+	// Tracks need to be matched in the two views
+	// we'll define a 'figure of merit' for a given track to match it to it's pair in the opposite view.
+	// this will be based on:
+	// same side
+	// similar start and end z
+	// similar crossing point, if applicable
+	// similar track length
+#ifdef TRACKFINDVERBOSE
+	cout<<"building match matrix for matching tracks in two views"<<endl;
+	cout<<"we have "<<hpaddletracks.size()<<" tracks in horizontal paddles and "
+		<<vpaddletracks.size()<<" tracks in vertical paddles"<<endl;
+#endif
+	std::vector<std::vector<double> > matchmerits (hpaddletracks.size(), std::vector<double>(vpaddletracks.size(),0));
+	for(int tracki=0; tracki<hpaddletracks.size(); tracki++){
+		std::vector<mrdcell*> htrack = hpaddletracks.at(tracki);
+#ifdef TRACKFINDVERBOSE
+		cout<<"scanning matches against htrack "<<tracki<<" which has "<<htrack.size()<<" cells"<<endl;
+#endif
+		for(int trackj=0; trackj<vpaddletracks.size(); trackj++){
+			std::vector<mrdcell*> vtrack = vpaddletracks.at(trackj);
+			
+			/*
+			First requirement is that the track in the opposing view is on the correct side.
+			Scan through hit layers, using a pair of layers in the more accurate view.
+			The side in the intermediate layer (alt-view, if hit) should be the same as the two main
+			view paddles. If both main-view paddles are central, either intermediate side is allowed.
+			*/
+#ifdef TRACKFINDVERBOSE
+			cout<<"making figure-of-merit with v track "<<trackj
+				<<", which has "<<vtrack.size()<<" cells"<<endl;
+#endif
+			
+			// first test how compatible v track (alt) is with h track (main)
+			double thisfom=0.;
+			int hcomparisons=0;
+			int hfom=0;
+			// scan over side view hits, for all intermediate hits in alt view, update fom based on side
+			for(int testi=htrack.size()-1; testi>-1; testi--){
+				// pull out the next pair of clusters - what layer are they in?
+				int startlayer = htrack.at(testi)->clusters.first->layer;
+				int stoplayer = htrack.at(testi)->clusters.second->layer;
+				
+				// and what side are they on?
+				int startpmt = htrack.at(testi)->clusters.first->GetCentreIndex();
+				startpmt-= ((numpaddlesperpanelh/2.)-1.)/2.;  // -6 -> centre paddle will have value 0.
+				double hsidestart=0;  // 0 indicates a centre paddle - neither side.
+					 if(startpmt>0) hsidestart= 1;            // right hand side
+				else if(startpmt<0) hsidestart=-1;            // left hand side
+				double stoppmt = htrack.at(testi)->clusters.second->GetCentreIndex();
+				stoppmt-= ((numpaddlesperpanelh/2.)-1.)/2.;   // -6 -> centre paddle will have value 0.
+				int hsidestop=0;  // 0 indicates a centre paddle - neither side.
+					 if(stoppmt>0) hsidestop= 1;              // right hand side
+				else if(stoppmt<0) hsidestop=-1;              // left hand side
+				double avgside = (hsidestart+hsidestop)/2.;   // this averages to 0 in
+															  // case they're on opposite sides
+				if(avgside==0) continue;  // paddles are central - either side is consistent. 
+										  // no change to figure of merit
+#ifdef TRACKFINDVERBOSE
+				cout<<"htrack cell "<<testi<<" starts in layer "<<startlayer<<" on side "<<hsidestart
+					<<" and goes to layer "<<stoplayer<<" on side "<<hsidestop
+					<<" giving average side "<<avgside<<endl;
+#endif
+				
+				// now scan over the other view hits
+				for(int testj=vtrack.size()-1; testj>-1; testj--){
+					// look for hits between the current pair of layers
+					int interlayer=vtrack.at(testj)->clusters.first->layer;
+#ifdef TRACKFINDVERBOSE
+					cout<<"vtrack cell "<<testj<<" starts in layer "<<interlayer<<endl;
+#endif
+					if(interlayer>startlayer&&interlayer<stoplayer){
+						// check if the side is the same as the straddling hits
+						double altside = vtrack.at(testj)->clusters.first->altviewhalf;
+#ifdef TRACKFINDVERBOSE
+						cout<<"vtrack cell "<<testj<<" in alt view is on side "<<altside<<endl;
+#endif
+						if((avgside*altside)>0){
+							// both are on the same side:
+							hfom+=1;
+						} else {
+							hfom-=1;
+						}
+						hcomparisons++;
+					}
+					
+					if(testi==0&&testj==0){  // one last test on the last cluster
+						int interlayer=vtrack.at(testj)->clusters.second->layer;
+#ifdef TRACKFINDVERBOSE
+						cout<<"vtrack cell "<<testj<<" ends in layer "<<interlayer<<endl;
+#endif
+						if(interlayer>startlayer&&interlayer<stoplayer){
+							// check if the side is the same as the straddling hits
+							double altside = vtrack.at(testj)->clusters.second->altviewhalf;
+#ifdef TRACKFINDVERBOSE
+							cout<<"vtrack cell "<<testj<<" in alt view is on side "<<altside<<endl;
+#endif
+							if((avgside*altside)>0){
+								// both are on the same side:
+								hfom+=1;
+							} else {
+								hfom-=1;
+							}
+							hcomparisons++;
+						}
+					}
+				}
+			}
+#ifdef TRACKFINDVERBOSE
+			cout<<"net FOM from side comparison in h view is "<<hfom<<"/"<<hcomparisons<<endl;
+#endif
+			thisfom+= (double)hfom/(double)hcomparisons;
+			
+			// now check how compatible h track (alt) is with v track (main)
+			int vcomparisons=0;
+			int vfom=0;
+			// scan over top view hits, for all intermediate hits in alt view, update fom based on side
+			for(int testi=vtrack.size()-1; testi>-1; testi--){
+				// pull out the next pair of clusters - what layer are they in?
+				int startlayer = vtrack.at(testi)->clusters.first->layer;
+				int stoplayer = vtrack.at(testi)->clusters.second->layer;
+				
+				// and what side are they on?
+				int startpmt = vtrack.at(testi)->clusters.first->GetCentreIndex();
+				startpmt-= ((numpaddlesperpanelv/2.)-1.)/2.;  // -7 -> centre paddle will have value 0.
+				double vsidestart=0;  // 0 indicates a centre paddle - neither side.
+					 if(startpmt>0) vsidestart= 1;            // right hand side
+				else if(startpmt<0) vsidestart=-1;            // left hand side
+				double stoppmt = vtrack.at(testi)->clusters.second->GetCentreIndex();
+				stoppmt-= ((numpaddlesperpanelv/2.)-1.)/2.;   // -7 -> centre paddle will have value 0.
+				int vsidestop=0;  // 0 indicates a centre paddle - neither side.
+					 if(stoppmt>0) vsidestop= 1;              // right hand side
+				else if(stoppmt<0) vsidestop=-1;              // left hand side
+				double avgside = (vsidestart+vsidestop)/2.;   // this averages to 0 in
+															  // case they're on opposite sides
+				if(avgside==0) continue;  // paddles are central - either side is consistent. 
+										  // no change to figure of merit
+				
+#ifdef TRACKFINDVERBOSE
+				cout<<"vtrack cell "<<testi<<" starts in layer "<<startlayer<<" on side "<<vsidestart
+					<<" and goes to layer "<<stoplayer<<" on side "<<vsidestop
+					<<" giving average side "<<avgside<<endl;
+#endif
+				
+				// now scan over the other view hits
+				for(int testj=htrack.size()-1; testj>-1; testj--){
+					// look for hits between the current pair of layers
+					int interlayer=htrack.at(testj)->clusters.first->layer;
+#ifdef TRACKFINDVERBOSE
+					cout<<"htrack cell "<<testj<<" starts in layer "<<interlayer<<endl;
+#endif
+					if(interlayer>startlayer&&interlayer<stoplayer){
+						// check if the side is the same as the straddling hits
+						double altside = htrack.at(testj)->clusters.first->altviewhalf;
+#ifdef TRACKFINDVERBOSE
+							cout<<"htrack cell "<<testj<<" in alt view is on side "<<altside<<endl;
+#endif
+						if((avgside*altside)>0){
+							// both are on the same side:
+							vfom+=1.;
+						} else {
+							vfom-=1.;
+						}
+						vcomparisons++;
+					}
+					
+					if(testi==0&&testj==0){  // one last test on the last cluster
+						int interlayer=htrack.at(testj)->clusters.second->layer;
+#ifdef TRACKFINDVERBOSE
+					cout<<"htrack cell "<<testj<<" ends in layer "<<interlayer<<endl;
+#endif
+						if(interlayer>startlayer&&interlayer<stoplayer){
+							// check if the side is the same as the straddling hits
+							double altside = htrack.at(testj)->clusters.second->altviewhalf;
+#ifdef TRACKFINDVERBOSE
+							cout<<"htrack cell "<<testj<<" in alt view is on side "<<altside<<endl;
+#endif
+							if((avgside*altside)>0){
+								// both are on the same side:
+								vfom+=1.;
+							} else {
+								vfom-=1.;
+							}
+							vcomparisons++;
+						}
+					}
+				}
+			}
+#ifdef TRACKFINDVERBOSE
+			cout<<"net FOM from side comparison in v view is "<<vfom<<"/"<<vcomparisons<<endl;
+#endif
+			thisfom+= (double)vfom/(double)vcomparisons;
+			
+#ifdef TRACKFINDVERBOSE
+			cout<<"checking compatibility of start and endpoints"<<endl;
+#endif
+			// give some merit based on proximity of the start and endpoints
+			int hstartlayer = htrack.front()->clusters.first->layer;
+			int vstartlayer = vtrack.front()->clusters.first->layer;
+			int hstoplayer = htrack.back()->clusters.first->layer;
+			int vstoplayer = vtrack.back()->clusters.first->layer;
+			
+			// adjacent layers in start and end points give FOM+1...
+			thisfom -= TMath::Abs(hstartlayer-vstartlayer)-2;
+			thisfom -= TMath::Abs(hstoplayer-vstoplayer)-2;
+			
+#ifdef TRACKFINDVERBOSE
+			cout<<"updating figure-of-merit for endpoint matching by "
+				<<(-(TMath::Abs(hstartlayer-vstartlayer)-2))
+				<<" for start proximity and "
+				<<(-(TMath::Abs(hstoplayer-vstoplayer)-2))
+				<<" for end proximity"<<endl;
+#endif
+			
+			matchmerits.at(tracki).at(trackj)=thisfom;
+		}
+	}
+	
+#ifdef TRACKFINDVERBOSE
+	cout<<"matching tracks in two views"<<endl;
+#endif
+	double fomthreshold=2; // a pair of tracks must have at least this figure-of-merit to be matched
+						   // maximum FOM is 4: complete compatibilty in both views, and both endpoints.
+	// now find the maximum merit pairs, noting that there may not be the same number of tracks in each view!
+	std::vector<std::pair<int,int> > matchedtracks;  // <hpaddletracks index, vpaddletracks index>
+	while(true){
+		double currentmax=0.;
+		int maxrow=-1, maxcolumn=-1;
+		for(int rowi=0; rowi<matchmerits.size(); rowi++){
+			std::vector<double> therow = matchmerits.at(rowi);
+			std::vector<double>::iterator thisrowsmaxit = std::max_element(therow.begin(), therow.end());
+			if((thisrowsmaxit!=therow.end())&&((*thisrowsmaxit)>currentmax)){
+				currentmax=*thisrowsmaxit; 
+				maxrow = rowi;
+				maxcolumn = std::distance(therow.begin(),thisrowsmaxit);
+			}
+		}
+#ifdef TRACKFINDVERBOSE
+		cout<<"max FOM for pairing "<<matchedtracks.size()<<" is "<<currentmax<<endl;
+#endif
+		if(currentmax>fomthreshold){
+			// add this matching to the list of pairs
+#ifdef TRACKFINDVERBOSE
+			cout<<"matching horizontal track "<<maxrow<<" to vetical track "<<maxcolumn<<endl;
+#endif
+			matchedtracks.push_back(std::make_pair(maxrow, maxcolumn));
+			// remove the matched tracks from the matchmerits matrix
+			matchmerits.erase(matchmerits.begin()+maxrow);
+			for(auto&& avec : matchmerits){
+				avec.erase(avec.begin()+maxcolumn);
+			}
+			// check if we still have tracks to match
+			if((matchmerits.size()==0)||(matchmerits.at(0).size()==0)){
+				break; // no remaining tracks to match in at least one view
+			}
+		} else {
+			break;  // the maximum FOM between remaining tracks is insufficient. We're done here.
+		}
+	}
+	
+	Bool_t printtracks=false;
+	Bool_t drawcells=true;
+	// only record tracks which are seen in both views
+	if(printtracks) cout<<"Found "<<matchedtracks.size()<<" tracks this subevent."<<endl;
 	// Make the actual cMRDTrack track objects, now that we have a coherent set of cells:
-	for(int tracki=0; tracki<alltracks.size(); tracki++){
+	for(int tracki=0; tracki<matchedtracks.size(); tracki++){
 		// get the track (vector of cells)
-		std::vector<mrdcell*> thistrack = alltracks.at(tracki);
-		
+		std::vector<mrdcell*> hpaddletrack = hpaddletracks.at(matchedtracks.at(tracki).first);
+		std::vector<mrdcell*> vpaddletrack = vpaddletracks.at(matchedtracks.at(tracki).second);
+#ifdef TRACKFINDVERBOSE
+		cout<<"track "<<tracki<<" has "<<hpaddletrack.size()<<" horizontal and "
+			<<vpaddletrack.size()<<" vertical cells"<<endl;
+#endif
+			
 		// declare all the things to make a track class
 		std::vector<Int_t> digitids_inthistrack;
 		std::vector<Int_t> tubeids_inthistrack;
@@ -530,17 +812,39 @@ void cMRDSubEvent::DoReconstruction(){
 		std::vector<Int_t> digittrueparents_inthistrack;
 		
 		// scan through all the cells, and grab the digit ids of all digits in all clusters in this track
-		for(int celli=0; celli<thistrack.size(); celli++){
-			mrdcell* acell = thistrack.at(celli);
-			mrdcluster* upcluster = acell->clusters.first;
+		// once for the hpaddle track... 
+		// we also duplicate the cells and clusters here to save them as objects within the MRDTrack
+		std::vector<mrdcell> thehtrackcells, thevtrackcells;
+		std::vector<mrdcluster> htrackclusters, vtrackclusters;
+		for(int celli=0; celli<hpaddletrack.size(); celli++){
+			mrdcell* acell = hpaddletrack.at(celli);
+			thehtrackcells.emplace_back(mrdcell(*acell, thehtrackcells.size()));
 			mrdcluster* downcluster = acell->clusters.second;
-			if(celli==0){
-				// since clusters are shared between cells, take the upcluster only from the first cell
+			htrackclusters.emplace_back(*downcluster);
+			digitids_inthistrack.insert(digitids_inthistrack.end(), downcluster->digitindexes.begin(), downcluster->digitindexes.end());
+			// also add the upstream cluster if this is the last (most upstream) cell
+			if(celli==hpaddletrack.size()-1){
+				mrdcluster* upcluster = acell->clusters.first;
+				htrackclusters.emplace_back(*upcluster);
 				digitids_inthistrack.insert(digitids_inthistrack.end(), upcluster->digitindexes.begin(), upcluster->digitindexes.end());
 			}
+		}
+		// ...and once for the vpaddle track
+		for(int celli=0; celli<vpaddletrack.size(); celli++){
+			mrdcell* acell = vpaddletrack.at(celli);
+			thevtrackcells.emplace_back(mrdcell(*acell, thevtrackcells.size()));
+			mrdcluster* downcluster = acell->clusters.second;
+			vtrackclusters.emplace_back(*downcluster);
 			digitids_inthistrack.insert(digitids_inthistrack.end(), downcluster->digitindexes.begin(), downcluster->digitindexes.end());
+			if(celli==vpaddletrack.size()-1){
+				mrdcluster* upcluster = acell->clusters.first;
+				// since clusters are shared between cells, take the upcluster only from the first cell
+				vtrackclusters.emplace_back(*upcluster);
+				digitids_inthistrack.insert(digitids_inthistrack.end(), upcluster->digitindexes.begin(), upcluster->digitindexes.end());
+			}
 		}
 		
+		// use the digit indices to fill in the rest of the information about digits in this track
 		for(int digiti=0; digiti<digitids_inthistrack.size(); digiti++){
 			Int_t thedigitindex = digitids_inthistrack.at(digiti);
 			tubeids_inthistrack.push_back(pmts_hit.at(thedigitindex));
@@ -551,109 +855,20 @@ void cMRDSubEvent::DoReconstruction(){
 			digittrueparents_inthistrack.push_back(digi_phot_parents.at(thedigitindex));
 		}
 		
-		cMRDTrack* newtrack = new cMRDTrack(MRDSubEventID+tracki, wcsimfile, run_id, event_id, subtrigger, digitids_inthistrack, tubeids_inthistrack, digitqs_inthistrack, digittimes_inthistrack, digitnumphots_inthistrack, digittruetimes_inthistrack, digittrueparents_inthistrack);
-		tracksthissubevent.push_back(newtrack);
-//		tracksthissubevent.emplace_back(MRDSubEventID+tracki, wcsimfile, run_id, event_id, subtrigger, digitids_inthistrack, tubeids_inthistrack, digitqs_inthistrack, digittimes_inthistrack, digitnumphots_inthistrack, digittruetimes_inthistrack, digittrueparents_inthistrack);
+		//emplace_back creates the cMRDTrack in-place to avoid a copy.
+		tracksthissubevent.emplace_back(tracki, wcsimfile, run_id, event_id, subtrigger, digitids_inthistrack, tubeids_inthistrack, digitqs_inthistrack, digittimes_inthistrack, digitnumphots_inthistrack, digittruetimes_inthistrack, digittrueparents_inthistrack, thehtrackcells, thevtrackcells, htrackclusters, vtrackclusters);
+		
+		// if requested, print and/or draw the track
+		EColor thistrackscolour = mycolours.at(tracki+1); // element 0 is black
+		cMRDTrack* thatrack = &(tracksthissubevent[tracksthissubevent.size()-1]);
+		if(printtracks) thatrack->Print();
+		if(drawcells) thatrack->Draw(imgcanvas, trackarrows, thistrackscolour, paddlepointers);
 	}
 	
-	Bool_t printtracks=true;
-	if(printtracks){
-	cout<<"Found "<<alltracks.size()<<" tracks this subevent."<<endl;
-		for(int i=0; i<alltracks.size(); i++){
-			std::vector<mrdcell*> thistrack = alltracks.at(i);
-			cout<<"track "<<i<<" has "<<thistrack.size()<<" cells:"<<endl;
-			for(int j=(thistrack.size()-1); j>-1; j--){
-				cout<<endl;
-				mrdcell* acell = thistrack.at(j);
-				mrdcluster* upcluster = acell->clusters.first;
-				mrdcluster* downcluster = acell->clusters.second;
-				if(!(acell->isdownstreamgoing)){
-					// switch the order of clusters, since the track is upstream going,
-					// but cluster ordering is downstream going
-					mrdcluster* temp = upcluster;
-					upcluster=downcluster;
-					downcluster=temp;
-				}
-				cout<<"   cell "<<j<<" goes from cluster "<<upcluster->clusterid<<" in layer "<<upcluster->layer
-					<<" to cluster "<<downcluster->clusterid<<" in layer "<<downcluster->layer<<endl;
-			
-				cout<<"      uptrack cluster contains tubes ";
-				for(int k=0; k<upcluster->in_layer_tubeids.size(); k++){
-					(k!=0) ? cout<<", " : cout<<" ";
-					cout<<upcluster->in_layer_tubeids.at(k);
-				}
-				cout<<endl;
-				cout<<"      maximum in-layer index is "<<upcluster->xmaxid
-					<<", minimum in-layer index is "<<upcluster->xminid
-					<<", effective centre index is "<<upcluster->GetCentreIndex()<<endl;
-				cout<<"      physical extent is "<<upcluster->GetXmin()<<" to "<<upcluster->GetXmax()<<endl;
-			
-				cout<<endl;
-			
-				cout<<"      downtrack cluster contains tubes ";
-				for(int k=0; k<downcluster->in_layer_tubeids.size(); k++){
-					(k!=0) ? cout<<", " : cout<<" ";
-					cout<<downcluster->in_layer_tubeids.at(k);
-				}
-				cout<<endl;
-				cout<<"      maximum in-layer index is "<<downcluster->xmaxid
-					<<", minimum in-layer index is "<<downcluster->xminid
-					<<", effective centre index is "<<downcluster->GetCentreIndex()<<endl;
-				cout<<"      physical extent is "<<downcluster->GetXmin()<<" to "<<downcluster->GetXmax()<<endl;
-			}
-		}
-	}
-	
-	// if we want to draw the cells, we need to do it here - cells are not stored in the track!
-	Bool_t drawcells=true;
-	if(drawcells){
-		for(int i=0; i<alltracks.size(); i++){
-			std::vector<mrdcell*> thistrack = alltracks.at(i);
-			for(int j=0; j<thistrack.size(); j++){
-				mrdcell* acell = thistrack.at(j);
-				mrdcluster* upcluster = acell->clusters.first;
-				mrdcluster* downcluster = acell->clusters.second;
-				// cluster ordering is downstream going, regardless of track direction
-				// a cluster may have multiple tubes hit; find the top and bottom tubes
-				Int_t uptubetopid = (2*upcluster->xmaxid) + layeroffsets.at(upcluster->layer);
-				Int_t uptubebottomid = (2*upcluster->xminid) + layeroffsets.at(upcluster->layer);
-				// find the positions in the canvas of the those tubes' bottom corners
-				TBox* uptopbox = cMRDSubEvent::paddlepointers.at(uptubetopid);
-				TBox* upbottombox = cMRDSubEvent::paddlepointers.at(uptubebottomid);
-				if(uptopbox==0||upbottombox==0){
-					cout<<"null box! uptubetopid="<<uptubetopid<<",uptubebottomid="<<uptubebottomid<<endl;
-				}
-				// find the average x and y positions: this is the centre position on the canvas of this cluster
-				Double_t upclustery = (upbottombox->GetY1()+uptopbox->GetY2())/2.;
-				Double_t upclusterx = upbottombox->GetX2()+0.005;
-				// repeat process with downcluster to find arrow endpoint in canvas
-				Int_t downtubetopid = (2*downcluster->xmaxid) + layeroffsets.at(downcluster->layer);
-				Int_t downtubebottomid = (2*downcluster->xminid) + layeroffsets.at(downcluster->layer);
-				TBox* downtopbox = paddlepointers.at(downtubetopid);
-				TBox* downbottombox = paddlepointers.at(downtubebottomid);
-				Double_t downclustery = (downbottombox->GetY1()+downtopbox->GetY2())/2.;
-				Double_t downclusterx = downbottombox->GetX2()+0.005;
-				
-				// choose arrow head based on track direction
-				TArrow* myarrow;
-				if(acell->isdownstreamgoing){
-					// downcluster is the arrow head
-					myarrow = new TArrow(upclusterx, upclustery, downclusterx, downclustery, 0.01, ">");
-				} else {
-					myarrow = new TArrow(upclusterx, upclustery, downclusterx, downclustery, 0.01, "<");
-				}
-				myarrow->SetLineWidth(2);
-				(downcluster->layer%2==0) ? imgcanvas->cd(1) : imgcanvas->cd(2);
-				myarrow->Draw();
-				cout<<"drawing arrow from "<<myarrow->GetX1()<<", "<<myarrow->GetY1()<<" to "
-					<<myarrow->GetX2()<<", "<<myarrow->GetY2()<<endl;
-				trackarrows.push_back(myarrow);
-			}
-		}
-	}
-	
-	
-	// CLEANUP: cMRDTrack objects have been created: we no longer need the clusters or cells objects.
+#ifdef TRACKFINDVERBOSE
+	cout<<"cleaning up heap clusters and cells"<<endl;
+#endif
+	// CLEANUP: cMRDTrack stores everything we need: the heap allocations can be freed
 	for(auto acluster : theclusters){
 		delete acluster;
 	}
@@ -662,6 +877,9 @@ void cMRDSubEvent::DoReconstruction(){
 		delete acell;
 	}
 	thecells.clear();
+#ifdef TRACKFINDVERBOSE
+	cout<<"cleanup complete, returning"<<endl;
+#endif
 }
 
 void cMRDSubEvent::LeastSquaresMinimizer(Int_t numdatapoints, Double_t datapointxs[], Double_t datapointys[], Double_t datapointweights[], Double_t errorys[], Double_t &fit_gradient, Double_t &fit_offset, Double_t &chi2){

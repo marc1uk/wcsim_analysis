@@ -1,6 +1,10 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 #ifndef _cMRD_reconstruction_classes
 #define _cMRD_reconstruction_classes 1
+
+#ifdef __MAKECINT__
+#pragma link C++ class std::pair<mrdcluster*,mrdcluster*>+;
+#endif
 // supporting classes used in DoReconstruction cellular algorithm version (cMRDTrack_DoReconstruction2.cxx)
 // 1. define a cluster, by an id and it's position
 class mrdcluster : public TObject{
@@ -10,9 +14,10 @@ class mrdcluster : public TObject{
 	Int_t xmaxid;
 	Int_t xminid; 
 	Int_t layer;
+	Int_t altviewhalf;
 	std::vector<Int_t> in_layer_tubeids;
 	std::vector<Double_t> digittimes;
-	std::vector<Int_t> digitindexes;
+	std::vector<Int_t> digitindexes;  //index of the digit within the WCSimRootTrigger
 	void AddDigit(Int_t digitindexin, Int_t pmtidin, Double_t timein){
 		digitindexes.push_back(digitindexin);
 		digittimes.push_back(timein);
@@ -22,10 +27,13 @@ class mrdcluster : public TObject{
 		// correct for the fact there are two halves to each layer. 
 		// tubes 0 and 1 are in opposite halves!!
 		// if pmtidin%2==1, it is in the second half. Merge halves by subtracting 1, then divide by 2. 
-		if(pmtidin%2==1) pmtidin -= 1;
+		if(pmtidin%2==1){
+			if(altviewhalf>0) altviewhalf=0; // added digit is in the other half to constructor digit
+			pmtidin -= 1;
+		} else {
+			if(altviewhalf<0) altviewhalf=0;
+		}
 		pmtidin /= 2;
-		
-		in_layer_tubeids.push_back(pmtidin);
 		
 		if(pmtidin>(*std::max_element(in_layer_tubeids.begin(), in_layer_tubeids.end()))){
 			// this PMT is 'higher' than the others - increase the xmax accordingly
@@ -34,6 +42,8 @@ class mrdcluster : public TObject{
 			// this PMT is lower - decrease the xmin accordingly
 			xminid = pmtidin;
 		}
+		
+		in_layer_tubeids.push_back(pmtidin);
 	}
 	// return an *effective in-layer tube index* of the cluster centre.
 	Double_t GetCentreIndex(){
@@ -78,11 +88,7 @@ class mrdcluster : public TObject{
 		return ((this->GetXmax()+this->GetXmin())/2.);
 	}
 	Double_t GetTime(){
-		Double_t runningsum=0.;
-		for(size_t i=0; i<digittimes.size(); i++){
-			runningsum += digittimes.at(i);
-		}
-		return (runningsum/digittimes.size());
+		return digittimes.at(0);
 	}
 	// constructor
 	mrdcluster(Int_t digitidin, Int_t pmtidin, Int_t layerin, Double_t timein){
@@ -98,7 +104,8 @@ class mrdcluster : public TObject{
 		// correct for the fact there are two halves to each layer. 
 		// tubes 0 and 1 are in opposite halves!!
 		// if pmtidin%2==1, it is in the second half. Merge halves by subtracting 1. 
-		if(pmtidin%2==1) pmtidin -= 1;
+		if(pmtidin%2==1){ altviewhalf=-1; pmtidin -= 1; }
+		else { altviewhalf=1; }
 		pmtidin /= 2;
 		//cout<<"in-layer tube id is "<<pmtidin<<endl;
 		
@@ -119,6 +126,10 @@ class mrdcluster : public TObject{
 //			assert(false);
 		}
 	}
+	
+	// default constructor 
+	mrdcluster(){}
+	
 	// destructor
 	~mrdcluster(){}
 	
@@ -155,25 +166,49 @@ class mrdcell : public TObject{
 	public:
 	static Int_t cellcounter;
 	Int_t cellid;
-	std::pair<mrdcluster*, mrdcluster*> clusters;
-	Bool_t isdownstreamgoing;			// is the track going upstream instead of downstream
+	std::pair<mrdcluster*, mrdcluster*> clusters; //! used in building the cell
+	Bool_t isdownstreamgoing;	// is the track going upstream instead of downstream
 	Int_t status;
-	Int_t utneighbourcellindex;	// the up-track neighbour of this cell
-	Int_t dtneighbourcellindex;	// the down-track neighbour of this cell
+	Int_t utneighbourcellindex;	// the up-track neighbour of this cell (*)
+	Int_t dtneighbourcellindex;	// the down-track neighbour of this cell (*)
 								// a down-track cell index of -2 indicates more than one
-	Int_t parentcellindex;		// if the up-track cell has more than one downtrack neighbour, the track splits
+	Int_t parentcellindex;		// if the up-track cell has more than one downtrack neighbour, the track splits (*)
 								// so it's upstream neighbour becomes it's parent
-	Bool_t hasdaughters;		// so we can keep short tracks that have daughters
-	Double_t neighbourchi2;		// if we have more than one candidate, use the most aligned neighbour
+	Bool_t hasdaughters;		// so we can keep short tracks that have daughters (*)
+	Double_t neighbourchi2;		// if we have more than one candidate, use the most aligned neighbour (*)
+								// (*) denotes fields that are only useful during reconstruction
+	
 	void IncrementStatus(){ status +=1; }
+	void SetClusterAddresses(std::vector<mrdcluster> &trackclusters){
+		if(clusters.first!=nullptr) return;
+		clusters=std::make_pair(&trackclusters.at(cellid), &trackclusters.at(cellid+1));
+	}
+	
 	mrdcell(mrdcluster* startcluster, mrdcluster* endcluster) : status(0), utneighbourcellindex(-1), 
 		dtneighbourcellindex(-1), parentcellindex(-1), hasdaughters(false), neighbourchi2(-1.) {
-		std::pair<mrdcluster*, mrdcluster*> clustersin(startcluster, endcluster);
-		clusters = clustersin;
+		clusters = std::make_pair(startcluster, endcluster);
 		isdownstreamgoing = (clusters.first->GetTime() < clusters.second->GetTime());
 		cellid=cellcounter;
 		cellcounter++;
 	}
+	
+	// 'copy' constructor (also takes a new cell id)
+	mrdcell(const mrdcell& cellin, int cellidin){
+		cellid=cellidin;  // id within this track
+		clusters = std::pair<mrdcluster*, mrdcluster*>(nullptr,nullptr);
+		isdownstreamgoing=cellin.isdownstreamgoing;
+		status=cellin.status;
+		utneighbourcellindex=cellin.utneighbourcellindex;
+		dtneighbourcellindex=cellin.dtneighbourcellindex;
+		parentcellindex=cellin.parentcellindex;
+		hasdaughters=cellin.hasdaughters;
+		neighbourchi2=cellin.neighbourchi2;
+	}
+	
+	// default constructor
+	mrdcell(){}
+	
+	// destructor
 	~mrdcell(){}
 };
 Int_t mrdcell::cellcounter=0;
