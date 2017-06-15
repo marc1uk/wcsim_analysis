@@ -4,7 +4,8 @@
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/wcsim_tankonly_12-04-17_sample.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/wcsim_tankonly_13-04-17.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/wcsim_10MeV_iso_e_wDN_13-04-17.root");
-TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.root");
+//TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.root"); 
+TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/ANNIEtest_MRD_muon_sample_0.root"); 
 TTree* t = (TTree*)f->Get("wcsimT");
 WCSimRootEvent* e=0;
 TBranch* b=0;

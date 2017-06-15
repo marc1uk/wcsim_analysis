@@ -27,12 +27,21 @@
 #include <stdlib.h>
 // #######################################################################
 // we need to #include all the WCSim headers.
+// we need to have the path to these headers exported to $ROOT_INCLUDE_PATH
 #include "WCSimRootEvent.hh"
 #include "WCSimRootGeom.hh"
 #include "WCSimPmtInfo.hh"
 #include "WCSimLAPPDInfo.hh"
 #include "WCSimEnumerations.hh"
+#include "WCSimRootOptions.hh"
 #include "WCSimRootLinkDef.hh"
+//#include "../wcsim/include/WCSimRootEvent.hh"
+//#include "../wcsim/include/WCSimRootGeom.hh"
+//#include "../wcsim/include/WCSimPmtInfo.hh"
+//#include "../wcsim/include/WCSimLAPPDInfo.hh"
+//#include "../wcsim/include/WCSimEnumerations.hh"
+//#include "../wcsim/include/WCSimRootOptions.hh"
+//#include "../wcsim/include/WCSimRootLinkDef.hh"
 // #######################################################################
 
 #ifndef WCSimAnalysisClass

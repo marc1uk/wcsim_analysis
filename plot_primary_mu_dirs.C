@@ -1,6 +1,7 @@
 {
 //TFile* f= TFile::Open("/home/marc/anniegpvm/wcsim/root_work/in/energy_comparison/ANNIEtest_5MeV_mu-_Uni_Iso_0.root");
-TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/ANNIEtest_200MeV_mu-_Uni_Iso_0.root");
+//TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/ANNIEtest_200MeV_mu-_Uni_Iso_0.root");
+TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/ANNIEtest_MRD_muon_sample_0.root");
 TTree* t = (TTree*)f->Get("wcsimT");
 WCSimRootEvent* e=0;
 TBranch* b=0;
