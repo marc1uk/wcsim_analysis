@@ -23,7 +23,8 @@ In order to keep analysis code manageable this repository provides an analysis c
 ```root [0] .L /path/to/analysis/analysiscaller.cxx+g```
 
 7. Instantiate a _WCSimAnalysis_
-```root [1] WCSimAnalysis* theana = analysiscaller()```
+```root [1] WCSimAnalysis* theana = analysiscaller(/path/to/files)```
+Where the path points to a directory containing wcsim_*.root files. All files in this directory and any subdirectories will be added to the analysis TChain.
 
 8. This performs the analaysis as `DoAnalysis()` is called in the constructor. 
 

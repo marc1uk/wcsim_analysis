@@ -55,6 +55,11 @@
 using namespace std;
 
 void Event_Distros_Analysis(const char* file="/home/marc/anniegpvm/wcsim/root_work/EventDistributions.root"){
+	//disable stats box:
+	gStyle->SetOptStat(0);
+	//disable histogram title
+	gStyle->SetOptTitle(0);
+	
 	TFile* f=TFile::Open(file);
 	TTree* t = (TTree*)f->Get("treeout");
 	std::map<std::string,bool> eventtypes;
@@ -71,7 +76,7 @@ void Event_Distros_Analysis(const char* file="/home/marc/anniegpvm/wcsim/root_wo
 	t->SetBranchAddress("MuonMrdPenetrationLayers",&mupenlayers);      // [0,12]
 	t->SetBranchAddress("MuonTrackLengthInMRD",&mutotcm);              // [1,500]
 	t->SetBranchAddress("FractionOfMuonChargeInCone",&chargeincone);   // [0,1]
-	t->SetBranchAddress("TotalChargeFromMuon",&totmuq);                // XXX // because parents wrong (fixd)
+	t->SetBranchAddress("TankChargeFromMuon",&totmuq);                 // XXX // because parents wrong (fixd)
 	t->SetBranchAddress("MuonTrackLengthInTank",&mutanklen);           // [0,500]
 	t->SetBranchAddress("NuVtxInFidVol",&infidvol);
 	t->SetBranchAddress("EventHasMuon",&hasmu);
@@ -80,17 +85,20 @@ void Event_Distros_Analysis(const char* file="/home/marc/anniegpvm/wcsim/root_wo
 	t->SetBranchAddress("MuonRangesOutMRD",&muranges);
 	
 	
-	TH1F* hist1 = new TH1F("hist1","hist1",100,0,7);
-	TH1F* hist2 = new TH1F("hist2","hist2",100,0,9);
-	TH1F* hist3 = new TH1F("hist3","hist3",100,0,7);
-	TH1F* hist4 = new TH1F("hist4","hist4",100,0,9);
-	TH1F* hist5 = new TH1F("hist5","hist5",100,0,7);
-	TH1F* hist6 = new TH1F("hist6","hist6",100,0,9);
-	TH1F* hist7 = new TH1F("hist7","hist7",100,0,7);
-	TH1F* hist8 = new TH1F("hist8","hist8",100,0,9);
-//	TH2F* hist2 = new TH2F("hist2","hist2",12,0,12,100,0,5000);
-//	TH2F* hist3 = new TH2F("hist3","hist3",100,1,500,100,0,5000);
-//	TH2F* hist4 = new TH2F("hist4","hist4",12,0,12,100,1,150);
+	TH1F* enuall = new TH1F("hist1","All Events",100,0,7);
+	TH1F* enumuenters = new TH1F("hist2","Fiducial Events with Muon Entering MRD",100,0,9);
+	TH1F* enumustops = new TH1F("hist3","Fiducial Events with Muon Stopping in MRD",100,0,7);
+	TH1F* enumupenetrates = new TH1F("hist4","Fiducial Events with Muon Fully Penetrating MRD",100,0,9);
+	TH1F* enusideexit = new TH1F("hist9","Fiducial Events with Muon Exiting Side of MRD",100,0,7);
+	TH1F* q2all = new TH1F("hist5","All Events",100,0,3);
+	TH1F* q2muenters = new TH1F("hist6","Fiducial Events with Muon Entering MRD",100,0,3);
+	TH1F* q2mustops = new TH1F("hist7","Fiducial Events with Muon Stopping in MRD",100,0,3);
+	TH1F* q2mupenetrates = new TH1F("hist8","Fiducial Events with Muon Fully Penetrating MRD",100,0,3);
+	TH1F* q2sideexit = new TH1F("hist10","Fiducial Events with Muon Exiting Side of MRD",100,0,3);
+	TH2F* penecmvsemu = new TH2F("hist11","Penetration Vs Muon Energy",100,1,150,100,0,3000);
+	TH2F* penelayersvsemu = new TH2F("hist12","Penetration vs Muon Energy",12,0,12,100,0,3000);
+	TH2F* mrdlenvsemu = new TH2F("hist13","MRD Track Length vs Muon Energy",100,0,500,100,1,3000);
+	std::vector<TH1F*> thehistos{enuall,enumuenters,enumustops,enumupenetrates,enusideexit,q2all,q2muenters,q2mustops,q2mupenetrates,q2sideexit};
 	std::string et="IsQuasiElastic";
 	std::string et2="IsWeakCC";    // everything is CC. 
 //	int numCCQEstoppingmus=0, numCCQEnonstoppingmus=0, numCCotherstoppingmus=0, numCCothernonstoppingmus=0, numstoppingmus=0, numnonstoppingmus=0;
@@ -100,59 +108,97 @@ void Event_Distros_Analysis(const char* file="/home/marc/anniegpvm/wcsim/root_wo
 //		cout<<"Event "<<i<<" is a (";
 //		eventtypes.at(et2) ? cout<<"CC" : cout<<"NC";
 //		(eventtypes.at(et)) ? cout<<"QE" : cout<<"Other";
-//		for(std::map<std::string,bool>::iterator it=eventtypes.begin(); it!=eventtypes.end(); it++)
-//			cout<<it->second<<", ";
 //		cout<<"nuE="<<nuE<<", Q2="<<q2<<", muangle="<<muangle;
 //		cout<<") event"<<endl;
 		//cout<<"muE="<<mustartE<<", mupencm="<<mupencm<<", mupenlayers="<<mupenlayers<<endl;
-/*		if(mustops) numstoppingmus++;
-		else numnonstoppingmus++;
-		if((!(eventtypes.at(et)))&&eventtypes.at(et2)){
-			if(mustops) numCCotherstoppingmus++;
-			else numCCothernonstoppingmus++;
+//		if(isCC&&isQE){ int i=0; /* TODO: do we wanna do CCQE vs CC-Other? */ }
+//		if(isCC&&!isQE){ int i=0; /* TODO: do we wanna do CCQE vs CC-Other? */ }
+		
+		enuall->Fill(nuE);	// all events
+		q2all->Fill(q2);
+		
+		if(infidvol){
+			if(muenters){
+				enumuenters->Fill(nuE);
+				q2muenters->Fill(q2);
+			}
+		
+			if(muenters&&mustops){
+				enumustops->Fill(nuE);
+				q2mustops->Fill(q2);
+			}
+		
+			if(muenters&&muranges){
+				enumupenetrates->Fill(nuE);
+				q2mupenetrates->Fill(q2);
+			}
+		
+			if(muenters&&!mustops&&!mupenlayers){	// events that exit the side of the MRD
+				enusideexit->Fill(nuE);
+				q2sideexit->Fill(q2);
+			}
+			penelayersvsemu->Fill(mupenlayers,mustartE);
+			penecmvsemu->Fill(mupencm,mustartE);
+			mrdlenvsemu->Fill(mutotcm,mustartE);
 		}
-*/
-		hist1->Fill(nuE);	// all events
-		hist2->Fill(q2);
-		//if(!(((eventtypes.at(et)))&&eventtypes.at(et2))) continue;
-		if(!muenters) continue;
-//		if(mustops) numCCQEstoppingmus++;
-//		else numCCQEnonstoppingmus++;
-		hist3->Fill(nuE);	// all events with a muon that enters the MRD
-		hist4->Fill(q2);	// regardless of stopping, rangeout or side exit
-		if(muranges){
-			hist5->Fill(nuE);	// all events with a muon that ranges out the MRD
-			hist6->Fill(q2);
-		} else if(mustops){
-			hist7->Fill(nuE);	// all events with a muon that stops witin the MRD
-			hist8->Fill(q2);
-		}	// remainder are particles that exit the sides of the MRD
-//		hist2->Fill(mupenlayers,mustartE);
-//		hist3->Fill(mutotcm,mustartE);
-//		hist4->Fill(mupenlayers,mupencm);
 	}
-//	cout<<"there were "<<numCCQEstoppingmus<<"CCQE events with stopped muons vs "
-//	    <<numCCQEnonstoppingmus<<" non stopping muons"<<endl;
-//	cout<<"there were "<<numCCotherstoppingmus<<" CC-Other events with stopped muons vs "
-//	    <<numCCothernonstoppingmus<<" non stopping muons"<<endl;
-//	cout<<"there were "<<numstoppingmus<<" total stopped muons vs "<<numnonstoppingmus
-//	    <<" non-stopping muons"<<endl;
+	// entry, stopping, penetration and side-exit counts
+	cout<<"there were "<<enuall->GetEntries()<<" total entries analysed"<<endl;
+	cout<<q2muenters->GetEntries()<<" entries entered the MRD, "
+	    <<enumustops->GetEntries()<<" entries stopped in the MRDmrd, and "
+	    <<enumupenetrates->GetEntries()<<" entries fully penetrated the MRD, leaving "
+	    <<enusideexit->GetEntries()<<" entries that exited the sides of the MRD"<<endl;
+	
+	// this sets the canvas title but prevents BuildLegend giving the correct titles
+	for(auto ahist : thehistos){
+		int thecount=ahist->GetEntries();
+		ahist->Scale(1./thecount);
+	}
+	
 	TCanvas* c1=new TCanvas("c1","c1"); c1->cd();
-	hist1->SetLineColor(kRed);
-	hist1->Draw();
-	hist3->SetLineColor(kBlue);
-	hist3->Draw("same");
-	hist5->SetLineColor(kGreen);
-	hist5->Draw("same");
-	hist7->SetLineColor(kMagenta);
-	hist7->Draw("same");
+	enuall->SetLineColor(kRed);
+	enuall->GetXaxis()->SetTitle("Neutrino Energy [GeV]");
+	enuall->GetXaxis()->SetLabelFont(42);
+	enuall->GetXaxis()->SetTitleSize(0.05);
+	enuall->GetXaxis()->SetTitleFont(42);
+	enuall->GetYaxis()->SetTitle("Num Events");
+	enuall->GetYaxis()->SetLabelFont(42);
+	enuall->GetYaxis()->SetTitleSize(0.05);
+	enuall->GetYaxis()->SetTitleFont(42);
+	enuall->Draw();
+//	enumuenters->SetLineColor(kBlue);
+//	enumuenters->Draw("same");
+	enumustops->SetLineColor(kGreen);
+	enumustops->Draw("same");
+//	enumupenetrates->SetLineColor(kMagenta);
+//	enumupenetrates->Draw("same");
+	c1->BuildLegend();
 	TCanvas* c2=new TCanvas("c2","c2"); c2->cd();
-	hist2->SetLineColor(kRed);
-	hist2->Draw();
-	hist4->SetLineColor(kBlue);
-	hist4->Draw("same");
-	hist6->SetLineColor(kGreen);
-	hist6->Draw("same");
-	hist8->SetLineColor(kMagenta);
-	hist8->Draw("same");
+	q2all->SetLineColor(kRed);
+	q2all->GetXaxis()->SetTitle("Events Q^{2} [GeV/c^{2}]");
+	q2all->GetYaxis()->SetTitle("Num Events");
+	q2all->GetXaxis()->SetLabelFont(42);
+	q2all->GetXaxis()->SetTitleSize(0.05);
+	q2all->GetXaxis()->SetTitleFont(42);
+	q2all->GetYaxis()->SetTitle("Num Events");
+	q2all->GetYaxis()->SetLabelFont(42);
+	q2all->GetYaxis()->SetTitleSize(0.05);
+	q2all->GetYaxis()->SetTitleFont(42);
+	q2all->Draw();
+//	q2muenters->SetLineColor(kBlue);
+//	q2muenters->Draw("same");
+	q2mustops->SetLineColor(kGreen);
+	q2mustops->Draw("same");
+//	q2mupenetrates->SetLineColor(kMagenta);
+//	q2mupenetrates->Draw("same");
+	c2->BuildLegend();
+	
+//	
+//	TCanvas* c3 = new TCanvas("c3","c3"); c3->cd();
+//	penelayersvsemu->Draw("box");
+//	TCanvas* c4 = new TCanvas("c4","c4"); c4->cd();
+//	penecmvsemu->Draw("box");
+//	TCanvas* c5 = new TCanvas("c5","c5"); c5->cd();
+//	mrdlenvsemu->Draw("box");
+	
 }

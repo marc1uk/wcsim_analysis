@@ -1,4 +1,13 @@
 /* vim:set noexpandtab tabstop=4 wrap */
+/*
+TO RUN: 
+cd to this folder
+export ROOT_INCLUDE_PATH=$ROOT_INCLUDE_PATH:/annie/app/users/moflaher/wcsim/wcsim/include
+root analysiscaller.cxx+g
+WCSimAnalysis* theana = analysiscaller("/annie/app/users/moflaher/wcsim/root_work/in/MRD_muon_sample")
+// This performs the analaysis as `DoAnalysis()` is called in the constructor.
+delete theana;
+*/
 #include <thread>         // std::this_thread::sleep_for
 #include <chrono>         // std::chrono::seconds
 #include <time.h>         // clock_t, clock, CLOCKS_PER_SEC

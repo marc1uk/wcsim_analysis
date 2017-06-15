@@ -8,7 +8,7 @@
 using namespace std;
 //.x /annie/app/users/moflaher/wcsim/root_work/RegexTest.C+	<< standalone call
 
-int mrdcluster::StripMrdPositions(std::string fname="/annie/app/users/moflaher/wcsim/root_work/MRD_positions_raw"){
+int mrdcluster::StripMrdPositions(){
 	
 	TString pwd = gSystem->Getenv("PWD");
 	TString rawfilename = pwd + "/MRD_positions_raw";
@@ -34,7 +34,7 @@ int mrdcluster::StripMrdPositions(std::string fname="/annie/app/users/moflaher/w
 	}
 	
 	// lines are of the format:
-	// PMT 0 : Orientation H : Layer 0 : Origin (737.5,-1219.5,-586.65) : Extent (1.5→1473.5, -1319.5→-1119.5, 2665.35→2671.35)
+	// PMT 277 : Orientation V : Layer 9 : Origin (1216.5,-652.5,503.25) : Extent (1116.5→1316.5, -1388.5→83.5, 4450.7→4456.7)
 	std::string theexpressionstring = "PMT ([0-9]+) : Orientation (.) : Layer ([0-9]+) : Origin \\(([0-9\\.\\+\\-]+),([0-9\\.\\+\\-]+),([0-9\\.\\+\\-]+)\\) : Extent \\(([0-9\\.\\+\\-]+)→([0-9\\.\\+\\-]+), ([0-9\\.\\+\\-]+)→([0-9\\.\\+\\-]+), ([0-9\\.\\+\\-]+)→([0-9\\.\\+\\-]+)\\)";
 //	cout<<"pattern to match is "<<theexpressionstring<<endl;
 	
