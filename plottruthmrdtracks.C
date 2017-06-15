@@ -938,7 +938,7 @@ void truthtracks(){
 			Float_t   GetStop(Int_t i=0)    stopping vertex x,y,z for i=0-2, in cm
 			Float_t   GetStart(Int_t i=0)   starting vertex x,y,z for i=0-2, in cm
 			Int_t     GetParenttype()       parent pdg, 0 for primary.
-			Float_t   GetTime()             trj->GetGlobalTime(); stopping(?) time of particle
+			Float_t   GetTime()             trj->GetGlobalTime(); starting time of particle
 			Int_t     GetId()               wcsim trackid
 			*/
 			
@@ -1007,11 +1007,11 @@ void truthtracks(){
 			TLorentzVector primarystartvertex(  nextrack->GetStart(0),
 												nextrack->GetStart(1),
 												nextrack->GetStart(2),
-												thegenieinfo.genie_t);
+												nextrack->GetTime());
 			TLorentzVector primarystopvertex(   nextrack->GetStop(0),
 												nextrack->GetStop(1),
 												nextrack->GetStop(2),
-												nextrack->GetTime());
+												nextrack->GetStopTime());
 			
 #ifdef WCSIMDEBUG
 			switch (primarystartvol){

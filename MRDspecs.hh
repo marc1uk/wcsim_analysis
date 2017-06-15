@@ -67,6 +67,7 @@ const Float_t MRD_height = ((numpaddlesperpanelh/2)*(scintfullxlen+scintborderga
 const Float_t MRD_layer2 = 290.755;             // position in wcsim coords of second scint layer in cm
 const Float_t MRD_start = 325.5;                // position in wcsim coord of MRD front face in cm
 const Float_t MRD_depth = 139.09;               // total depth of the MRD in cm
+const Float_t MRD_end = 464.59;                 // end of the MRD in cm
 const Float_t MRD_steel_width = (305./2.);      // half width of steel in cm
 const Float_t MRD_steel_height = (274./2.);     // half height of steel in cm
 /* output from WCSim:

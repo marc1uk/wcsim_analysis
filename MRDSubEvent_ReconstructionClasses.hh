@@ -159,6 +159,8 @@ std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsx(nummrdpmt
 std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsy(nummrdpmts);
 std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsz(nummrdpmts);
 int nothing = mrdcluster::StripMrdPositions();
+// FIXME: RESULTS RETURNED FROM STRIPMRDPOSITIONS ARE IN MM!
+// EVERYTHING ELSE HERE IS IN CM. THIS IS CONFUSING.
 
 // ===================================================================================================
 // 2. define a cell as an object containing an ID, a line-segment (pair of clusters), an integer state (initialised to 0), and a vector of neighbour cell ids.

@@ -54,7 +54,7 @@ class cMRDSubEvent : public TObject {
 	
 	// Involved in drawing
 	std::pair<double, double> xupcorner1, xupcorner2, xdowncorner1, xdowncorner2, yupcorner1, yupcorner2, ydowncorner1, ydowncorner2;
-	std::vector<TLine*> trackboundaries;  //!  stores TLines which are associated with track boundaries
+	std::vector<TArrow*> trackfitarrows;  //!  stores TLines which are associated with track boundaries
 	std::vector<TArrow*> trackarrows;     //!  stores TArrows associated with CA reconstructed tracks
 	std::vector<TArrow*> truetrackarrows; //!  stores TArrows associated with true tracks
 	
@@ -81,7 +81,7 @@ class cMRDSubEvent : public TObject {
 	std::vector<Double_t> GetEdeps(){return eDepsInLayers;}
 	std::vector<TArrow*> GetCATrackArrows(){return trackarrows;}
 	std::vector<TArrow*> GetTrueTrackArrows(){return truetrackarrows;}
-	std::vector<TLine*> GetTrackBoundaryLines(){return trackboundaries;}
+	std::vector<TArrow*> GetTrackFitArrows(){return trackfitarrows;}
 	
 //	// Digit Level Getters - all the obtainable information about a digit. Or just return the digit?
 //	// ===============================
@@ -153,7 +153,7 @@ class cMRDSubEvent : public TObject {
 	digi_ts(digittimesin), digi_numphots(digitnumphotsin), digi_phot_ts(digitstruetimesin),
 	digi_phot_parents(digitsparentsin),
 	/* information calculated: initialize to default */
-	layers_hit(), tracksthissubevent(), trackarrows(), truetrackarrows(), trackboundaries() {
+	layers_hit(), tracksthissubevent(), trackarrows(), truetrackarrows(), trackfitarrows() {
 		eDepsInLayers.assign(numpanels, 0.);	// can't assign the size in the class def. 
 		// we receive a set of pointers to truth tracks: to store them in the MRDSubEventClass
 		// we need to clone them into a vector of objects here:
@@ -178,7 +178,7 @@ class cMRDSubEvent : public TObject {
 		DrawMrdCanvases();  // creates the canvas with the digits
 		DoReconstruction(); // adds the tracks to the canvas
 		DrawTrueTracks();   // draws true tracks over the event
-		AddTrackLines();    // add straight lines which best hit all the struck panels
+		//TODO: Add DrawTrackFit and other Drawing options independent of Reconstruction
 		imgcanvas->SaveAs(TString::Format("mrdtracks_%d.png",event_id));
 		//cout<<"sleeping for 5 seconds to analyse output"<<endl;
 		//if(tracksthissubevent.size()) std::this_thread::sleep_for (std::chrono::seconds(15));
@@ -191,7 +191,6 @@ class cMRDSubEvent : public TObject {
 	// Drawing
 	// =======
 	void DrawMrdCanvases();
-	void AddTrackLines();
 	void DrawTrueTracks();
 	static Bool_t fillstaticmembers;
 	static TCanvas* imgcanvas;
@@ -214,10 +213,10 @@ class cMRDSubEvent : public TObject {
 		}
 		truetrackarrows.clear();
 		
-		for(auto aline : trackboundaries){
-			delete aline;
+		for(auto anarrow : trackfitarrows){
+			delete anarrow;
 		}
-		trackboundaries.clear();
+		trackfitarrows.clear();
 	}
 	
 	// Required by ROOT

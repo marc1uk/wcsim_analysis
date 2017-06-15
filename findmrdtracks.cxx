@@ -4,7 +4,7 @@
 #include "MRDTrackClass.hh"				// a class for defining MRD tracks
 
 #ifndef MRDSPLITVERBOSE
-#define MRDSPLITVERBOSE 1
+//#define MRDSPLITVERBOSE 1
 #endif
 
 // CREATE+OPEN OUTPUT FILE

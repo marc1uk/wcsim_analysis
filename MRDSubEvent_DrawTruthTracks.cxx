@@ -184,6 +184,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 		// while doing this, remove the MRD offset
 		double frontz=min(trackstartz,trackstopz);
 		double frontx,fronty,backz,backx,backy;
+		bool trackisbackwardgoing=false;
 		if(frontz==trackstartz){
 			frontx=trackstartx;
 			fronty=trackstarty;
@@ -196,6 +197,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 			backx=trackstartx;
 			backy=trackstarty;
 			backz=trackstartz;
+			trackisbackwardgoing=true;
 		}
 		//assert(frontx==trackstartx);
 		double avgtrackanglex=/*TMath::ATan*/((backx-frontx)/(backz-frontz));
@@ -488,7 +490,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 		// top view
 		for(int i=0; i < zstartsx.size(); i++){
 			// Draw arrow representing "true" (assumed straight) trajectory in top view
-			std::string arrowdir = (frontz==trackstartz) ? ">" : "<";
+			std::string arrowdir = (!trackisbackwardgoing) ? ">" : "<";
 			TArrow* myarrow = 
 				new TArrow(zstartsx.at(i), xstarts.at(i), zstopsx.at(i), xstops.at(i), 0.005, arrowdir.c_str());
 			myarrow->SetLineWidth(1.5);
@@ -534,7 +536,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 		// side view
 		for(int i=0; i < zstartsy.size(); i++){
 			// Draw arrow representing "true" (assumed straight) trajectory in top view
-			std::string arrowdir = (frontz==trackstartz) ? ">" : "<";
+			std::string arrowdir = (!trackisbackwardgoing) ? ">" : "<";
 			TArrow* myarrow = 
 				new TArrow(zstartsy.at(i), ystarts.at(i), zstopsy.at(i), ystops.at(i), 0.005, arrowdir.c_str());
 			myarrow->SetLineWidth(1.5);

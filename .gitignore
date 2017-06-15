@@ -18,6 +18,9 @@ out/
 *.pcm
 *.so
 
+# ignore any 'old' versions of files
+*.old
+
 #ignore output files i guess
 *.root
 TruthHistos.root
@@ -26,3 +29,15 @@ TruthHistos.root
 geniefilestuff
 todo notes
 
+# specific files
+allhistograms
+anoutput.txt
+plottruthtracks_outputstats.txt
+errorinfo.txt
+trutherrors.txt
+truthinfo_textout.txt
+#generic makeclass files used temporarily at some time
+treeout.C
+treeout.h
+# these files zipped up at one point?
+wcsimanalysis.zip
