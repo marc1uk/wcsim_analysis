@@ -170,8 +170,12 @@ void plot_tankE_vs_ndigits(){
 	TBranch* bMuonAngle = treeout->Branch("MuonAngle",&muonangle);
 	double mustartE=0.;
 	TBranch* bMuonStartE = treeout->Branch("MuonStartEnergy",&mustartE);
-//	double muendE=0.;
-//	TBranch* bMuonEndE = treeout->Branch("MuonEndEnergy",&muendE);  // information not saved in WCSim
+	double mustartKE=0.;
+	TBranch* bMuonStartKE = treeout->Branch("MuonStartKineticEnergy",&mustartKE);
+	double mustopE=0.;
+	TBranch* bMuonStopE = treeout->Branch("MuonStopEnergy",&mustopE);
+	double mustopKE=0.;
+	TBranch* bMuonStopKE = treeout->Branch("MuonStopKineticEnergy",&mustopKE);
 	double mutracklengthintank=0.;
 	TBranch* bMuonTrackLengthInTank = treeout->Branch("MuonTrackLengthInTank",&mutracklengthintank);
 	int numTankDigits=0;
@@ -313,6 +317,7 @@ void plot_tankE_vs_ndigits(){
 		
 		for(int track=0; track<numtracks; track++){
 			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(track);
+			cout<<"⇒";
 			/* a WCSimRootTrack has methods: 
 			Int_t     GetIpnu()             pdg
 			Int_t     GetFlag()             -1: neutrino primary, -2: neutrino target, 0: other
@@ -391,9 +396,19 @@ void plot_tankE_vs_ndigits(){
 												nextrack->GetStop(2),
 												nextrack->GetTime());
 			
+			// for this analysis we want tracks that stopped by exiting the tank:
+			double endpointx = primarystopvertex.X();
+			double endpointy = primarystopvertex.Y()-tank_yoffset;
+			double endpointz = primarystopvertex.Z()-tank_start-tank_radius;
+			double endpointradius = sqrt(pow(endpointx,2) + pow(endpointz,2));
+			// if radius isn't ~tank_radius OR endpoint y isn't ~tank_top/bottom, skip this entry
+			if(!((abs(endpointradius-tank_radius)<3.)||(abs(abs(endpointy)-tank_halfheight)<15.))) continue;
+			
+			
 			mustartvtx=primarystartvertex.Vect();
 			mustopvtx=primarystopvertex.Vect();
 			mustartE=nextrack->GetE();
+			mustopE=nextrack->GetEndE();
 			
 			Float_t oppx = primarystopvertex.X() - primarystartvertex.X();
 			Float_t adj = primarystopvertex.Z() - primarystartvertex.Z();
@@ -407,8 +422,9 @@ void plot_tankE_vs_ndigits(){
 			// ----------------------------------------------------------------------------------------------
 			// retrieve any remaining information and record the event
 			// ----------------------------------------------------------------------------------------------
-			Float_t mu_rest_mass_E = 105.658;
-			Float_t primaryenergy = (nextrack->GetE()-mu_rest_mass_E)/1000.;  // starting energy (GeV) (p^2+m^2)
+			Float_t mu_rest_mass_E = 105.658*1000.;
+			mustartKE = (mustartE-mu_rest_mass_E);  // starting energy (GeV) (p^2+m^2)
+			mustopKE = (mustopE-mu_rest_mass_E);
 			Float_t primarymomentummag = nextrack->GetP();                    // starting momentum
 			TVector3 primarymomentumdir(nextrack->GetPdir(0),nextrack->GetPdir(1),nextrack->GetPdir(2));
 			Float_t starttrackanglex = TMath::ATan(primarymomentumdir.X()/primarymomentumdir.Z());
@@ -622,23 +638,7 @@ void plot_tankE_vs_ndigits(){
 			// end of digit analysis
 			////////////////////////////////////////////////
 			
-			bWCSimEventNum->Fill();
-			bMuonStartVtx->Fill();
-			bMuonStopVtx->Fill();
-			bMuonAngle->Fill();
-			bMuonStartE->Fill();
-			bMuonTrackLengthInTank->Fill();
-			bNumTankDigits->Fill();
-			bTankChargeFromMuon->Fill();
-			bNumTankDigitsFromMu->Fill();
-			bTankTubesHitByMuon->Fill();
-			bFractionOfMuonChargeInCone->Fill();
-			bTotalTankCharge->Fill();
-			bTotalUpstreamCharge->Fill();
-			bTotalDownstreamCharge->Fill();
-			bTopCapCharge->Fill();
-			bBottomCapCharge->Fill();
-			
+			treeout->Fill();
 			break;
 			
 		}  // end of loop over tracks

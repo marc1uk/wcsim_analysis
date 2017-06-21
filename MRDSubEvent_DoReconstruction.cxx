@@ -817,7 +817,7 @@ void cMRDSubEvent::DoReconstruction(){
 #endif
 			
 		// declare all the things to make a track class
-		std::vector<Int_t> digitids_inthistrack;
+		std::vector<Int_t> digitindexes_inthistrack;
 		std::vector<Int_t> tubeids_inthistrack;
 		std::vector<Double_t> digitqs_inthistrack;
 		std::vector<Double_t> digittimes_inthistrack;
@@ -838,12 +838,12 @@ void cMRDSubEvent::DoReconstruction(){
 			thehtrackcells.emplace_back(mrdcell(*acell, thehtrackcells.size()));
 			mrdcluster* downcluster = acell->clusters.second;
 			htrackclusters.emplace_back(*downcluster);
-			digitids_inthistrack.insert(digitids_inthistrack.end(), downcluster->digitindexes.begin(), downcluster->digitindexes.end());
+			digitindexes_inthistrack.insert(digitindexes_inthistrack.end(), downcluster->digitindexes.begin(), downcluster->digitindexes.end());
 			// also add the upstream cluster if this is the last (most upstream) cell
 			if(celli==hpaddletrack.size()-1){
 				mrdcluster* upcluster = acell->clusters.first;
 				htrackclusters.emplace_back(*upcluster);
-				digitids_inthistrack.insert(digitids_inthistrack.end(), upcluster->digitindexes.begin(), upcluster->digitindexes.end());
+				digitindexes_inthistrack.insert(digitindexes_inthistrack.end(), upcluster->digitindexes.begin(), upcluster->digitindexes.end());
 			}
 		}
 		// ...and once for the vpaddle track
@@ -855,12 +855,12 @@ void cMRDSubEvent::DoReconstruction(){
 			thevtrackcells.emplace_back(mrdcell(*acell, thevtrackcells.size()));
 			mrdcluster* downcluster = acell->clusters.second;
 			vtrackclusters.emplace_back(*downcluster);
-			digitids_inthistrack.insert(digitids_inthistrack.end(), downcluster->digitindexes.begin(), downcluster->digitindexes.end());
+			digitindexes_inthistrack.insert(digitindexes_inthistrack.end(), downcluster->digitindexes.begin(), downcluster->digitindexes.end());
 			if(celli==vpaddletrack.size()-1){
 				mrdcluster* upcluster = acell->clusters.first;
 				// since clusters are shared between cells, take the upcluster only from the first cell
 				vtrackclusters.emplace_back(*upcluster);
-				digitids_inthistrack.insert(digitids_inthistrack.end(), upcluster->digitindexes.begin(), upcluster->digitindexes.end());
+				digitindexes_inthistrack.insert(digitindexes_inthistrack.end(), upcluster->digitindexes.begin(), upcluster->digitindexes.end());
 			}
 		}
 		
@@ -868,8 +868,8 @@ void cMRDSubEvent::DoReconstruction(){
 		cout<<"getting additional digit information"<<endl;
 #endif
 		// use the digit indices to fill in the rest of the information about digits in this track
-		for(int digiti=0; digiti<digitids_inthistrack.size(); digiti++){
-			Int_t thedigitindex = digitids_inthistrack.at(digiti);
+		for(int digiti=0; digiti<digitindexes_inthistrack.size(); digiti++){
+			Int_t thedigitindex = digitindexes_inthistrack.at(digiti);
 			tubeids_inthistrack.push_back(pmts_hit.at(thedigitindex));
 			digitqs_inthistrack.push_back(digi_qs.at(thedigitindex));
 			digittimes_inthistrack.push_back(digi_ts.at(thedigitindex));
@@ -882,7 +882,7 @@ void cMRDSubEvent::DoReconstruction(){
 		cout<<"emplacing the cMRDTrack"<<endl;
 #endif
 		//emplace_back creates the cMRDTrack in-place to avoid a copy.
-		tracksthissubevent.emplace_back(tracki, wcsimfile, run_id, event_id, subtrigger, digitids_inthistrack, tubeids_inthistrack, digitqs_inthistrack, digittimes_inthistrack, digitnumphots_inthistrack, digittruetimes_inthistrack, digittrueparents_inthistrack, thehtrackcells, thevtrackcells, htrackclusters, vtrackclusters);
+		tracksthissubevent.emplace_back(tracki, wcsimfile, run_id, event_id, subtrigger, digitindexes_inthistrack, tubeids_inthistrack, digitqs_inthistrack, digittimes_inthistrack, digitnumphots_inthistrack, digittruetimes_inthistrack, digittrueparents_inthistrack, thehtrackcells, thevtrackcells, htrackclusters, vtrackclusters);
 		
 #ifdef TRACKFINDVERBOSE
 		cout<<"printing and drawing"<<endl;

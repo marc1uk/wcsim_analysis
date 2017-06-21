@@ -91,8 +91,8 @@ class mrdcluster : public TObject{
 		return digittimes.at(0);
 	}
 	// constructor
-	mrdcluster(Int_t digitidin, Int_t pmtidin, Int_t layerin, Double_t timein){
-		digitindexes.push_back(digitidin);
+	mrdcluster(Int_t digitindexin, Int_t pmtidin, Int_t layerin, Double_t timein){
+		digitindexes.push_back(digitindexin);
 		layer=layerin;
 		clusterid=clustercounter;
 		clustercounter++;
