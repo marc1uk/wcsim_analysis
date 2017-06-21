@@ -30,30 +30,30 @@ class cMRDSubEvent : public TObject {
 	// Private members
 	// ===============
 	private:
-	Int_t MRDSubEventID;						// ID of this track within the subtrigger
+	Int_t MRDSubEventID;					// ID of this track within the subtrigger
 	
 	// Raw Info:
 	std::string wcsimfile;					// which wcsim file this was in
-	Int_t run_id;							// which run this file was in
-	Int_t event_id;							// which event this track was in
-	Int_t subtrigger;						// which (sub)trigger this track was in
+	Int_t run_id;							// which run this file was in  FIXME is same as MRDSubEventID
+	Int_t event_id;							// which event this track was in FIXME loads of 0's
+	Int_t subtrigger;						// which (sub)trigger this track was in FIXME loads -1s/1's, no 0s
 	std::vector<Int_t> digi_ids;			// vector of digi ids: GetCherenkovDigiHits()->At(digi_ids.at(i))
 	std::vector<Int_t> pmts_hit;			// vector of PMT IDs hit
 	std::vector<Double_t> digi_qs;			// vector of digit charges
 	std::vector<Double_t> digi_ts;			// vector of digit times
 	std::vector<Int_t> digi_numphots;		// number of true photons for each digit
-	std::vector<Double_t> digi_phot_ts;		// true hit times of photons in a digit
+	std::vector<Double_t> digi_phot_ts;		// true hit times of photons in a digit FIXME some up to -2000???
 	std::vector<Int_t> digi_phot_parents;	// wcsim track IDs of parents that provided photons for a digit
 //	std::vector<WCSimRootCherenkovDigiHit> digits;
 	std::vector<WCSimRootTrack> truetracks;	// true WCSim tracks within this event time window
 	
 	// Calculated/Reconstructed Info
 	std::vector<cMRDTrack> tracksthissubevent;	// tracks created this SubEvent
-	std::vector<Int_t> layers_hit;			// vector of layers hit
-	std::vector<Double_t> eDepsInLayers;	// (fixed length) vector of net energy deposition in each layer
+	std::vector<Int_t> layers_hit;			// vector of layers hit TODO currently empty
+	std::vector<Double_t> eDepsInLayers;	// (fixed length) vector of net energy deposition in each layer ^TODO
 	
 	// Involved in drawing
-	std::pair<double, double> xupcorner1, xupcorner2, xdowncorner1, xdowncorner2, yupcorner1, yupcorner2, ydowncorner1, ydowncorner2;
+	std::pair<double, double> xupcorner1, xupcorner2, xdowncorner1, xdowncorner2, yupcorner1, yupcorner2, ydowncorner1, ydowncorner2;  // TODO remove me, probably can just be defined in makemrdimage.cxx
 	std::vector<TArrow*> trackfitarrows;  //!  stores TLines which are associated with track boundaries
 	std::vector<TArrow*> trackarrows;     //!  stores TArrows associated with CA reconstructed tracks
 	std::vector<TArrow*> truetrackarrows; //!  stores TArrows associated with true tracks
@@ -125,7 +125,7 @@ class cMRDSubEvent : public TObject {
 	// ==============================
 	private:
 	// Main track reconstruction code. Groups paddles in a line into a MRDTrack
-	void DoReconstruction();
+	void DoReconstruction(bool printtracks, bool drawcells, bool drawfit);
 	// Used within DoReconstruction (CA version) 
 	void LeastSquaresMinimizer(Int_t numdatapoints, Double_t datapointxs[], Double_t datapointys[], Double_t datapointweights[], Double_t errorys[], Double_t &fit_gradient, Double_t &fit_offset, Double_t &chi2);
 	
@@ -175,11 +175,17 @@ class cMRDSubEvent : public TObject {
 			}
 			fillstaticmembers=false;
 		}
-		DrawMrdCanvases();  // creates the canvas with the digits
-		DoReconstruction(); // adds the tracks to the canvas
-		DrawTrueTracks();   // draws true tracks over the event
-		//TODO: Add DrawTrackFit and other Drawing options independent of Reconstruction
-		imgcanvas->SaveAs(TString::Format("mrdtracks_%d.png",event_id));
+		
+		Bool_t printtracks=false;
+		Bool_t drawcells=false;
+		Bool_t drawfit=false;
+		Bool_t drawtruetracks=false;
+		Bool_t saveimage=false;
+		
+		if(drawcells||drawfit||drawtruetracks) DrawMrdCanvases();  // creates the canvas with the digits
+		DoReconstruction(printtracks, drawcells, drawfit); // adds the tracks to the canvas
+		if(drawtruetracks) DrawTrueTracks();   // draws true tracks over the event
+		if(saveimage) imgcanvas->SaveAs(TString::Format("mrdtracks_%d.png",event_id));
 		//cout<<"sleeping for 5 seconds to analyse output"<<endl;
 		//if(tracksthissubevent.size()) std::this_thread::sleep_for (std::chrono::seconds(15));
 		//cout<<"moving to next event"<<endl;
@@ -238,6 +244,7 @@ class cMRDSubEvent : public TObject {
 //		digits.clear();
 		layers_hit.clear();
 		eDepsInLayers.assign(numpanels,0.);
+		truetracks.clear();
 		// heap allocated objects for drawing the event on a canvas
 		RemoveArrows();
 	}
@@ -269,6 +276,4 @@ std::vector<std::string> cMRDSubEvent::colorhexes{"#21ffff", "#20deea", "#1fbcd5
 #pragma link C++ class cMRDSubEvent+;
 //#pragma link C++ class ROOT::Math::XYZTVector+;
 //#pragma link C++ class std::vector<ROOT::Math::XYZTVector>+;
-//#pragma link C++ class cMRDStrike+;
-#pragma link C++ class std::vector<cMRDStrike>+;
 #endif

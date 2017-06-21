@@ -53,7 +53,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 //	}
 /////////////////////////////////////////////////////////////////
 	//gStyle->SetOptStat(1);    // show stats / statistics box
-	gStyle->SetOptStat(111111); //show overflow & underflow bins
+	//gStyle->SetOptStat(111111); //show overflow & underflow bins
 //	if(firsttime==true){
 //		cout<<"creating histograms:"<<endl;
 //		cout<<"startxhist="<<startxhist<<endl

@@ -87,6 +87,12 @@ const Float_t MRD_steel_height = (274./2.);     // half height of steel in cm
 */
 std::vector<double> mrdscintlayers{336.080, 348.190, 360.300, 372.410, 384.520, 396.630, 408.740, 420.850, 432.960, 445.070, 457.180 };
 
+//TODO: should retrieve this info from the geo in wcsimanalysis class
+const Float_t tank_start = 15.70;          // front face of the tank in cm
+const Float_t tank_radius = 152.4;         // tank radius in cm
+const Float_t tank_halfheight = 198.;      // tank half height in cm
+const Float_t tank_yoffset = -14.46;        // tank y offset in cm
+
 //totMRD_box = new G4Box("totMRD",(maxwidth/2),(maxheight/2),mrdZlen/2);
 
 #endif 

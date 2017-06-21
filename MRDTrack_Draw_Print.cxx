@@ -87,7 +87,7 @@ void cMRDTrack::Print(){
 	}
 }
 
-void cMRDTrack::Draw(TCanvas* imgcanvas, std::vector<TArrow*> &trackarrows, EColor thistrackscolour, std::vector<TBox*> paddlepointers){
+void cMRDTrack::DrawReco(TCanvas* imgcanvas, std::vector<TArrow*> &trackarrows, EColor thistrackscolour, std::vector<TBox*> paddlepointers){
 	// draw horizontal paddle track
 	imgcanvas->cd(1);
 	for(int j=0; j<htrackcells.size(); j++){
@@ -191,5 +191,214 @@ void cMRDTrack::Draw(TCanvas* imgcanvas, std::vector<TArrow*> &trackarrows, ECol
 #endif
 		//std::this_thread::sleep_for (std::chrono::seconds(3));
 		trackarrows.push_back(myarrow);
+	}
+}
+
+void cMRDTrack::DrawFit(TCanvas* imgcanvas, std::vector<TArrow*> &trackfitarrows, EColor thistrackscolour){
+	Double_t mrdentryx = trackfitstart.X();
+	Double_t mrdentryy = trackfitstart.Y();
+	Double_t mrdentryz = trackfitstart.Z();
+	Double_t mrdexitx = trackfitstop.X();
+	Double_t mrdexity = trackfitstop.Y();
+	Double_t mrdexitz = trackfitstop.Z();
+
+//	for debugging
+//	Double_t mrdentryz = mrdcluster::paddle_originz.at(14)/10.;
+//	Double_t mrdentryx = mrdcluster::paddle_originx.at(14)/10.;
+//	Double_t mrdentryy = mrdcluster::paddle_originy.at(14)/10.;
+//	Double_t mrdexitz = mrdcluster::paddle_originz.at(294)/10.;
+//	Double_t mrdexitx = mrdcluster::paddle_originx.at(294)/10.;
+//	Double_t mrdexity = mrdcluster::paddle_originy.at(294)/10.;
+	
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"mrd entry point is ("<<mrdentryx<<", "<<mrdentryy<<", "<<mrdentryz<<")"<<endl;
+	cout<<"mrd exit point is ("<<mrdexitx<<", "<<mrdexity<<", "<<mrdexitz<<")"<<endl;
+#endif
+	
+	// up to now all measurements are in WCSim absolute coordinates. Shift z axis so that
+	// the MRD is centered on (0,0);
+	mrdentryz -= (MRD_start+(MRD_depth/2.));
+	mrdexitz -= (MRD_start+(MRD_depth/2.));
+	
+	bool trackisbackwardgoing=false;
+	
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"shifting z axis; new entry and exit points are "<<mrdentryz<<" and "<<mrdexitz<<endl;
+	cout<<"entry and exit points in terms of mrd width, height and depth are: ("
+		<<(mrdentryx/maxwidth)<<", "<<(mrdentryy/maxheight)<<", "<<(mrdentryz/mrdZlen)<<") -> ("
+		<<(mrdexitx/maxwidth)<<", "<<(mrdexity/maxheight)<<", "<<(mrdexitz/mrdZlen)<<")"<<endl;
+#endif
+	
+	// the following is code copied from DrawTruthTracks, as it converts cm to canvas units,
+	// accounts for offsets with side, and draws the necessary arrows
+	
+	// scale cm to canvas size and offset to start of MRD diagram
+	/*  ✩ ✨ Magic Numbers! ✨ ✩ */
+	double anoffset=(scintfullzlen+scintalugap)*5.;  // this offset accounts for the half shift
+	double topscalefactor=1.5;           // compress canvas width to paddle diagram height
+	double sidescalefactor=1.55;         //   "         "      "       "       "    width
+	double topdepthscalefactor=1.18;     //   "         "      "       "       "    depth (top view)
+	double sidedepthscalefactor=1.2;     // compress canvas depth to paddle diagram depth (side view)
+	double xscalefactor=(0.5/0.403825);  // correct differences in definition of MRD width and height
+	double yscalefactor=(0.5/0.384671);  // between this method and that for paddle placements
+	double topzoffset=0.0;               // shifts the track arrows +z          (top  view)
+	double sidezoffset=0.0;              // to account for centering of diagram (side view)
+	
+	mrdentryx*=xscalefactor;
+	mrdexitx*=xscalefactor;
+	mrdentryy*=yscalefactor;
+	mrdexity*=yscalefactor;
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"scaled entry and exit points in terms of mrd width, height and depth are: ("
+		<<(mrdentryx/maxwidth)<<", "<<(mrdentryy/maxheight)<<", "<<(mrdentryz/mrdZlen)<<") -> ("
+		<<(mrdexitx/maxwidth)<<", "<<(mrdexity/maxheight)<<", "<<(mrdexitz/mrdZlen)<<")"<<endl;
+#endif
+	
+	// one last thing: the beam comes from the left. In the top view, right-hand-side (x>0)
+	// needs to map to the bottom of the canvas (canvas_y<0) - so, let's swap the signs of all
+	// x points
+	mrdentryx*=-1.;
+	mrdexitx*=-1.;
+	Double_t avgtrackanglex=-1.*vtrackgradient;
+	Double_t avgtrackangley=htrackgradient;
+	
+	std::vector<double> xstarts, ystarts, zstartsx, zstartsy, xstops, ystops, zstopsx, zstopsy;
+	xstarts.push_back((mrdentryx/(maxwidth*topscalefactor))+0.5);
+	ystarts.push_back((mrdentryy/(maxheight*sidescalefactor))+0.5);
+	// starting z may need a shift depending on the appropriate half
+	// in top view
+	if(mrdentryy>0){
+		zstartsx.push_back((mrdentryz/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+	} else {
+		zstartsx.push_back(((mrdentryz+anoffset)/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+	}
+	// in side view
+	if(mrdentryx>0){
+		zstartsy.push_back((mrdentryz/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+	} else {
+		zstartsy.push_back(((mrdentryz+anoffset)/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+	}
+	// check if we cross sides, and if so, create a middle stop and start set
+	// top view
+	if((mrdentryy*mrdexity)<0){
+		// we'll need two lines with a bit of a disconnect. find the crossing point.
+		double crossingz = mrdentryz-((mrdentryy/yscalefactor) / /*TMath::Tan*/(avgtrackangley));
+		double crossingx = (mrdentryx/xscalefactor) + ((crossingz-mrdentryz)*avgtrackanglex);
+		xstops.push_back(((crossingx*xscalefactor)/(maxwidth*topscalefactor))+0.5);
+		if(mrdentryy>0){
+			zstopsx.push_back((crossingz/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+		} else {
+			zstopsx.push_back(((crossingz+anoffset)/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+		}
+		xstarts.push_back(((crossingx*xscalefactor)/(maxwidth*topscalefactor))+0.5);
+		if(mrdexity>0){
+			zstartsx.push_back((crossingz/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+		} else {
+			zstartsx.push_back(((crossingz+anoffset)/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+		}
+	}
+	// side view
+	if((mrdentryx*mrdexitx)<0){
+		// we'll need two lines with a bit of a disconnect. find the crossing point.
+		double crossingz = mrdentryz-((mrdentryx/xscalefactor) / /*TMath::Tan*/(avgtrackanglex));
+		double crossingy = (mrdentryy/yscalefactor) + ((crossingz-mrdentryz)*avgtrackangley);
+		ystops.push_back(((crossingy*yscalefactor)/(maxheight*sidescalefactor))+0.5);
+		if(mrdentryx>0){
+			zstopsy.push_back((crossingz/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+		} else {
+			zstopsy.push_back(((crossingz+anoffset)/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+		}
+		ystarts.push_back(((crossingy*yscalefactor)/(maxheight*sidescalefactor))+0.5);
+		if(mrdexitx>0){
+			zstartsy.push_back((crossingz/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+		} else {
+			zstartsy.push_back(((crossingz+anoffset)/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+		}
+	}
+	// finally add the endpoint values, with offset for z according to ending MRD half.
+	xstops.push_back((mrdexitx/(maxwidth*topscalefactor))+0.5);
+	ystops.push_back((mrdexity/(maxheight*sidescalefactor))+0.5);
+	// top view
+	if(mrdexity>0){
+		zstopsx.push_back((mrdexitz/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+	} else {
+		zstopsx.push_back(((mrdexitz+anoffset)/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+	}
+	// side view
+	if(mrdexitx>0){
+		zstopsy.push_back((mrdexitz/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+	} else {
+		zstopsy.push_back(((mrdexitz+anoffset)/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+	}
+	
+	// OK done.
+	// now loop over the pairs and make the arrows
+	// top view
+	for(int i=0; i < zstartsx.size(); i++){
+		// Draw arrow representing "true" (assumed straight) trajectory in top view
+		std::string arrowdir = (!trackisbackwardgoing) ? ">" : "<";
+		TArrow* myarrow = 
+			new TArrow(zstartsx.at(i), xstarts.at(i), zstopsx.at(i), xstops.at(i), 0.005, arrowdir.c_str());
+		myarrow->SetLineWidth(2);
+		myarrow->SetLineColor(thistrackscolour);
+		myarrow->SetLineStyle(2);  //dashed
+		imgcanvas->cd(2);  // top view for x positions
+		myarrow->Draw();
+#ifdef MRDTrack_RECO_VERBOSE
+		cout<<"drawing top view fit track arrow from "<<myarrow->GetX1()<<", "<<myarrow->GetY1()
+			<<" to "<<myarrow->GetX2()<<", "<<myarrow->GetY2()<<endl;
+#endif
+		trackfitarrows.push_back(myarrow);
+		
+		if(zstartsx.size()==2&&i==0){
+			// add an intermediate link dashed line to link the arrows
+			myarrow = 
+				new TArrow(zstopsx.at(i), xstops.at(i), zstartsx.at(i+1), xstarts.at(i+1),0.0,">");
+				// an arrow size of 0.0 gives no arrow head (just a line)
+			myarrow->SetLineWidth(2);
+			myarrow->SetLineColor(thistrackscolour);
+			myarrow->SetLineStyle(3);  //dotted
+			myarrow->Draw();
+#ifdef MRDTrack_RECO_VERBOSE
+			cout<<"drawing line from "<<myarrow->GetX1()<<", "<<myarrow->GetY1()<<" to "
+				<<myarrow->GetX2()<<", "<<myarrow->GetY2()<<endl;
+#endif
+			trackfitarrows.push_back(myarrow);
+		}
+	}
+	
+	// need to do top and side views separately as they may have different sizes
+	// side view
+	for(int i=0; i < zstartsy.size(); i++){
+		// Draw arrow representing "true" (assumed straight) trajectory in top view
+		std::string arrowdir = (!trackisbackwardgoing) ? ">" : "<";
+		TArrow* myarrow = 
+			new TArrow(zstartsy.at(i), ystarts.at(i), zstopsy.at(i), ystops.at(i), 0.005, arrowdir.c_str());
+		myarrow->SetLineWidth(2);
+		myarrow->SetLineColor(thistrackscolour);
+		myarrow->SetLineStyle(2);  //dashed
+		imgcanvas->cd(1);  // side view for y positions
+		myarrow->Draw();
+#ifdef MRDTrack_RECO_VERBOSE
+		cout<<"drawing side view fit track arrow from "<<myarrow->GetX1()<<", "
+		<<myarrow->GetY1()<<" to "<<myarrow->GetX2()<<", "<<myarrow->GetY2()<<endl;
+#endif
+		trackfitarrows.push_back(myarrow);
+		
+		if(zstartsy.size()==2&&i==0){
+			// add an intermediate link dashed line to link the arrows
+			myarrow = 
+				new TArrow(zstopsy.at(i), ystops.at(i), zstartsy.at(i+1), ystarts.at(i+1),0.0,">");
+				// an arrow size of 0.0 gives no arrow head (just a line)
+			myarrow->SetLineWidth(2);
+			myarrow->SetLineColor(thistrackscolour);
+			myarrow->SetLineStyle(3);  //dotted
+			myarrow->Draw();
+#ifdef MRDTrack_RECO_VERBOSE
+			cout<<"drawing line from "<<myarrow->GetX1()<<", "<<myarrow->GetY1()<<" to "
+				<<myarrow->GetX2()<<", "<<myarrow->GetY2()<<endl;
+#endif
+			trackfitarrows.push_back(myarrow);
+		}
 	}
 }

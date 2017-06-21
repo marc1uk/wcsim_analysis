@@ -145,7 +145,7 @@ class mrdcluster : public TObject{
 	static std::vector<std::pair<Double_t,Double_t> > paddle_extentsz;
 	
 	// Function to build the information about the paddle positions from a wcsim output file
-	static int StripMrdPositions(std::string filename);	// fills the member vectors paddle_*** 
+	static int StripMrdPositions();	// fills the member vectors paddle_*** 
 };
 #include "StripMrdPositions.C"	// function to pull information about paddle positions from file
 Int_t mrdcluster::clustercounter=0;

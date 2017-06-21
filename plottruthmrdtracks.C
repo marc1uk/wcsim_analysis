@@ -1241,7 +1241,7 @@ void truthtracks(){
 			} else {
 				tankendpointz = solution2;	// backward going track
 			}
-			Double_t tankendpointx = TMath::Sqrt(TMath::Power(tank_radius,2)-TMath::Power(tankendpointz,2));
+			Double_t tankendpointx = thegenieinfo.genie_x + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackanglex);
 			// correct for tank z offset (do after tankendpointx, before tankendpointy)
 			tankendpointz += tank_start+tank_radius;
 			// now check if the particle would have exited through one of the caps before reaching this radius

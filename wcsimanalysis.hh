@@ -153,8 +153,9 @@ class WCSimAnalysis : public TObject {
 	// MRD TRACK RECONSTRUCTION
 	// ~~~~~~~~~~~~~~~~~~~~~~~~
 	// variables for file writing
-	TFile* mrdtrackfile=0;
-	TTree* recotree=0;
+	TFile* mrdtrackfile=0, *vetotrackfile=0;
+	TTree* recotree=0; // mrd track reconstruction tree
+	TTree* vetotree=0; // veto event tree
 	std::vector<Double_t> mrddigittimesthisevent;
 	Int_t nummrdsubeventsthisevent;
 	Int_t nummrdtracksthisevent;
@@ -164,10 +165,15 @@ class WCSimAnalysis : public TObject {
 	TBranch* tracksinthiseventb=0;
 	TClonesArray* aTrack=0;
 	TClonesArray* aSubEvent=0;
+	std::vector<double> vetodigittimesthisevent;
+	Int_t numvetoeventsthisevent=0;
+	TBranch* numvetoeventsthiseventb;
+	TBranch* vetoeventsinthiseventb;
+	TClonesArray* FaccSubEvents=0;
 	
 	// DISABLING STUFF
 	// ~~~~~~~~~~~~~~
-	Bool_t drawtankhistos=true;
+	Bool_t drawtankhistos=false;
 	Bool_t drawmrdhistos=false;
 	Bool_t drawvetohistos=false;
 
@@ -238,7 +244,9 @@ class WCSimAnalysis : public TObject {
 
 	// functions - mrd track finding
 	void OpenMRDtrackOutfile();
-	void FindMRDtracksInEvent();	//TODO: write this
+	void FindMRDtracksInEvent();
+	void OpenFACCtrackOutfile();
+	void FindVetoTracksInEvent();
 	
 	// the one that calls all the others
 	void DoAnalysis();
@@ -335,6 +343,7 @@ WCSimAnalysis::~WCSimAnalysis(){
 	// TChain* t doesn't need closing...
 	cout<<"closing file"<<endl;
 	if( mrdtrackfile ) { mrdtrackfile->Close(); delete mrdtrackfile; mrdtrackfile=0; }	// deletes member branches too
+	if( vetotrackfile ) { vetotrackfile->Close(); delete vetotrackfile; vetotrackfile=0; }
 	cout<<"done with destructor"<<endl;
 }
 
@@ -353,6 +362,7 @@ WCSimAnalysis::~WCSimAnalysis(){
 #include "tankanalysis.cxx"
 #include "mrdanalysis.cxx"
 #include "vetoanalysis.cxx"
+#include "findvetotracks.cxx"
 
 //TODO std::string intxnumtotype(gst genieeventasclass){
 

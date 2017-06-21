@@ -440,6 +440,33 @@ void truthtracks(){
 		double mrdpenetrationcm=0.;
 		int mrdpenetrationlayers=0;
 		double mutracklengthinMRD=0.;
+		
+//		/////////////////////////////////////////////////////
+//		int numprimarymuons=0;
+//		int primarymutrackid=-1;
+//		Double_t maxmuonenergy=0.;
+//		Int_t mutrackindex=-1;
+//		for(int track=0; track<numtracks; track++){
+//			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(track);
+//			Int_t primarypdg = nextrack->GetIpnu();
+//			if(nextrack->GetFlag()!=0) continue;
+//			if(primarypdg!=13) continue;                // not a muon
+//			if(nextrack->GetE()>maxmuonenergy){
+//				maxmuonenergy=nextrack->GetE();
+//				mutrackindex=track;
+//			} else {
+//				//continue;
+//			}
+//			if(nextrack->GetParenttype()!=0) continue;  // not a primary
+//			numprimarymuons++;
+//			primarymutrackid=track;
+//		}
+//		//assert((numprimarymuons<2)&&"MORE THAN ONE PRIMARY MUON");
+//		 // this does not trigger - can assume only one primary muon.
+//		//assert((mutrackindex==primarymutrackid)&&"HIGHEST ENERGY MUON!=PRIMARY MUON");
+//		// this does trigger - we cannot assume the primary muon is the highest E muon
+//		///////////////////////////////////////////////
+		
 		// now scan through the truth tracks, find the primary muon and save the wcsim info from it
 		for(int track=0; track<numtracks; track++){
 			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(track);

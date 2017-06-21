@@ -5,6 +5,7 @@
 // ===============================
 void WCSimAnalysis::DoVetoPreLoop(){
 	DefineVetoHistos();
+	OpenFACCtrackOutfile();
 }
 
 //############################################################################################
@@ -22,7 +23,7 @@ void WCSimAnalysis::DoVetoEventwide(Int_t &numtruehits, Int_t &numdigits){
 // VETO PRE-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoVetoPreHitLoop(){
-// nothing here yet
+	vetodigittimesthisevent.clear();
 }
 
 //############################################################################################
@@ -56,6 +57,7 @@ void WCSimAnalysis::DoVetoDigitHits(){
 		// ============================
 		WCSimRootCherenkovDigiHit* digihit = (WCSimRootCherenkovDigiHit*)atrigv->GetCherenkovDigiHits()->At(i);
 		//WCSimRootChernkovDigiHit has methods GetTubeId(), GetT(), GetQ()
+		vetodigittimesthisevent.push_back(digihit->GetT());
 
 		// call functions that use this information
 		// ========================================
@@ -68,7 +70,7 @@ void WCSimAnalysis::DoVetoDigitHits(){
 // VETO POST-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoVetoPostHitLoop(){
-// nothing here yet
+	FindVetoTracksInEvent();
 }
 
 //############################################################################################

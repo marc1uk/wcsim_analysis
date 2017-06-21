@@ -9,7 +9,7 @@ void WCSimAnalysis::InitEnvironment(){
 	TString pwd = gSystem->Getenv("PWD");
 	TString librarypath = pwd + "libWCSimRoot.so";
 	//"/home/marc/LinuxSystemFiles/WCSim/gitver/wcsim/libWCSimRoot.so"
-	gSystem->Load(librarypath);	//also include TSystem.h
+	//gSystem->Load(librarypath);	//also include TSystem.h
 	//R__LOAD_LIBRARY(libWCSimRoot.so);
 	//gStyle->SetOptStat(0); 				// disable the stats box, or use hist->SetBit(TH1::kNoStats);
 	//gStyle->SetOptStat(111111);			// show overflow and underflow contents in the stats box

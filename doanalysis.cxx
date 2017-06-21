@@ -23,7 +23,7 @@ void WCSimAnalysis::DoAnalysis(){
 	// Loop over events
 	// ================
 	cout<<"Looping over entries"<<endl;
-	int breakearlyat=-1;
+	int breakearlyat=10;
 	int maxdigits=0;
 	do {
 		// load next entry, including new trees and setting branch addresses when necessary
@@ -31,6 +31,8 @@ void WCSimAnalysis::DoAnalysis(){
 		if(entryvalid==0 || eventnum==breakearlyat){ break; }
 		
 		// TODO: should include a loop over subtriggers here
+		// TODO: TO BE ABLE TO DO THIS MRDTRACKCLASS AND VETOTRACKCLASS NEED TO SUPPORT
+		// MULTIPLE TRIGGERS PER TREE ENTRY
 		Int_t subtrigger=0;
 		// for(Int_t subtrigger=0; subtrigger< (b->GetNumberOfEvents()); subtrigger++){
 		atrigt = b->GetTrigger(subtrigger);

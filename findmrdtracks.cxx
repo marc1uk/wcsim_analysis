@@ -13,7 +13,7 @@ void WCSimAnalysis::OpenMRDtrackOutfile(){
 	cout<<"opening mrd output file"<<endl;
 	mrdtrackfile = new TFile("mrdtrackfile.root","RECREATE","MRD Tracks file");
 	mrdtrackfile->cd();
-	recotree = new TTree("recotree","Tree for reconstruction data");
+	recotree = new TTree("mrdtree","Tree for reconstruction data");
 	gROOT->cd();
 	
 	nummrdtracksthisevent=0;
@@ -31,27 +31,31 @@ void WCSimAnalysis::OpenMRDtrackOutfile(){
 // ==================
 void WCSimAnalysis::FindMRDtracksInEvent(){
 
-const Int_t minimumdigits =3;
+const Int_t minimumdigits =4;
 #ifdef MRDSPLITVERBOSE
 	cout<<"eventnum is "<<eventnum<<endl;
 #endif
-	//aTracka.Clear();
+	aSubEvent->Clear("C");
 /* 
 if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a Clear() method in your class that properly performs clearing and memory freeing. (or "implements the reset procedure for pointer objects")
  see https://root.cern.ch/doc/master/classTClonesArray.html#a025645e1e80ea79b43a08536c763cae2
 */
-	
-	if(mrddigittimesthisevent.size()<4){
+	Int_t mrdeventcounter=0;
+	if(mrddigittimesthisevent.size()<minimumdigits){
 		// =====================================================================================
 		// NO DIGITS IN THIS EVENT
 		// ======================================
-		new((*aSubEvent)[0]) cMRDSubEvent();
-		nummrdsubeventsthisevent=0;
+		//new((*aSubEvent)[0]) cMRDSubEvent();
+		nummrdsubeventsthisevent=mrdeventcounter;
 		nummrdtracksthisevent=0;
 		nummrdsubeventsthiseventb->Fill();
 		nummrdtracksthiseventb->Fill();
 		subeventsinthiseventb->Fill();
 		//recotree->Fill();						// fill the branches so the entries align.
+		mrdtrackfile->cd();
+		recotree->SetEntries(nummrdtracksthiseventb->GetEntries());
+		recotree->Write("",kOverwrite);
+		gROOT->cd();
 		return;
 		// skip remainder
 		// ======================================================================================
@@ -75,10 +79,10 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 	Double_t eventstarttime = *std::min_element(mrddigittimesthisevent.begin(),mrddigittimesthisevent.end());
 	Double_t eventduration = (eventendtime - eventstarttime);
 #ifdef MRDSPLITVERBOSE
-	cout<<"event start: "<<eventstarttime<<", end : "<<eventendtime<<", duration : "<<eventduration<<endl;
+	cout<<"mrd event start: "<<eventstarttime<<", end : "<<eventendtime<<", duration : "<<eventduration<<endl;
 #endif
 	
-	if((eventduration<maxsubeventduration)&&(mrddigittimesthisevent.size()>minimumdigits)){
+	if((eventduration<maxsubeventduration)&&(mrddigittimesthisevent.size()>=minimumdigits)){
 	// JUST ONE SUBEVENT
 	// =================
 #ifdef MRDSPLITVERBOSE
@@ -124,6 +128,7 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 		cout<<"constructing a single subevent for this event"<<endl;
 #endif
 		cMRDSubEvent* currentsubevent = new((*aSubEvent)[0]) cMRDSubEvent(0, currentfilestring, runnum, eventnum, subtriggernum, digitidsinasubevent, tubeidsinasubevent, digitqsinasubevent, digittimesinasubevent, digitnumtruephots, photontimesinasubevent, particleidsinasubevent, truetrackpointers);
+		mrdeventcounter++;
 		// can also use 'cMRDSubEvent* = (cMRDSubEvent*)aSubEvent.ConstructedAt(0);' followed by a bunch of
 		// 'Set' calls to set all relevant fields. This bypasses the constructor, calling it only when 
 		// necessary, saving time. In that case, we do not need to call aSubEventa.Clear();
@@ -173,7 +178,6 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 		
 		// now we need to sort the digits into the subevents they belong to:
 		// loop over subevents
-		Int_t mrdeventcounter=0;	// not all time groups will have enough digits
 		Int_t mrdtrackcounter=0;	// not all the subevents will have a track
 		for(Int_t thissubevent=0; thissubevent<subeventhittimesv.size(); thissubevent++){
 #ifdef MRDSPLITVERBOSE
@@ -218,7 +222,7 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 			}
 			
 			// construct the subevent from all the digits
-			if(digitidsinasubevent.size()>minimumdigits){	// must have enough for a subevent
+			if(digitidsinasubevent.size()>=minimumdigits){	// must have enough for a subevent
 				// first scan through all truth tracks to find those within this subevent time window
 				std::vector<WCSimRootTrack*> truetrackpointers;
 				for(int truetracki=0; truetracki<numtracks; truetracki++){
@@ -271,12 +275,13 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 	
 	// WRITE+CLOSE OUTPUT FILES
 	// ========================
-	cout<<"writing output files, end of finding SubEvents and Tracks in this event"<<endl;
+#ifdef MRDSPLITVERBOSE
+	cout<<"writing output files, end of finding MRD SubEvents and Tracks in this event"<<endl;
+#endif
 	mrdtrackfile->cd();
 	recotree->SetEntries(nummrdtracksthiseventb->GetEntries());
 	recotree->Write("",kOverwrite);
-	aSubEvent->Clear("C");
-	cMRDSubEvent::imgcanvas->Update();
+	if(cMRDSubEvent::imgcanvas) cMRDSubEvent::imgcanvas->Update();
 	gROOT->cd();
 }
 

@@ -12,7 +12,7 @@
 #include "MRDSubEventClass.hh"
 
 #ifndef TRACKFINDVERBOSE
-#define TRACKFINDVERBOSE 1
+//#define TRACKFINDVERBOSE 1
 #endif
 
 class mrdcluster;
@@ -25,7 +25,7 @@ const Double_t chi2limit=70.0;	// max chi^2 from a linear least squares fit to a
 		//140						// which increase opening angle to ~70. This doesn't allow large kinks
 								// where deviation from straight projection is 2 cells.
 
-void cMRDSubEvent::DoReconstruction(){
+void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawfit){
 #ifdef __CINT__
 	gSystem->Load("libMatrix");
 #endif
@@ -801,9 +801,6 @@ void cMRDSubEvent::DoReconstruction(){
 		}
 	}
 	
-	Bool_t printtracks=false;
-	Bool_t drawcells=true;
-	Bool_t drawfit=true;
 	// only record tracks which are seen in both views
 	if(printtracks) cout<<"Found "<<matchedtracks.size()<<" tracks this subevent."<<endl;
 	// Make the actual cMRDTrack track objects, now that we have a coherent set of cells:
@@ -889,10 +886,10 @@ void cMRDSubEvent::DoReconstruction(){
 #endif
 		// if requested, print and/or draw the track
 		EColor thistrackscolour = mycolours.at(tracki+1); // element 0 is black
+		EColor fittrackscolour = mycolours.at(tracki+2); // for now, give it a diff color
 		cMRDTrack* thatrack = &(tracksthissubevent[tracksthissubevent.size()-1]);
 		if(printtracks) thatrack->Print();
-		if(drawcells) thatrack->Draw(imgcanvas, trackarrows, thistrackscolour, paddlepointers);
-		EColor fittrackscolour = mycolours.at(tracki+2); // for now, give it a diff color
+		if(drawcells) thatrack->DrawReco(imgcanvas, trackarrows, thistrackscolour, paddlepointers);
 		if(drawfit) thatrack->DrawFit(imgcanvas, trackfitarrows, fittrackscolour);
 	}
 	
