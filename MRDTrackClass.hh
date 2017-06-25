@@ -133,8 +133,6 @@ class cMRDTrack : public TObject {
 	std::pair<double, double> GetMrdEntryBoundsY(){return mrdentryybounds;}
 	bool GetInterceptsTank(){return interceptstank;}
 	TVector3 GetTankExitPoint(){return projectedtankexitpoint;}
-	std::pair<double, double> GetTankExitBoundsX(){return tankexitxbounds;}
-	std::pair<double, double> GetTankExitBoundsY(){return tankexitybounds;}
 	double GetStartTime(){
 		auto minelementit = std::min_element(digi_ts.begin(), digi_ts.end());
 		if(minelementit!=digi_ts.end()) return *minelementit;
@@ -149,7 +147,7 @@ class cMRDTrack : public TObject {
 	bool GetIsStopped(){return isstopped;}
 	bool GetIsSideExit(){return sideexit;}
 	void GetProjectionLimits(double zplane, double &xmax, double &xmin, double &ymax, double &ymin);
-	void cMRDTrack::GetProjectedPoint(double zplane);
+	TVector3 GetProjectedPoint(double zplane);
 	
 	// provided in MRDTrack_Draw_Print.cxx: draw cell arrows from reconstructio
 	void DrawReco(TCanvas* imgcanvas, std::vector<TArrow*> &trackarrows, EColor thistrackscolour, std::vector<TBox*> paddlepointers);
@@ -211,7 +209,8 @@ class cMRDTrack : public TObject {
 						double vtrackoriginin, TVector3* solution1, TVector3* solution2);
 	bool CheckTankIntercept(TVector3* entrypoint, TVector3* exitpoint, int tracktype);
 	double GetClosestApproach(TVector3 pointin, int tracktype);
-	GetClosestPoint    // TODO TODO TODO
+	TVector3 GetClosestPoint(TVector3 origin, int tracktype);
+	void DoTGraphErrorsFit();
 	void CheckIfStopping();
 	void CalculateEnergyLoss();
 	
@@ -226,7 +225,7 @@ class cMRDTrack : public TObject {
 	// ====================
 	public:
 	// Default constructor that initialises all private members required for ROOT classes
-	cMRDTrack() : MRDtrackID(-1), wcsimfile(""), run_id(-1), event_id(-1), subtrigger(-1), digi_ids(), pmts_hit(), digi_qs(), digi_ts(), digi_numphots(), digi_phot_ts(), digi_phot_parents(), tanktrackID(-1), layers_hit(), eDepsInLayers(), KEStart(-1.), KEEnd(-1.), particlePID(-1), tracktype(-1), trueTrackID(-1), htrackcells(), vtrackcells(), htrackorigin(-1), htrackoriginerror(-1), htrackgradient(-1), htrackgradienterror(-1), htrackfitchi2(-1), vtrackorigin(-1), vtrackoriginerror(-1), vtrackgradient(-1), vtrackgradienterror(-1), vtrackfitchi2(-1), trackfitstart(TVector3(0,0,0)), trackfitstop(TVector3(0,0,0)), ispenetrating(false), isstopped(false), sideexit(false), penetrationdepth(-1), EnergyLoss(-1), projectedtankexitpoint(TVector3(0,0,0)), interceptstank(false), trackangle(-1.), EnergyLossError(-1), trackangleerror(-1), mrdentryxbounds(), mrdentryybounds(), tankexitxbounds(), tankexitybounds(), extravpoints(), extravpointerrors(), extrahpoints(), extrahpointerrors(), extrazpoints(), extrazpointerrors() {};
+	cMRDTrack() : MRDtrackID(-1), wcsimfile(""), run_id(-1), event_id(-1), subtrigger(-1), digi_ids(), pmts_hit(), digi_qs(), digi_ts(), digi_numphots(), digi_phot_ts(), digi_phot_parents(), tanktrackID(-1), layers_hit(), eDepsInLayers(), KEStart(-1.), KEEnd(-1.), particlePID(-1), tracktype(-1), trueTrackID(-1), htrackcells(), vtrackcells(), htrackorigin(-1), htrackoriginerror(-1), htrackgradient(-1), htrackgradienterror(-1), htrackfitchi2(-1), vtrackorigin(-1), vtrackoriginerror(-1), vtrackgradient(-1), vtrackgradienterror(-1), vtrackfitchi2(-1), trackfitstart(TVector3(0,0,0)), trackfitstop(TVector3(0,0,0)), ispenetrating(false), isstopped(false), sideexit(false), penetrationdepth(-1), EnergyLoss(-1), projectedtankexitpoint(TVector3(0,0,0)), interceptstank(false), trackangle(-1.), EnergyLossError(-1), trackangleerror(-1), mrdentryxbounds(), mrdentryybounds(), extravpoints(), extravpointerrors(), extrahpoints(), extrahpointerrors(), extrazpoints(), extrazpointerrors() {};
 	
 	// destructor
 	~cMRDTrack(){cout<<"cMRDTrack destructor (no actions here)"<<endl;}
@@ -252,7 +251,7 @@ class cMRDTrack : public TObject {
 	trackfitstop(TVector3(0,0,0)), ispenetrating(false), isstopped(false), sideexit(false),
 	penetrationdepth(-1), EnergyLoss(-1), projectedtankexitpoint(TVector3(0,0,0)), interceptstank(false),
 	trackangle(-1.), EnergyLossError(-1), trackangleerror(-1), mrdentryxbounds(), mrdentryybounds(),
-	tankexitxbounds(), tankexitybounds(), extravpoints(), extravpointerrors(), extrahpoints(),
+	extravpoints(), extravpointerrors(), extrahpoints(),
 	extrahpointerrors(), extrazpoints(), extrazpointerrors() {
 	
 	if(fillstaticmembers){
@@ -290,8 +289,7 @@ class cMRDTrack : public TObject {
 	projectedtankexitpoint(trackin.projectedtankexitpoint), interceptstank(trackin.interceptstank),
 	trackangle(trackin.trackangle), EnergyLossError(trackin.EnergyLossError), 
 	trackangleerror(trackin.trackangleerror), mrdentryxbounds(trackin.mrdentryxbounds), 
-	mrdentryybounds(trackin.mrdentryybounds), tankexitxbounds(trackin.tankexitxbounds), 
-	tankexitybounds(trackin.tankexitybounds), extravpoints(trackin.extravpoints), 
+	mrdentryybounds(trackin.mrdentryybounds), extravpoints(trackin.extravpoints), 
 	extravpointerrors(trackin.extravpointerrors), extrahpoints(trackin.extrahpoints), 
 	extrahpointerrors(trackin.extrahpointerrors), extrazpoints(trackin.extrazpoints), 
 	extrazpointerrors(trackin.extrazpointerrors)

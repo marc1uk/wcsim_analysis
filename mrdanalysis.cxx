@@ -5,7 +5,7 @@
 // ===============================
 void WCSimAnalysis::DoMRDpreLoop(){
 	DefineMRDhistos();
-	OpenMRDtrackOutfile();	// open file for writing mrd tracks
+	//OpenMRDtrackOutfile(wcsimfilenum);	// open file for writing mrd tracks
 	//TClonesArray* aTrack; clear this?
 	//TClonesArray &aTracka = *aTrack; reset this?
 }

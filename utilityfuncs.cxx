@@ -21,6 +21,7 @@ void WCSimAnalysis::InitEnvironment(){
 // LOAD INPUT FILES
 // ================
 void WCSimAnalysis::LoadInputFiles(){
+	cout<<"Setting output directory to "<<outputdir<<endl;
 	cout<<"Loading files from"<<inputdir<<"..."<<endl;
 	//TFile* f = TFile::Open("wcsim6.root");
 	//TTree* t = (TTree*)f->Get("wcsimT");
@@ -52,7 +53,7 @@ void WCSimAnalysis::LoadInputFiles(){
 					if(fname.EndsWith(ext)) { int i=0; }
 				}
 				*/
-				nextfilepattern = inputdir + sfname + "/wcsim_*";
+				nextfilepattern = inputdir + sfname + "/wcsim_*"; // XXX
 				cout<<"adding "<<nextfilepattern<<endl;
 				t->Add(nextfilepattern.Data());
 				// cf. t->Add("/home/marc/anniegpvm/stats10k/stats_1_79283/wcsim_*");
@@ -61,7 +62,7 @@ void WCSimAnalysis::LoadInputFiles(){
 	} // end if subfolders exist.
 	if(1 /*t->GetEntriesFast()==0*/) {	// add files in parent directory
 		// can't '+' const chars, convert to string
-		nextfilepattern = std::string(inputdir) + std::string("/wcsim_*");
+		nextfilepattern = std::string(inputdir) + std::string("/wcsim_0.*.root"); // XXX /wcsim_0.*
 		cout<<"adding "<<nextfilepattern<<endl;
 		t->Add(nextfilepattern.Data());
 	}
@@ -71,8 +72,9 @@ void WCSimAnalysis::LoadInputFiles(){
 	// can be used to get PMTs by ID: note GetPMT(i) returns a PMT object not a pointer!
 	Long64_t localEntry = t->LoadTree(0);
 	TTree* currenttree = t->GetTree();
-	TFile* firstfile = currenttree->GetCurrentFile();
+	//TFile* firstfile = currenttree->GetCurrentFile();
 	//TFile* firstfile = TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.root");
+	TFile* firstfile = TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim_wdirt_17-06-17/wcsim_0.1000.root");
 	cout<<"Loading geometry from file "<<firstfile->GetName()<<endl;
 	if(firstfile==0){ cout<<"NO GEOMETRY FILE?"<<endl; assert(false);}
 	TTree* geotree = (TTree*)firstfile->Get("wcsimGeoT");
@@ -127,6 +129,21 @@ int WCSimAnalysis::LoadTchainEntry(Int_t eventnum){
 		currenttree = t->GetTree();
 		currentfile = currenttree->GetCurrentFile();
 		currentfilestring = std::string(currentfile->GetName());
+	
+		// filename is of the form "wcsim_0.####.root"  //annie_tank_flux.####.root
+		// #### is input file num. Need this to match against genie/wcsim file names
+		std::match_results<string::const_iterator> submatches;
+		std::regex theexpression (".*/?[^\\.]+\\.([0-9]+)\\.root");
+		cout<<"matching regex for filename "<<currentfilestring<<endl;
+		std::regex_match (currentfilestring, submatches, theexpression);
+		std::string submatch = (std::string)submatches[0];	// match 0 is 'whole match' or smthg
+		if(submatch==""){ cout<<"unrecognised input file pattern: "<<currentfilestring<<endl; return -1; }
+		submatch = (std::string)submatches[1];
+		cout<<"extracted submatch is "<<submatch<<endl;
+		wcsimfilenum = atoi(submatch.c_str());
+		// open new MRD Track and Veto Event files
+		OpenMRDtrackOutfile(wcsimfilenum);
+		OpenFACCtrackOutfile(wcsimfilenum);
 		treeNumber=nextTreeNumber;
 	}
 //	G4cout<<"Loading data from entry "<<inputEntry<<", localentry "<<localEntry<<"/"<<entriesInThisTree<<G4endl;

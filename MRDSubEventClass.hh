@@ -137,7 +137,9 @@ class cMRDSubEvent : public TObject {
 	
 	// destructor
 	~cMRDSubEvent(){
+#ifdef _MRDSubEvent_VERBOSE_
 		cout<<"cMRDSubEvent destructor"<<endl;
+#endif
 		RemoveArrows();
 	}
 	

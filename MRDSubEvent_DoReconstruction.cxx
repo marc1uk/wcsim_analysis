@@ -885,8 +885,14 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 		cout<<"printing and drawing"<<endl;
 #endif
 		// if requested, print and/or draw the track
-		EColor thistrackscolour = mycolours.at(tracki+1); // element 0 is black
-		EColor fittrackscolour = mycolours.at(tracki+2); // for now, give it a diff color
+		int trackcolourindex;
+		EColor thistrackscolour, fittrackscolour;
+		if(drawcells||drawfit){
+			trackcolourindex=tracki+1; // element 0 is black
+			while(trackcolourindex+1>=mycolours.size()) trackcolourindex-=mycolours.size();
+			thistrackscolour = mycolours.at(trackcolourindex);
+			fittrackscolour = mycolours.at(trackcolourindex+1); // for now, give it a diff color
+		}
 		cMRDTrack* thatrack = &(tracksthissubevent[tracksthissubevent.size()-1]);
 		if(printtracks) thatrack->Print();
 		if(drawcells) thatrack->DrawReco(imgcanvas, trackarrows, thistrackscolour, paddlepointers);

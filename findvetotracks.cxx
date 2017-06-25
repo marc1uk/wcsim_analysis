@@ -8,9 +8,11 @@
 
 // CREATE+OPEN OUTPUT FILE
 // =======================
-void WCSimAnalysis::OpenFACCtrackOutfile(){
+void WCSimAnalysis::OpenFACCtrackOutfile(int filenum){
 	cout<<"opening facc output file"<<endl;
-	vetotrackfile = new TFile("vetotrackfile.root","RECREATE","Veto Events file");
+	if(vetotrackfile) vetotrackfile->Close();
+	TString filenameout = TString::Format("%s/vetotrackfile.%d.root",outputdir,filenum);
+	vetotrackfile = new TFile(filenameout.Data(),"RECREATE","Veto Events file");
 	vetotrackfile->cd();
 	vetotree = new TTree("vetotree","Tree for event data");
 	gROOT->cd();
@@ -31,7 +33,7 @@ void WCSimAnalysis::FindVetoTracksInEvent(){
 
 const Int_t minimumdigits =1;
 #ifdef VETOSPLITVERBOSE
-	cout<<"eventnum is "<<eventnum<<endl;
+	cout<<"Searching for Veto hits in event "<<eventnum<<endl;
 	cout<<"vetodigittimesthisevent.size()="<<vetodigittimesthisevent.size()<<endl;
 #endif
 	FaccSubEvents->Clear("C");

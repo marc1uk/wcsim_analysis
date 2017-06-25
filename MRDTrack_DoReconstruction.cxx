@@ -51,6 +51,9 @@ void cMRDTrack::DoReconstruction(){
 	
 	DoTGraphErrorsFit();
 	
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"calculating track start and ends"<<endl;
+#endif
 	// calculate track fit start and endpoints from frontmost and backmost cell z values,
 	// and fit formulae to determine x and y
 	Double_t trackfitstartz = TMath::Min(mrdscintlayers.at(vtrackclusters.back().layer),
@@ -90,9 +93,15 @@ void cMRDTrack::DoReconstruction(){
 	}
 	
 	CalculateEnergyLoss();
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"Reconstruction done"<<endl;
+#endif
 }
 
 void cMRDTrack::CalculateEnergyLoss(){
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"Calculating energy loss"<<endl;
+#endif
 	// determine energy of particle from track length and rate of energy loss.
 	TVector3 differencevector  = trackfitstop - trackfitstart;
 	TVector3 azaxisvector(0,0,1);
@@ -107,9 +116,9 @@ void cMRDTrack::CalculateEnergyLoss(){
 	// ~5MeV/cm  (5 to 6) @ large angle 
 	// ~16MeV/cm (10 to >40) @ small angles
 	// calculate the total track length in cm
-	penetrationdepth=trackfitstopz-MRD_start;
-	double muXdistanceinMRD=trackfitstopx-trackfitstartx;
-	double muYdistanceinMRD=trackfitstopy-trackfitstarty;
+	penetrationdepth=trackfitstop.Z()-MRD_start;
+	double muXdistanceinMRD=trackfitstop.X()-trackfitstart.X();
+	double muYdistanceinMRD=trackfitstop.Y()-trackfitstart.Y();
 	mutracklengthinMRD=
 		TMath::Sqrt(TMath::Power(muXdistanceinMRD,2)+TMath::Power(muYdistanceinMRD,2)
 		+TMath::Power(penetrationdepth,2));
@@ -165,7 +174,7 @@ void cMRDTrack::DoTGraphErrorsFit(){
 	TGraphErrors hclustergraph = TGraphErrors(htrackclusters.size(), &hclusterzpositions[0], &hclusterxpositions[0], &hclusterzerrors[0], &hclusterxerrors[0]);
 	
 	// add additional points to the TGraphErrors that represent bonsai vertex, and/or possibly veto hit
-	for(int pointi=0; pointi<extrahpoints.size(); pointi++){
+	for(int i=0; i<extrahpoints.size(); i++){
 		hclustergraph.SetPoint(htrackclusters.size()+i, extrahpoints.at(i), extrazpoints.at(i));
 		hclustergraph.SetPointError(htrackclusters.size()+i, extrahpointerrors.at(i), extrazpointerrors.at(i));
 	}
@@ -176,7 +185,7 @@ void cMRDTrack::DoTGraphErrorsFit(){
 	TGraphErrors vclustergraph = TGraphErrors(vtrackclusters.size(), &vclusterzpositions[0], &vclusterxpositions[0], &vclusterzerrors[0], &vclusterxerrors[0]);
 	
 	// add additional points to the TGraphErrors that represent bonsai vertex, and/or possibly veto hit
-	for(int pointi=0; pointi<extrahpoints.size(); pointi++){
+	for(int i=0; i<extrahpoints.size(); i++){
 		vclustergraph.SetPoint(vtrackclusters.size()+i, extravpoints.at(i), extrazpoints.at(i));
 		vclustergraph.SetPointError(vtrackclusters.size()+i, extravpointerrors.at(i), extrazpointerrors.at(i));
 	}
@@ -229,6 +238,11 @@ void cMRDTrack::DoTGraphErrorsFit(){
 }
 
 bool cMRDTrack::CheckTankIntercept(TVector3* entrypoint, TVector3* exitpoint=0, int tracktype=0){
+#ifdef MRDTrack_RECO_VERBOSE
+	if(tracktype==0) cout<<"Checking best fit track tank interception"<<endl;
+	if(tracktype==-1) cout<<"Checking minimum track tank interception"<<endl;
+	if(tracktype==1) cout<<"Checking maximum track tank interception"<<endl;
+#endif
 	//entrypoint is entry BACK PROJECTING from mrd. Likewise exit point is exit point in upstream direction.
 	double xgradient, ygradient, xoffset, yoffset;
 	switch(tracktype){
@@ -259,6 +273,9 @@ bool cMRDTrack::CheckTankIntercept(TVector3* entrypoint, TVector3* exitpoint=0, 
 
 bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradientin, double htrackoriginin, 
 						double vtrackoriginin, TVector3* solution1, TVector3* solution2=0){
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"Checking for and calculating track tank interception points"<<endl;
+#endif
 	// first as it's easiest, check if projection vertically actually enters tank height.
 	double projectedtankexity = htrackoriginin + htrackgradientin*(tank_start+(2*tank_radius));
 	double projectedtankexitz, projectedtankexitx;
@@ -316,6 +333,9 @@ bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradien
 }
 
 void cMRDTrack::AddTrackPoint(TVector3 pointposition, TVector3 pointerror){
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"Adding external track constraint point"<<endl;
+#endif
 	extravpoints.push_back(pointposition.X());
 	extravpointerrors.push_back(pointerror.X());
 	extrahpoints.push_back(pointposition.Y());
@@ -340,7 +360,7 @@ void cMRDTrack::GetProjectionLimits(double zplane, double &xmax, double &xmin, d
 	xmin= (vtrackgradientllim/vtrackgradient)*vtrackorigin - vtrackoriginerror + vtrackgradientllim*zplane;
 }
 
-void cMRDTrack::GetProjectedPoint(double zplane){
+TVector3 cMRDTrack::GetProjectedPoint(double zplane){
 	// get the track best fit projection 
 	double yval = htrackorigin + htrackgradient*zplane;
 	double xval = vtrackorigin + vtrackgradient*zplane;
@@ -348,12 +368,15 @@ void cMRDTrack::GetProjectedPoint(double zplane){
 }
 
 void cMRDTrack::CheckIfStopping(){
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"checking if stopping"<<endl;
+#endif
 	// define 'fiducial' MRD volume to call tracks that stop sufficiently far from MRD edges as 
 	// 'stopping'
 	double depthfidfrac = 0.9;
 	double widthfidfrac = 0.9;
 	double heightfidfrac = 0.9;
-	if( TMath::Abs(trackfitstopz)>((MRD_start+MRD_depth)*depthfidfrac)){
+	if( TMath::Abs(trackfitstop.Z())>((MRD_start+MRD_depth)*depthfidfrac)){
 		double projectedxexit = vtrackorigin + vtrackgradient*MRD_end;
 		double projectedyexit = htrackorigin + htrackgradient*MRD_end;
 		if( (TMath::Abs(projectedxexit)<MRD_width) && (TMath::Abs(projectedyexit)<MRD_height) ){
@@ -361,8 +384,8 @@ void cMRDTrack::CheckIfStopping(){
 		} else {
 			sideexit=true;
 		}
-	} else if ( (TMath::Abs(trackfitstopx)>(MRD_width*widthfidfrac))   ||
-				(TMath::Abs(trackfitstopy)>(MRD_height*heightfidfrac)) ){
+	} else if ( (TMath::Abs(trackfitstop.X())>(MRD_width*widthfidfrac))   ||
+				(TMath::Abs(trackfitstop.Y())>(MRD_height*heightfidfrac)) ){
 		sideexit=true;
 	} else {
 		isstopped=true;
@@ -370,6 +393,9 @@ void cMRDTrack::CheckIfStopping(){
 }
 
 double cMRDTrack::GetClosestApproach(TVector3 pointin, int tracktype){
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"Getting closest approach distance"<<endl;
+#endif
 	// tracktype =  0: best fit mrd track
 	// tracktype =  1: upper limit of allowed track
 	// tracktype = -1: lower limit of allowed track
@@ -397,25 +423,28 @@ double cMRDTrack::GetClosestApproach(TVector3 pointin, int tracktype){
 	}
 	
 	double xvala, yvala, zvala;
-	zvala = pointa.Z()-500.;
+	zvala = pointin.Z()-500.;
 	xvala = xoffset + xgradient*zvala;
 	yvala = yoffset + ygradient*zvala;
 	TVector3 pointa(xvala, yvala, zvala);
 	double xvalb, yvalb, zvalb;
-	zvalb = pointa.Z()+500.;
+	zvalb = pointin.Z()+500.;
 	xvalb = xoffset + xgradient*zvalb;
 	yvalb = yoffset + ygradient*zvalb;
-	TVector3 pointa(xvalb, yvalb, zvalb);
+	TVector3 pointb(xvalb, yvalb, zvalb);
 	TVector3 linea = pointin-pointa;
 	TVector3 lineb = pointin-pointb;
 	TVector3 acrossb = linea.Cross(lineb);
 	TVector3 abdiff = pointb-pointa;
 	
 	double closestapp = acrossb.Mag() / abdiff.Mag();
-	// x value first
+	return closestapp;
 }
 
 TVector3 cMRDTrack::GetClosestPoint(TVector3 origin, int tracktype){
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"Getting closest point of approach"<<endl;
+#endif
 	// no idea how to calculate this for tracktypes other than zero - that's an open
 	// issue in combinedanalysis on finding closest point for the projection of square-based 
 	// pyramid representing possible mrd tracks to a bonsai vertex.

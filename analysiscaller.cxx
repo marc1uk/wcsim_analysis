@@ -17,13 +17,14 @@ delete theana;
 #include "TROOT.h"
 #include "wcsimanalysis.hh"
 
-WCSimAnalysis* analysiscaller(TString directoryin){
+WCSimAnalysis* analysiscaller(TString directoryin, TString directoryout){
 
 	//TString theincludepath = gSystem->Getenv("ROOT_INCLUDE_PATH");
 	//gInterpreter->AddIncludePath(theincludepath);
-	WCSimAnalysis* theanalysis = new WCSimAnalysis(directoryin.Data());
+	WCSimAnalysis* theanalysis = new WCSimAnalysis(directoryin.Data(), directoryout.Data());
 	//WCSimAnalysis* theanalysis = new WCSimAnalysis("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in");
 	// no trailing slash in directory
+	cout<<"calling DoAnalysis()"<<endl;
 	theanalysis->DoAnalysis();
 	cout<<"end of DoAnalysis() call"<<endl;
 	//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos

@@ -5,7 +5,7 @@
 // ===============================
 void WCSimAnalysis::DoVetoPreLoop(){
 	DefineVetoHistos();
-	OpenFACCtrackOutfile();
+	//OpenFACCtrackOutfile(wcsimfilenum);
 }
 
 //############################################################################################

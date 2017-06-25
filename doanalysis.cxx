@@ -13,7 +13,7 @@ void WCSimAnalysis::DoAnalysis(){
 	// Declare loop locals
 	// ===================
 	eventnum=0;
-	treeNumber=0;
+	treeNumber=-1;
 	
 	// Perform Pre-Loop actions
 	DoTankPreLoop();
@@ -23,9 +23,10 @@ void WCSimAnalysis::DoAnalysis(){
 	// Loop over events
 	// ================
 	cout<<"Looping over entries"<<endl;
-	int breakearlyat=10;
+	int breakearlyat=-1;
 	int maxdigits=0;
 	do {
+		//cout<<"analyzing event "<<eventnum<<endl;
 		// load next entry, including new trees and setting branch addresses when necessary
 		int entryvalid = LoadTchainEntry(eventnum);
 		if(entryvalid==0 || eventnum==breakearlyat){ break; }
@@ -87,7 +88,7 @@ void WCSimAnalysis::DoAnalysis(){
 		//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos
 		eventnum++;
 	} while (1);
-	cout<<"Reached end of TChain"<<endl;
+	cout<<"Reached end of TChain: analysed "<<eventnum<<" events"<<endl;
 	
 	DoTankPostLoop();
 	DoMRDpostLoop();

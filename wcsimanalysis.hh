@@ -25,6 +25,7 @@
 #include <iomanip>
 #include <fstream> 		//std::ofstream
 #include <stdlib.h>
+#include <regex>
 // #######################################################################
 // we need to #include all the WCSim headers.
 // we need to have the path to these headers exported to $ROOT_INCLUDE_PATH
@@ -60,7 +61,7 @@ class WCSimAnalysis : public TObject {
 	const Int_t numpmtrings=8;     // num rings around the main walls
 	const Int_t MAXTRACKSPEREVENT=50;
 
-	int treeNumber;
+	int treeNumber=-1;
 	Double_t maxsubeventduration=30.;  // in ns?
 	// canvas sizes
 	float win_scale;
@@ -153,6 +154,8 @@ class WCSimAnalysis : public TObject {
 	// MRD TRACK RECONSTRUCTION
 	// ~~~~~~~~~~~~~~~~~~~~~~~~
 	// variables for file writing
+	int wcsimfilenum;
+	const char* outputdir="";
 	TFile* mrdtrackfile=0, *vetotrackfile=0;
 	TTree* recotree=0; // mrd track reconstruction tree
 	TTree* vetotree=0; // veto event tree
@@ -179,7 +182,7 @@ class WCSimAnalysis : public TObject {
 
 	public:
 	// constructor + destructor
-	WCSimAnalysis(const char* indir="/home/marc/anniegpvm/stats10k");
+	WCSimAnalysis(const char* indir="/home/marc/anniegpvm/stats10k", const char* outdir=".");
 	~WCSimAnalysis();
 	
 	// functions - initialization and utility
@@ -243,9 +246,9 @@ class WCSimAnalysis : public TObject {
 	void ColourPlotStyle();
 
 	// functions - mrd track finding
-	void OpenMRDtrackOutfile();
+	void OpenMRDtrackOutfile(int filenum);
 	void FindMRDtracksInEvent();
-	void OpenFACCtrackOutfile();
+	void OpenFACCtrackOutfile(int filenum);
 	void FindVetoTracksInEvent();
 	
 	// the one that calls all the others
@@ -258,7 +261,7 @@ class WCSimAnalysis : public TObject {
 
 // CONSTRUCTOR
 // ===========
-WCSimAnalysis::WCSimAnalysis(const char* indir) : inputdir(indir) {
+WCSimAnalysis::WCSimAnalysis(const char* indir, const char* outdir) : inputdir(indir), outputdir(outdir) {
 
 }
 

@@ -9,9 +9,11 @@
 
 // CREATE+OPEN OUTPUT FILE
 // =======================
-void WCSimAnalysis::OpenMRDtrackOutfile(){
+void WCSimAnalysis::OpenMRDtrackOutfile(int filenum){
 	cout<<"opening mrd output file"<<endl;
-	mrdtrackfile = new TFile("mrdtrackfile.root","RECREATE","MRD Tracks file");
+	if(mrdtrackfile) mrdtrackfile->Close();
+	TString filenameout = TString::Format("%s/mrdtrackfile.%d.root",outputdir,filenum);
+	mrdtrackfile = new TFile(filenameout.Data(),"RECREATE","MRD Tracks file");
 	mrdtrackfile->cd();
 	recotree = new TTree("mrdtree","Tree for reconstruction data");
 	gROOT->cd();
@@ -33,7 +35,8 @@ void WCSimAnalysis::FindMRDtracksInEvent(){
 
 const Int_t minimumdigits =4;
 #ifdef MRDSPLITVERBOSE
-	cout<<"eventnum is "<<eventnum<<endl;
+	cout<<"Searching for MRD tracks in event "<<eventnum<<endl;
+	cout<<"mrddigittimesthisevent.size()="<<mrddigittimesthisevent.size()<<endl;
 #endif
 	aSubEvent->Clear("C");
 /* 
