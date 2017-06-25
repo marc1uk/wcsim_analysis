@@ -113,39 +113,46 @@ void WCSimAnalysis::GetTreeData(){
 
 // LOAD NEXT TCHAIN ENTRY
 // ======================
-int WCSimAnalysis::LoadTchainEntry(Int_t eventnum){
-	Long64_t localEntry = t->LoadTree(eventnum);
-	if (localEntry<0){ cout<<"breaking at entry "<<eventnum<<" as localEntry<0"<<endl; return 0; }
-	Int_t nextTreeNumber = t->GetTreeNumber();
-	if(treeNumber!=nextTreeNumber){
-		cout<< "Reached end of Tree. Last entries' tree number was "
-		    << treeNumber <<", this entries' tree number is "<< nextTreeNumber <<endl;
-		cout<<"entries in this tree: "<<bp->GetEntries()<<endl; 
-		// do need to re-set branch addresses
-		t->SetBranchAddress("wcsimrootevent",&b, &bp);
-		t->SetBranchAddress("wcsimrootevent_mrd",&m, &mp);
-		t->SetBranchAddress("wcsimrootevent_facc",&v, &vp);
-		if(bp==0||mp==0||vp==0){ cout<<"branches are zombies!"<<endl; }
-		currenttree = t->GetTree();
-		currentfile = currenttree->GetCurrentFile();
-		currentfilestring = std::string(currentfile->GetName());
+int WCSimAnalysis::LoadTchainEntry(Int_t &eventnum){
+	while(1){  // keep loading entries until the file number is > the start file offset
+		Long64_t localEntry = t->LoadTree(eventnum);
+		if (localEntry<0){ cout<<"breaking at entry "<<eventnum<<" as localEntry<0"<<endl; return 0; }
+		Int_t nextTreeNumber = t->GetTreeNumber();
+		if(treeNumber!=nextTreeNumber){
+			cout<< "Reached end of Tree. Last entries' tree number was "
+				<< treeNumber <<", this entries' tree number is "<< nextTreeNumber <<endl;
+			cout<<"entries in this tree: "<<bp->GetEntries()<<endl; 
+			currenttree = t->GetTree();
+			currentfile = currenttree->GetCurrentFile();
+			currentfilestring = std::string(currentfile->GetName());
+		
+			// filename is of the form "wcsim_0.####.root"  //annie_tank_flux.####.root
+			// #### is input file num. Need this to match against genie/wcsim file names
+			std::match_results<string::const_iterator> submatches;
+			std::regex theexpression (".*/?[^\\.]+\\.([0-9]+)\\.root");
+			cout<<"matching regex for filename "<<currentfilestring<<endl;
+			std::regex_match (currentfilestring, submatches, theexpression);
+			std::string submatch = (std::string)submatches[0];	// match 0 is 'whole match' or smthg
+			if(submatch==""){ cout<<"unrecognised input file pattern: "<<currentfilestring<<endl; return -1; }
+			submatch = (std::string)submatches[1];
+			cout<<"extracted submatch is "<<submatch<<endl;
+			wcsimfilenum = atoi(submatch.c_str());
+		
+			if(wcsimfilenum<firstfile){ eventnum+=bp->GetEntries(); continue; }
+		
+			// do need to re-set branch addresses
+			t->SetBranchAddress("wcsimrootevent",&b, &bp);
+			t->SetBranchAddress("wcsimrootevent_mrd",&m, &mp);
+			t->SetBranchAddress("wcsimrootevent_facc",&v, &vp);
+			if(bp==0||mp==0||vp==0){ cout<<"branches are zombies!"<<endl; }
 	
-		// filename is of the form "wcsim_0.####.root"  //annie_tank_flux.####.root
-		// #### is input file num. Need this to match against genie/wcsim file names
-		std::match_results<string::const_iterator> submatches;
-		std::regex theexpression (".*/?[^\\.]+\\.([0-9]+)\\.root");
-		cout<<"matching regex for filename "<<currentfilestring<<endl;
-		std::regex_match (currentfilestring, submatches, theexpression);
-		std::string submatch = (std::string)submatches[0];	// match 0 is 'whole match' or smthg
-		if(submatch==""){ cout<<"unrecognised input file pattern: "<<currentfilestring<<endl; return -1; }
-		submatch = (std::string)submatches[1];
-		cout<<"extracted submatch is "<<submatch<<endl;
-		wcsimfilenum = atoi(submatch.c_str());
-		// open new MRD Track and Veto Event files
-		OpenMRDtrackOutfile(wcsimfilenum);
-		OpenFACCtrackOutfile(wcsimfilenum);
-		treeNumber=nextTreeNumber;
-	}
+			// open new MRD Track and Veto Event files
+			OpenMRDtrackOutfile(wcsimfilenum);
+			OpenFACCtrackOutfile(wcsimfilenum);
+			treeNumber=nextTreeNumber;
+			break;
+		}
+	} // end of do while - break after skipping selected entries.
 //	G4cout<<"Loading data from entry "<<inputEntry<<", localentry "<<localEntry<<"/"<<entriesInThisTree<<G4endl;
 	t->GetEntry(eventnum);
 	return 1;

@@ -13,6 +13,7 @@ void WCSimAnalysis::DoAnalysis(){
 	// Declare loop locals
 	// ===================
 	eventnum=0;
+	firstfile=1146;
 	treeNumber=-1;
 	
 	// Perform Pre-Loop actions
@@ -26,10 +27,11 @@ void WCSimAnalysis::DoAnalysis(){
 	int breakearlyat=-1;
 	int maxdigits=0;
 	do {
-		//cout<<"analyzing event "<<eventnum<<endl;
 		// load next entry, including new trees and setting branch addresses when necessary
-		int entryvalid = LoadTchainEntry(eventnum);
-		if(entryvalid==0 || eventnum==breakearlyat){ break; }
+		//cout<<"loading entry "<<eventnum<<endl;
+		int entryvalid = LoadTchainEntry(eventnum); // note eventnum may be modified within this function!
+		//cout<<"analyzing event "<<eventnum<<endl;
+		if(entryvalid==0 || (eventnum>=breakearlyat&&breakearlyat>0)){ break; }
 		
 		// TODO: should include a loop over subtriggers here
 		// TODO: TO BE ABLE TO DO THIS MRDTRACKCLASS AND VETOTRACKCLASS NEED TO SUPPORT

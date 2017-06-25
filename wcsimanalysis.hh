@@ -80,6 +80,7 @@ class WCSimAnalysis : public TObject {
 	WCSimRootTrigger* atrigm=0;
 	WCSimRootTrigger* atrigv=0;
 	WCSimRootEventHeader* header=0;
+	int firstfile=0; // skips analysis of files in a TChain with number less than this
 	TTree* currenttree;
 	TFile* currentfile;
 	std::string currentfilestring;
@@ -190,7 +191,7 @@ class WCSimAnalysis : public TObject {
 	void LoadInputFiles();
 	void MakePMTmap();
 	void GetTreeData();
-	int LoadTchainEntry(Int_t eventnum);
+	int LoadTchainEntry(Int_t &eventnum);
 	
 	// functions - pre-event-loop analysis initializations
 	void DoTankPreLoop();
