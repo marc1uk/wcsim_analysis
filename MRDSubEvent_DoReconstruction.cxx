@@ -1213,7 +1213,7 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 		EColor thistrackscolour, fittrackscolour;
 		if(drawcells||drawfit){
 			trackcolourindex=tracki+1; // element 0 is black
-			while(trackcolourindex+1>=trackcolours.size()) trackcolourindex-=trackcolours.size();
+			while(trackcolourindex+1>=trackcolours.size()) trackcolourindex-=(trackcolours.size()-1);
 			thistrackscolour = trackcolours.at(trackcolourindex);
 			fittrackscolour = trackcolours.at(trackcolourindex+1); // for now, give it a diff color
 		}

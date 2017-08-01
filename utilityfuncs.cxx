@@ -138,7 +138,11 @@ int WCSimAnalysis::LoadTchainEntry(Int_t &eventnum){
 			cout<<"extracted submatch is "<<submatch<<endl;
 			wcsimfilenum = atoi(submatch.c_str());
 		
-			if(wcsimfilenum<firstfile){ eventnum+=bp->GetEntries(); continue; }
+			if(wcsimfilenum<firstfile){
+				cout<<"skipping file "<<wcsimfilenum<<endl;
+				eventnum+=bp->GetEntries(); 
+				continue; 
+			}
 		
 			// do need to re-set branch addresses
 			t->SetBranchAddress("wcsimrootevent",&b, &bp);
@@ -152,6 +156,7 @@ int WCSimAnalysis::LoadTchainEntry(Int_t &eventnum){
 			treeNumber=nextTreeNumber;
 			break;
 		}
+		break;
 	} // end of do while - break after skipping selected entries.
 //	G4cout<<"Loading data from entry "<<inputEntry<<", localentry "<<localEntry<<"/"<<entriesInThisTree<<G4endl;
 	t->GetEntry(eventnum);
