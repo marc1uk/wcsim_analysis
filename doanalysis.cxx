@@ -13,7 +13,7 @@ void WCSimAnalysis::DoAnalysis(){
 	// Declare loop locals
 	// ===================
 	eventnum=0;
-	firstfile=1146;
+	firstfile=1000;
 	treeNumber=-1;
 	
 	// Perform Pre-Loop actions
@@ -33,19 +33,19 @@ void WCSimAnalysis::DoAnalysis(){
 		//cout<<"analyzing event "<<eventnum<<endl;
 		if(entryvalid==0 || (eventnum>=breakearlyat&&breakearlyat>0)){ break; }
 		
-		// TODO: should include a loop over subtriggers here
+		// TODO: should include a loop over triggers here
 		// TODO: TO BE ABLE TO DO THIS MRDTRACKCLASS AND VETOTRACKCLASS NEED TO SUPPORT
 		// MULTIPLE TRIGGERS PER TREE ENTRY
-		Int_t subtrigger=0;
-		// for(Int_t subtrigger=0; subtrigger< (b->GetNumberOfEvents()); subtrigger++){
-		atrigt = b->GetTrigger(subtrigger);
-		atrigm = m->GetTrigger(subtrigger);
-		atrigv = v->GetTrigger(subtrigger);
+		Int_t trigger=0;
+		// for(Int_t trigger=0; trigger< (b->GetNumberOfEvents()); trigger++){
+		atrigt = b->GetTrigger(trigger);
+		atrigm = m->GetTrigger(trigger);
+		atrigv = v->GetTrigger(trigger);
 		
 		header = atrigt->GetHeader();
 		//eventnum = header->GetEvtNum();					<<< not sure this works
 		runnum = header->GetRun();
-		subtriggernum = header->GetSubEvtNumber();
+		triggernum = header->GetSubEvtNumber();
 		
 		// TANK ANALYSIS
 		// =============

@@ -1,5 +1,6 @@
 {
-TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/10k_1000_photons_bomb_423nm_23-04-17.root");
+//TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/10k_1000_photons_bomb_423nm_23-04-17.root");
+TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17/wcsim_0.1000.root");
 TTree* t = (TTree*)f->Get("wcsimT");
 TTree* t2= (TTree*)f->Get("wcsimGeoT");
 WCSimRootGeom* geo =0;
@@ -17,10 +18,10 @@ TH1D hnumdigits=TH1D("hnumdigits","Number Of Digits per Event",100,0,100);
 TH1D hnumdigitizedphots=TH1D("hnumdigitizedphots","Number of Digitized Photons per Event",100,0,100);
 TH1D hnumdigitizednoise=TH1D("hnumdigitizednoise","Number of Digitized Noise Hits per Event",5,0,5);
 TH1D hnumphotsperdigit=TH1D("hnumphotsperdigit","Number Of Photons per Digit",10,0,10);
-TH1D htotalchargeperdigit=TH1D("htotalchargeperdigit","Amount of Charge per Digit",20,0,20);
+TH1D htotalchargeperdigit=TH1D("htotalchargeperdigit","Amount of Charge per Digit",100,0,30);
 TH1D htotalchargeinevent=TH1D("htotalchargeinevent","Total Charge of All Digits in Event",100,0,100);
 //TH1D hnumpesperevent=TH1D("hnumpesperevent","Number Of PEs per Event",100,0,200);
-for(int i=0; i<3/*t->GetEntries()*/; i++){
+for(int i=0; i<100/*t->GetEntries()*/; i++){
 evb->GetEntry(i);
   tr=ev->GetTrigger(0);
   Int_t numphots=tr->GetNcherenkovhittimes();

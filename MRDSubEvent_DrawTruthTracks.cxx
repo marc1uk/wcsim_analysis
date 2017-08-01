@@ -250,9 +250,10 @@ void cMRDSubEvent::DrawTrueTracks(){
 				} else {
 					double traverselength = (frontx>0) ? (frontx-MRD_width) : (frontx+MRD_width);
 					projectedentryzx = frontz - traverselength/ /*TMath::Tan*/(avgtrackanglex);
+#ifdef DRAWTRUEVERBOSE
 					cout<<"using signed projectedentryzx="<<projectedentryzx
 						<<", using unsigned ="<<(frontz+((abs(frontx)-MRD_width)/abs(avgtrackanglex)))<<endl;
-#ifdef DRAWTRUEVERBOSE
+					//TODO i forget what this is about but they aren't always the same.
 					cout<<"projected x entry point is at z="<<projectedentryzx<<endl;
 #endif
 				}
@@ -264,9 +265,9 @@ void cMRDSubEvent::DrawTrueTracks(){
 				} else {
 					double traverselength = (fronty>0) ? (fronty-MRD_height) : (fronty+MRD_height);
 					projectedentryzy = frontz - traverselength/ /*TMath::Tan*/(avgtrackangley);
+#ifdef DRAWTRUEVERBOSE
 					cout<<"using signed projectedentryzy="<<projectedentryzy
 						<<", using unsigned ="<<(frontz+((abs(fronty)-MRD_height)/abs(avgtrackangley)))<<endl;
-#ifdef DRAWTRUEVERBOSE
 					cout<<"projected y entry point is at z="<<projectedentryzy<<endl;
 #endif
 				}

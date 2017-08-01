@@ -119,7 +119,7 @@ void cMRDTrack::CalculateEnergyLoss(){
 	penetrationdepth=trackfitstop.Z()-MRD_start;
 	double muXdistanceinMRD=trackfitstop.X()-trackfitstart.X();
 	double muYdistanceinMRD=trackfitstop.Y()-trackfitstart.Y();
-	mutracklengthinMRD=
+	mutracklengthinMRD = 
 		TMath::Sqrt(TMath::Power(muXdistanceinMRD,2)+TMath::Power(muYdistanceinMRD,2)
 		+TMath::Power(penetrationdepth,2));
 	// calculate the energy loss

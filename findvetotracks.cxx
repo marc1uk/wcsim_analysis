@@ -123,7 +123,7 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 #ifdef VETOSPLITVERBOSE
 		cout<<"constructing a single veto event for this event"<<endl;
 #endif
-		cVetoEvent* currentsubevent = new((*FaccSubEvents)[0]) cVetoEvent(0, currentfilestring, runnum, eventnum, subtriggernum, digitidsinFaccSubEvents, tubeidsinFaccSubEvents, digitqsinFaccSubEvents, digittimesinFaccSubEvents, digitnumtruephots, photontimesinFaccSubEvents, particleidsinFaccSubEvents, truetrackpointers);
+		cVetoEvent* currentsubevent = new((*FaccSubEvents)[0]) cVetoEvent(0, currentfilestring, runnum, eventnum, triggernum, digitidsinFaccSubEvents, tubeidsinFaccSubEvents, digitqsinFaccSubEvents, digittimesinFaccSubEvents, digitnumtruephots, photontimesinFaccSubEvents, particleidsinFaccSubEvents, truetrackpointers);
 		vetoeventcounter++;
 		// can also use 'cVetoEvent* = (cVetoEvent*)FaccSubEvents.ConstructedAt(0);' followed by a bunch of
 		// 'Set' calls to set all relevant fields. This bypasses the constructor, calling it only when 
@@ -226,7 +226,7 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 #ifdef VETOSPLITVERBOSE
 				cout<<"constructing veto event "<<vetoeventcounter<<" with "<<digitidsinFaccSubEvents.size()<<" digits"<<endl;
 #endif
-				cVetoEvent* currentsubevent = new((*FaccSubEvents)[vetoeventcounter]) cVetoEvent(vetoeventcounter, currentfilestring, runnum, eventnum, subtriggernum, digitidsinFaccSubEvents, tubeidsinFaccSubEvents, digitqsinFaccSubEvents, digittimesinFaccSubEvents, digitnumtruephots, photontimesinFaccSubEvents, particleidsinFaccSubEvents, truetrackpointers);
+				cVetoEvent* currentsubevent = new((*FaccSubEvents)[vetoeventcounter]) cVetoEvent(vetoeventcounter, currentfilestring, runnum, eventnum, triggernum, digitidsinFaccSubEvents, tubeidsinFaccSubEvents, digitqsinFaccSubEvents, digittimesinFaccSubEvents, digitnumtruephots, photontimesinFaccSubEvents, particleidsinFaccSubEvents, truetrackpointers);
 				vetoeventcounter++;
 			}
 			

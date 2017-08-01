@@ -10,9 +10,9 @@
 // CREATE+OPEN OUTPUT FILE
 // =======================
 void WCSimAnalysis::OpenMRDtrackOutfile(int filenum){
-	cout<<"opening mrd output file"<<endl;
-	if(mrdtrackfile) mrdtrackfile->Close();
 	TString filenameout = TString::Format("%s/mrdtrackfile.%d.root",outputdir,filenum);
+	cout<<"opening mrd output file"<<filenameout.Data()<<endl;
+	if(mrdtrackfile) mrdtrackfile->Close();
 	mrdtrackfile = new TFile(filenameout.Data(),"RECREATE","MRD Tracks file");
 	mrdtrackfile->cd();
 	recotree = new TTree("mrdtree","Tree for reconstruction data");
@@ -124,13 +124,13 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 		std::vector<WCSimRootTrack*> truetrackpointers;
 		for(int truetracki=0; truetracki<numtracks; truetracki++){
 			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(truetracki);
-			if((nextrack->GetFlag()==0)&&(nextrack->GetIpnu()!=11)) truetrackpointers.push_back(nextrack);
+			if((nextrack->GetFlag()==0)/*&&(nextrack->GetIpnu()!=11)*/) truetrackpointers.push_back(nextrack);
 		}
 		// construct the subevent from all the digits
 #ifdef MRDSPLITVERBOSE
 		cout<<"constructing a single subevent for this event"<<endl;
 #endif
-		cMRDSubEvent* currentsubevent = new((*aSubEvent)[0]) cMRDSubEvent(0, currentfilestring, runnum, eventnum, subtriggernum, digitidsinasubevent, tubeidsinasubevent, digitqsinasubevent, digittimesinasubevent, digitnumtruephots, photontimesinasubevent, particleidsinasubevent, truetrackpointers);
+		cMRDSubEvent* currentsubevent = new((*aSubEvent)[0]) cMRDSubEvent(0, currentfilestring, runnum, eventnum, triggernum, digitidsinasubevent, tubeidsinasubevent, digitqsinasubevent, digittimesinasubevent, digitnumtruephots, photontimesinasubevent, particleidsinasubevent, truetrackpointers);
 		mrdeventcounter++;
 		// can also use 'cMRDSubEvent* = (cMRDSubEvent*)aSubEvent.ConstructedAt(0);' followed by a bunch of
 		// 'Set' calls to set all relevant fields. This bypasses the constructor, calling it only when 
@@ -240,7 +240,7 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 #ifdef MRDSPLITVERBOSE
 				cout<<"constructing subevent "<<mrdeventcounter<<" with "<<digitidsinasubevent.size()<<" digits"<<endl;
 #endif
-				cMRDSubEvent* currentsubevent = new((*aSubEvent)[mrdeventcounter]) cMRDSubEvent(mrdeventcounter, currentfilestring, runnum, eventnum, subtriggernum, digitidsinasubevent, tubeidsinasubevent, digitqsinasubevent, digittimesinasubevent, digitnumtruephots, photontimesinasubevent, particleidsinasubevent, truetrackpointers);
+				cMRDSubEvent* currentsubevent = new((*aSubEvent)[mrdeventcounter]) cMRDSubEvent(mrdeventcounter, currentfilestring, runnum, eventnum, triggernum, digitidsinasubevent, tubeidsinasubevent, digitqsinasubevent, digittimesinasubevent, digitnumtruephots, photontimesinasubevent, particleidsinasubevent, truetrackpointers);
 				mrdeventcounter++;
 				mrdtrackcounter+=currentsubevent->GetTracks()->size();
 #ifdef MRDSPLITVERBOSE

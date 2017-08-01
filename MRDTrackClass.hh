@@ -29,14 +29,15 @@ class cMRDTrack : public TObject {
 	// Private members
 	// ===============
 	public:	//TODO public for copy constructor
-	Int_t MRDtrackID;						// ID of this track within the subtrigger
-	Int_t tanktrackID;						// correlated tank track within the subtrigger
+	Int_t MRDtrackID;						// ID of this track within the trigger
+	Int_t tanktrackID;						// correlated tank track within the trigger
 	
 	// Raw Info:
 	std::string wcsimfile;					// which wcsim file this was in
 	Int_t run_id;							// which run this file was in TODO all 0
 	Int_t event_id;							// which event this track was in
-	Int_t subtrigger;						// which (sub)trigger this track was in TODO? all 1
+	Int_t trigger;							// which (sub)trigger this track was in TODO? all 1
+	Int_t mrdsubevent_id;					// which subevent this track was in
 	std::vector<Int_t> digi_ids;			// vector of digi ids: GetCrnkvDigiHits()->At(digi_ids.at(i)) TODO v
 	std::vector<Int_t> pmts_hit;			// vector of PMT IDs TODO empty
 	std::vector<Double_t> digi_qs;			// vector of digit charges TODO empty
@@ -105,7 +106,8 @@ class cMRDTrack : public TObject {
 	std::string GetFile(){return wcsimfile;}
 	Int_t GetRunID(){return run_id;}
 	Int_t GetEventID(){return event_id;}
-	Int_t GetSubTrigger(){return subtrigger;}
+	Int_t GetMrdSubEventID(){return mrdsubevent_id;}
+	Int_t GetTrigger(){return trigger;}
 	
 	// Top level information about the track
 	Int_t GetNumDigits(){return digi_ids.size();}
@@ -155,6 +157,7 @@ class cMRDTrack : public TObject {
 	void DrawFit(TCanvas* imgcanvas, std::vector<TArrow*> &trackfitarrows, EColor thistrackscolour);
 	// print CA info and track info
 	void Print();
+	void Print2();
 	
 	// Truth Level Info
 	Int_t GetTrueTrackID(){return trueTrackID;}
@@ -202,7 +205,6 @@ class cMRDTrack : public TObject {
 	
 	// Functions to do reconstruction
 	// ==============================
-	private:
 	// Main track reconstruction code
 	void DoReconstruction();
 	bool CheckTankIntercept(double htrackgradientin, double vtrackgradientin, double htrackoriginin, 
@@ -214,6 +216,7 @@ class cMRDTrack : public TObject {
 	void CheckIfStopping();
 	void CalculateEnergyLoss();
 	
+	private:
 	// void CalculateParticlePID();  // based on rate of loss? num tracks..? penetration? tank? 
 	
 	// Static Members
@@ -225,22 +228,22 @@ class cMRDTrack : public TObject {
 	// ====================
 	public:
 	// Default constructor that initialises all private members required for ROOT classes
-	cMRDTrack() : MRDtrackID(-1), wcsimfile(""), run_id(-1), event_id(-1), subtrigger(-1), digi_ids(), pmts_hit(), digi_qs(), digi_ts(), digi_numphots(), digi_phot_ts(), digi_phot_parents(), tanktrackID(-1), layers_hit(), eDepsInLayers(), KEStart(-1.), KEEnd(-1.), particlePID(-1), tracktype(-1), trueTrackID(-1), htrackcells(), vtrackcells(), htrackorigin(-1), htrackoriginerror(-1), htrackgradient(-1), htrackgradienterror(-1), htrackfitchi2(-1), vtrackorigin(-1), vtrackoriginerror(-1), vtrackgradient(-1), vtrackgradienterror(-1), vtrackfitchi2(-1), trackfitstart(TVector3(0,0,0)), trackfitstop(TVector3(0,0,0)), ispenetrating(false), isstopped(false), sideexit(false), penetrationdepth(-1), EnergyLoss(-1), projectedtankexitpoint(TVector3(0,0,0)), interceptstank(false), trackangle(-1.), EnergyLossError(-1), trackangleerror(-1), mrdentryxbounds(), mrdentryybounds(), extravpoints(), extravpointerrors(), extrahpoints(), extrahpointerrors(), extrazpoints(), extrazpointerrors() {};
+	cMRDTrack() : MRDtrackID(-1), wcsimfile(""), run_id(-1), event_id(-1), trigger(-1), mrdsubevent_id(-1), digi_ids(), pmts_hit(), digi_qs(), digi_ts(), digi_numphots(), digi_phot_ts(), digi_phot_parents(), tanktrackID(-1), layers_hit(), eDepsInLayers(), KEStart(-1.), KEEnd(-1.), particlePID(-1), tracktype(-1), trueTrackID(-1), htrackcells(), vtrackcells(), htrackorigin(-1), htrackoriginerror(-1), htrackgradient(-1), htrackgradienterror(-1), htrackfitchi2(-1), vtrackorigin(-1), vtrackoriginerror(-1), vtrackgradient(-1), vtrackgradienterror(-1), vtrackfitchi2(-1), trackfitstart(TVector3(0,0,0)), trackfitstop(TVector3(0,0,0)), ispenetrating(false), isstopped(false), sideexit(false), penetrationdepth(-1), EnergyLoss(-1), projectedtankexitpoint(TVector3(0,0,0)), interceptstank(false), trackangle(-1.), EnergyLossError(-1), trackangleerror(-1), mrdentryxbounds(), mrdentryybounds(), extravpoints(), extravpointerrors(), extrahpoints(), extrahpointerrors(), extrazpoints(), extrazpointerrors() {};
 	
 	// destructor
 	~cMRDTrack(){cout<<"cMRDTrack destructor (no actions here)"<<endl;}
 	
 	// Actual Constructor
 	// ==================
-	cMRDTrack(Int_t mrdtrackidin, std::string wcsimefilein, Int_t runidin, Int_t eventidin,
-	Int_t subtriggerin, std::vector<Int_t> digitidsin, std::vector<Int_t> digittubesin, std::vector<Double_t>
+	cMRDTrack(Int_t mrdtrackidin, std::string wcsimefilein, Int_t runidin, Int_t eventidin, Int_t subeventidin,
+	Int_t triggerin, std::vector<Int_t> digitidsin, std::vector<Int_t> digittubesin, std::vector<Double_t>
 	digitqsin, std::vector<Double_t> digittimesin, std::vector<Int_t> digitnumphotsin, std::vector<Double_t> 
 	digitstruetimesin, std::vector<Int_t> digitsparentsin, std::vector<mrdcell> htrackcellsin, 
 	std::vector<mrdcell> vtrackcellsin, std::vector<mrdcluster> htrackclustersin, std::vector<mrdcluster> vtrackclustersin) :
 	/* information retrieved when creating the track: initialize with input */
 	MRDtrackID(mrdtrackidin), wcsimfile(wcsimefilein), run_id(runidin), event_id(eventidin),
-	subtrigger(subtriggerin), digi_ids(digitidsin), pmts_hit(digittubesin), digi_qs(digitqsin),
-	digi_ts(digittimesin), digi_numphots(digitnumphotsin), digi_phot_ts(digitstruetimesin),
+	mrdsubevent_id(subeventidin), trigger(triggerin), digi_ids(digitidsin), pmts_hit(digittubesin),
+	digi_qs(digitqsin), digi_ts(digittimesin), digi_numphots(digitnumphotsin), digi_phot_ts(digitstruetimesin),
 	digi_phot_parents(digitsparentsin), htrackcells(htrackcellsin), vtrackcells(vtrackcellsin),
 	htrackclusters(htrackclustersin), vtrackclusters(vtrackclustersin),
 	/* information calculated: initialize to default */
@@ -270,8 +273,8 @@ class cMRDTrack : public TObject {
 	// ================
 	cMRDTrack(cMRDTrack const &trackin) :
 	MRDtrackID(trackin.MRDtrackID), wcsimfile(trackin.wcsimfile), run_id(trackin.run_id),
-	event_id(trackin.event_id), subtrigger(trackin.subtrigger), digi_ids(trackin.digi_ids),
-	pmts_hit(trackin.pmts_hit), digi_qs(trackin.digi_qs), digi_ts(trackin.digi_ts),
+	event_id(trackin.event_id), mrdsubevent_id(trackin.mrdsubevent_id), trigger(trackin.trigger),
+	digi_ids(trackin.digi_ids), pmts_hit(trackin.pmts_hit), digi_qs(trackin.digi_qs), digi_ts(trackin.digi_ts),
 	digi_numphots(trackin.digi_numphots), digi_phot_ts(trackin.digi_phot_ts),
 	digi_phot_parents(trackin.digi_phot_parents), tanktrackID(trackin.tanktrackID), 
 	layers_hit(trackin.layers_hit), eDepsInLayers(trackin.eDepsInLayers), KEStart(trackin.KEStart),
@@ -317,8 +320,6 @@ Bool_t cMRDTrack::fillstaticmembers=true;
 #include "MRDTrack_DoReconstruction.cxx"	// contains reconstruction function definitions
 #include "MRDTrack_Draw_Print.cxx"			// contains definition of print and drawing functions
 
-#endif
-
 #ifdef __CINT__
 #pragma link C++ class cMRDTrack+;
 //#pragma link C++ class ROOT::Math::XYZTVector+;
@@ -326,3 +327,6 @@ Bool_t cMRDTrack::fillstaticmembers=true;
 //#pragma link C++ class cMRDStrike+;
 #pragma link C++ class std::vector<cMRDStrike>+;
 #endif
+
+#endif
+

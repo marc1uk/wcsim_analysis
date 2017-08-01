@@ -18,7 +18,8 @@ TString analyzecommand = "WCSimAnalysis* theana = analysiscaller";
 //TString filestoanalyze = pwd+"/in/MRD_muon_sample";
 //TString filestoanalyze = pwd+"/in/temp";
 TString filestoanalyze = "/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17";
-TString outputdir = "/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_ana";
+//TString outputdir = "/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_ana";
+TString outputdir = pwd;
 // XXX: to limit files added to the chain, edit the pattern in utilityfuncs.cxx line 64 marked by the XXX
 
 // call analysiscaller() method with the file path. 

@@ -1,6 +1,45 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 
-void cMRDTrack::Print(){
+void cMRDTrack::Print2(){					// a more generic print
+
+cout<<"NEXT MRD TRACK"<<endl
+	<<"wcsimfile: "<<wcsimfile<<endl
+	<<"run: "<<run_id<<", event: "<<event_id<<", trigger: "<<trigger<<", mrdsubevent: "<<mrdsubevent_id
+	<<", track: "<<MRDtrackID<<endl
+	<<"num digits: "<<digi_ids.size()<<endl
+	<<"num pmts hit: "<<pmts_hit.size()<<endl
+	<<"digit times: ";
+	for(auto atime : digi_ts) cout<<atime<<", ";
+cout<<endl<<"digit charges: ";
+	for(auto acharge : digi_qs) cout<<acharge<<", ";
+cout<<endl<<"layers hit: ";
+	for(auto alayer : layers_hit) cout<<alayer<<", ";
+cout<<endl<<"energy deposited: ";
+	for(auto aqdeposit : eDepsInLayers) cout<<aqdeposit<<", ";
+cout<<endl<<"track ";
+	if(ispenetrating) cout<<"fully penetrates mrd"<<endl;
+	if(isstopped) cout<<"stops within mrd"<<endl;
+	if(sideexit) cout<<"exits side of mrd"<<endl;
+cout<<"side view clusters: "<<htrackclusters.size()<<endl
+	<<"top view clusters: "<<vtrackclusters.size()<<endl;
+cout<<"total track length: "<<mutracklengthinMRD<<endl
+	<<"penetration depth: "<<penetrationdepth<<endl
+	<<"energy loss: "<<EnergyLoss<<", error: "<<EnergyLossError<<endl
+	<<"track start: ("<<trackfitstart.X()<<", "<<trackfitstart.Y()<<", "<<trackfitstart.Z()
+	<<"), track end: ("<<trackfitstop.X()<<", "<<trackfitstop.Y()<<", "<<trackfitstop.Z()<<")"<<endl
+	<<"h origin: "<<htrackorigin<<", error: "<<htrackoriginerror
+	<<", gradient: "<<htrackgradient<<", error: "<<htrackgradienterror<<endl
+	<<"v origin: "<<vtrackorigin<<", error: "<<vtrackoriginerror
+	<<", gradient: "<<vtrackgradient<<", error: "<<vtrackgradienterror<<endl
+	<<"fit chi2: "<<htrackfitchi2<<", "<<vtrackfitchi2<<endl
+	<<"angle from z: "<<trackangle<<", error: "<<trackangleerror<<endl
+	<<"back projection ";
+	if(interceptstank) cout<<"intercepts the tank"<<endl;
+	else cout<<"does not intercept the tank"<<endl; 
+	
+}
+
+void cMRDTrack::Print(){	// a print specific to printing CA algorithm results
 	for(int j=(htrackcells.size()-1); j>-1; j--){
 		cout<<endl;
 		mrdcell* acell = &htrackcells.at(j);

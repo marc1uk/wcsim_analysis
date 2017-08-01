@@ -69,6 +69,9 @@
 // the WCSim analysis headers
 #include "wcsimanalysis.hh"
 
+// bonsai class based on this output root file 
+#include "BonsaiEventClass.C" // TODO
+
 // genie headers
 #include "GHEP/GHepParticle.h"
 #include "GHEP/GHepRecord.h"
@@ -109,29 +112,33 @@ const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt";
 const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
 //const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim";  // first 1M sample, various issues
 //const char* wcsimpath="/annie/app/users/moflaher/wcsim/build";
-const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17";
+const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17";
 const char* wcsimlibrarypath="/annie/app/users/moflaher/wcsim/wcsim/libWCSimRoot.so";
-const char* outpath="/annie/app/users/moflaher/wcsim/root_work";
-const char* analysispath="/annie/app/users/moflaher/wcsim/root_work";
+//const char* outpath="/annie/app/users/moflaher/wcsim/root_work";
+const char* outpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_ana";
+//const char* analysispath="/annie/app/users/moflaher/wcsim/root_work";
+const char* analysispath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_ana";
 const char* analysislibrarypath="/annie/app/users/moflaher/wcsim/root_work/analysiscaller_cxx.so";
-const char* bonsaipath="/annie/app/users/moflaher/bonsai/Bonsai_v0/results";
-const char* bonsaiclasspath="/annie/app/users/moflaher/bonsai/Bonsai_v0/cBonsaiEvent.C";
+//const char* bonsaipath="/annie/app/users/moflaher/bonsai/Bonsai_v0/results";
+const char* bonsaipath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_ana";
+//const char* bonsaiclasspath="/annie/app/users/moflaher/bonsai/Bonsai_v0/cBonsaiEvent.C"; // TODO
 
 const Bool_t printneutrinoevent=false;
 
 double CalculateNeutrinoEnergy(double recoMuonEnergy, double recoMuonAngle);
+double CalculateEventQ2(double recoMuonEnergy, double recoNeutrinoEnergy, double recoMuonAngle);
 
 void truthtracks(){
-	ColourPlotStyle();
+	//ColourPlotStyle();
 	
 	// load WCSim library for reading WCSim files
 	cout<<"loading "<<analysislibrarypath<<endl;
 	gSystem->Load(analysislibrarypath);
 	cout<<"loading "<<wcsimlibrarypath<<endl;
 	//gSystem->Load(wcsimlibrarypath);
-	cout<<"loading "<<bonsaiclasspath<<endl;
-	TString loadclassstring="\".L "+bonsaiclasspath+"\"";
-	gSystem->ProcessLine(loadclassstring.Data());
+	//cout<<"loading "<<bonsaiclasspath<<endl; TODO
+	//std::string loadclassstring = "\".L " + bonsaiclasspath + "\"";
+	//gROOT->ProcessLine(loadclassstring.c_str());
 	
 	// ==============================================================================================
 	// ==============================================================================================
@@ -202,7 +209,7 @@ void truthtracks(){
 	WCSimRootTrigger* atrigt=0, *atrigm=0, *atrigv=0;
 	
 	// bonsaitree
-	cBonsaiEvent* bonsaievent = 0;
+	cBonsaiEvent* bonsaievent = new cBonsaiEvent();
 	
 	// mrdtree
 	Int_t numMrdEvents;
@@ -210,8 +217,8 @@ void truthtracks(){
 	TClonesArray* mrdevents = new TClonesArray("cMRDSubEvent");
 	
 	// vetotree
-	Int_t numVetoEvents;
-	TClonesArray* vetoevent = new TClonesArray("cVetoEvent");
+	//Int_t numVetoEvents;
+	//TClonesArray* vetoevents = new TClonesArray("cVetoEvent");
 	
 	// geoT
 	WCSimRootGeom* geo = 0; 
@@ -309,7 +316,7 @@ void truthtracks(){
 	double mustartE=0.;
 	TBranch* bMuonStartE = treeout->Branch("MuonStartEnergy",&mustartE);
 	double muendE=0.;
-	TBranch* bMuonEndE = treeout->Branch)"MuonEndEnergy",&muendE);
+	TBranch* bMuonEndE = treeout->Branch("MuonEndEnergy",&muendE);
 	double mutracklengthintank=0.; // keep this so we can do cuts on it, under the assumption our reconstruction will improve
 	TBranch* bMuonTrackLengthInTank = treeout->Branch("MuonTrackLengthInTank",&mutracklengthintank);
 	int numTankDigits=0;
@@ -360,11 +367,11 @@ void truthtracks(){
 	TBranch* bHadMrdEvent = treeout->Branch("HadMrdEvent",&hadMrdEvent);
 	bool hadMrdTrack;
 	TBranch* bHadMrdTrack = treeout->Branch("HadMrdTrack",&hadMrdTrack);
-	double mrdEntryVertex;
+	TVector3 mrdEntryVertex;
 	TBranch* bMrdEntryVertex = treeout->Branch("MrdEntryVertex",&mrdEntryVertex);
 	double mrdEntryTime;
 	TBranch* bMrdEntryTime = treeout->Branch("MrdEntryTime",&mrdEntryTime);
-	double mrdStopVertex;   // could be exit or stopping point
+	TVector3 mrdStopVertex;   // could be exit or stopping point
 	TBranch* bMrdStopVertex = treeout->Branch("MrdStopVertex",&mrdStopVertex);
 	double mrdDirectionError;
 	TBranch* bMrdDirectionError = treeout->Branch("MrdDirectionError",&mrdDirectionError);
@@ -395,7 +402,7 @@ void truthtracks(){
 	double recoMuonEnergyError;
 	TBranch* bRecoMuonEnergyError = treeout->Branch("RecoMuonEnergyError",&recoMuonEnergyError);
 	double recoMuonAngle;
-	TBranch* bRecoMuonAngle = treeout->Branch("RecoMuonAngle",&RecoMuonAngle);
+	TBranch* bRecoMuonAngle = treeout->Branch("RecoMuonAngle",&recoMuonAngle);
 	double recoMuonAngleError;
 	TBranch* bRecoMuonAngleError = treeout->Branch("RecoMuonAngleError",&recoMuonAngleError);
 	double recoEventQ2;
@@ -481,6 +488,7 @@ void truthtracks(){
 	
 	cout<<"looping over tchain entries"<<endl;
 //	numents=10000;
+	int maxfilenum=2000;
 	Int_t wcsimTentry;
 	// since WCSim only propagated tank events, there is no longer a 1:1 mapping between event numbers
 	// in dirt files and WCSim files. As long as the selection criterion for dirt events is the same here
@@ -537,6 +545,7 @@ void truthtracks(){
 			submatch = (std::string)submatches[1];
 			cout<<"extracted submatch is "<<submatch<<endl;
 			int filenum = atoi(submatch.c_str());
+			if(filenum>maxfilenum) break;
 			
 			// use filenum to open the corresponding wcsim file
 			wcsimfilepath = TString::Format("%s/wcsim_0.%d.root",wcsimpath,filenum);
@@ -550,7 +559,9 @@ void truthtracks(){
 			}
 			// load the geometry tree and grab the geometry if we haven't already
 			if(geo==0){
-				TTree* geotree = (TTree*)wcsimfile->Get("wcsimGeoT");
+				TFile* f = TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim_wdirt_17-06-17/wcsim_0.1000.root");
+				TTree* geotree = (TTree*)f->Get("wcsimGeoT"); // TODO temporary override
+				//TTree* geotree = (TTree*)wcsimfile->Get("wcsimGeoT");
 				if(geotree==0){ cout<<"NO GEOMETRY IN FIRST FILE?"<<endl; assert(false); }
 				geotree->SetBranchAddress("wcsimrootgeom", &geo);
 				if (geotree->GetEntries() == 0) { cout<<"geotree has no entries!"<<endl; exit(9); }
@@ -576,7 +587,7 @@ void truthtracks(){
 			}
 			// load the set of reconstructed mrdtracks
 			mrdtree = (TTree*)mrdfile->Get("mrdtree");
-			if(!mrdtree{cout<<"mrdtree doesn't exist!"<<endl; break; }
+			if(!mrdtree){cout<<"mrdtree doesn't exist!"<<endl; break; }
 			nummrdentries = mrdtree->GetEntries();
 			if(nummrdentries==0){cout<<"mrdtree has no entries!"<<endl; break; }
 			
@@ -608,9 +619,9 @@ void truthtracks(){
 			}
 			// load the set of reconstructed mrdtracks
 			bonsaitree = (TTree*)bonsaifile->Get("bonsaitree");
-			if(!bonsaitree{cout<<"bonsaitree doesn't exist!"<<endl; break; }
+			if(!bonsaitree){cout<<"bonsaitree doesn't exist!"<<endl; break; }
 			numbonsaientries = bonsaitree->GetEntries();
-			if(numbonsaientries==0){cout<<"bonsaitree has no entries!"<<endl; break; }
+			//if(numbonsaientries==0){cout<<"bonsaitree has no entries!"<<endl; break; }
 			
 			/* Set the branch addresses for the new trees */
 			// tankflux:
@@ -651,11 +662,12 @@ void truthtracks(){
 			mrdtree->SetBranchAddress("nummrdtracksthisevent",&numMrdTracks);
 			mrdtree->SetBranchAddress("subeventsinthisevent",&mrdevents);
 			
-			// vetotree:
-			vetotree->SetBranchAddress("numvetoeventsthisevent",&numVetoEvents);
-			vetotree->SetBranchAddress("vetoeventsinthisevent",&vetoevents);
+			// vetotree: TODO TODO TODO
+			//vetotree->SetBranchAddress("numvetoeventsthisevent",&numVetoEvents);
+			//vetotree->SetBranchAddress("vetoeventsinthisevent",&vetoevents);
 			
 			// bonsaitree:
+			
 			bonsaievent->Init(bonsaitree);
 			bonsaievent->DisableBranches(); // reduces the amount of reading necessary
 			
@@ -771,7 +783,6 @@ void truthtracks(){
 		numpiplustracks=0;
 		numpiminustracks=0;
 		nummutracks=0;
-		numgammatracks=0;
 		numneutrontracks=0;
 		numprotontracks=0;
 		
@@ -787,7 +798,6 @@ void truthtracks(){
 				case 211: numpiplustracks++; break;
 				case -211: numpiminustracks++; break;
 				case 13: nummutracks++; break;
-				case 22: numgammatracks++; break;
 				case 2112: numneutrontracks++; break;
 				case 2212: numprotontracks++; break;
 			}
@@ -857,9 +867,9 @@ void truthtracks(){
 			} else {
 				tankendpointz = solution2;	// backward going track
 			}
-			Double_t tankendpointx = thegenieinfo.genie_x + (tankendpointz-thegenieinfo.genie_z)*(avgtrackanglex);
 			// correct for tank z offset (do after tankendpointx, before tankendpointy)
 			tankendpointz += tank_start+tank_radius;
+			Double_t tankendpointx = thegenieinfo.genie_x + (tankendpointz-thegenieinfo.genie_z)*(avgtrackanglex);
 			// now check if the particle would have exited through one of the caps before reaching this radius
 			Double_t tankendpointy = 
 			thegenieinfo.genie_y + (tankendpointz-thegenieinfo.genie_z)*(avgtrackangley);
@@ -990,11 +1000,12 @@ void truthtracks(){
 		
 		bonsaievent->GetEntry(wcsimTentry);
 		// check this is the correct event
-		bool correctevent=false;
+		/*
 		if(
-			bonsaievent->wcsimfilestring==wcsimfilestring&&
+		bool correctevent=false;
+			//bonsaievent->wcsimfilestring==wcsimfilestring&& //<<TODO: fix in bonsai files.
 			bonsaievent->EventId==wcsimeventnum&&
-			bonsaievent->SubtriggerId==0
+			bonsaievent->SubtriggerId==0 //<<TODO: fix in bonsai files: all 32163???
 			)
 		correctevent=true;
 		if(!correctevent){
@@ -1002,10 +1013,13 @@ void truthtracks(){
 				<<"wcsimfile: "<<wcsimfilestring
 				<<", bonsai's wcsimfile: "<<bonsaievent->wcsimfilestring
 				<<", wcsimTentry: "<<wcsimTentry
-				<<", bonsai's event entry: "<<bonsaievent->EventId<<endl;
-				assert(false); // TODO TODO TODO TEST THIS
+				<<", bonsai's event entry: "<<bonsaievent->EventId
+				<<", wcsimTentry subevent: "<<0
+				<<", bonsai subentry = "<<bonsaievent->SubtriggerId
+				<<endl;
+				assert(false);
 		}
-		
+		*/
 		// for the file:
 		hadBonsaiEvent=bonsaievent->Vertex_Found;
 		if(hadBonsaiEvent){
@@ -1023,7 +1037,7 @@ void truthtracks(){
 			bonsaiEnergyLoss           = bonsaievent->TankEnergyLoss; // [MeV]
 			bonsaiEnergyLossError      = bonsaievent->TankEnergyLossError;
 			bonsaiInterceptsMrd        = bonsaievent->Intercepts_MRD;
-			bonsaiMrdEntry             = bonsaievent->Projected_MRDEntry;
+			bonsaiMrdEntry             = bonsaievent->Projected_MRDEntryPoint;
 		} else {
 			bonsaiVertex               = TVector3(0,0,0);
 			bonsaiVertexError          = 0;
@@ -1044,7 +1058,7 @@ void truthtracks(){
 		// ==================================================================================================
 		
 		TDatabasePDG db;
-		Double_t muonmass = (db.GetParticle(13)->Mass()*1000.;      // converted to MeV
+		Double_t muonmass = (db.GetParticle(13)->Mass())*1000.;      // converted to MeV
 		// need this when calculating neutrino event info, which uses relativistic muon energy
 		
 		if(numMrdEvents>0) hadMrdEvent=true;
@@ -1060,7 +1074,7 @@ void truthtracks(){
 		mrdStopped=false;
 		mrdSideExit=false;
 		recoVertex=TVector3(0,0,0);
-		recoVertexError=0;
+		recoVertexError=TVector3(0,0,0);
 		bonsaiMrdAngDiff=0.;
 		
 		TVector3 mrdtankvertex;
@@ -1082,7 +1096,7 @@ void truthtracks(){
 			for(int subev=0; subev<numMrdEvents; subev++){
 				// TClonesArray->At() returns a pointer
 				cMRDSubEvent* asubevent =(cMRDSubEvent*)mrdevents->At(subev);
-				std::vector<cMRDTrack> &mrdtracks = *(asubevent->GetMrdTracks());
+				std::vector<cMRDTrack> &mrdtracks = *(asubevent->GetTracks());
 				
 				// loop over tracks in the mrd subevent
 				for(int tracki=0; tracki<mrdtracks.size(); tracki++){
@@ -1105,7 +1119,7 @@ void truthtracks(){
 							TVector3 mrdtrackdir = anmrdtrack.GetStopVertex() - anmrdtrack.GetStartVertex();
 							mrdDirectionError = anmrdtrack.GetTrackAngleError();
 							bonsaiMrdAngDiff = TMath::ACos(bonsaiDirection.Dot(mrdtrackdir.Unit()));
-							if(bonsaiMrdAngDiff>(bonsaiDirectionError+mrdDirectionError) continue;
+							if(bonsaiMrdAngDiff>(bonsaiDirectionError+mrdDirectionError)) continue;
 							
 							// this is a new longest consistent track!
 							// the projected mrd vertex will be the point of closest approach
@@ -1119,9 +1133,10 @@ void truthtracks(){
 							double vtxdiffmag = vertexdiff.Mag();
 							double xmax, xmin, ymax, ymin;
 							anmrdtrack.GetProjectionLimits(recoVertex.Z(),xmax, xmin, ymax, ymin);
-							mrdvtxerrmag = sqrt(pow(xmax-xmin,2)+pow(ymax-ymin,2));
-							recoVertexError = 0.5*sqrt((vtxdiffmag+bonsaiVertexError)*
+							double mrdvtxerrmag = sqrt(pow(xmax-xmin,2)+pow(ymax-ymin,2));
+							double errormag = 0.5*sqrt((vtxdiffmag+bonsaiVertexError)*
 														(vtxdiffmag+mrdvtxerrmag));
+							recoVertexError=TVector3(errormag,errormag,errormag); // XXX???
 							
 							// since this is new best match: retrieve/override details
 							maxtracklength     = anmrdtrack.GetTrackLength();
@@ -1150,6 +1165,7 @@ void truthtracks(){
 							// We can then find the closest point fairly easily from the projection corners:
 							double xmax, xmin, ymax, ymin;
 							anmrdtrack.GetProjectionLimits(recoVertex.Z(), xmax, xmin, ymax, ymin);
+							double xclosest, yclosest;
 							if(xmax>bonsaiVertex.X()&&xmin<bonsaiVertex.X()){
 								xclosest=bonsaiVertex.X();
 							} else {
@@ -1179,7 +1195,7 @@ void truthtracks(){
 							TVector3 mrdtrackdir = anmrdtrack.GetStopVertex() - anmrdtrack.GetStartVertex();
 							mrdDirectionError = anmrdtrack.GetTrackAngleError();
 							bonsaiMrdAngDiff = TMath::ACos(bonsaiDirection.Dot(mrdtrackdir.Unit()));
-							if(bonsaiMrdAngDiff>(bonsaiDirectionError+mrdDirectionError) continue;
+							if(bonsaiMrdAngDiff>(bonsaiDirectionError+mrdDirectionError)) continue;
 							
 							// the best fit point will be somewhere within the overlap region. 
 							// TODO: for now let's place it midway: halfway between closest point 
@@ -1191,8 +1207,9 @@ void truthtracks(){
 							recoVertex = bonsaiVertex+dirofdistance;
 							
 							// TODO: error calculation... 
-							recoVertexError = 0.5*sqrt((magofdistance+bonsaiVertexError)*
-														(magofdistance+mrdvtxerrmag));
+							double errormag = 0.5*sqrt((magofdistance+bonsaiVertexError)*
+														(magofdistance/*+mrdvtxerrmag*/)); //XXX???
+							recoVertexError = TVector3(errormag,errormag,errormag); // XXX???
 							
 							// since this is new best match: retrieve/override details
 							maxtracklength     = anmrdtrack.GetTrackLength();
@@ -1225,8 +1242,9 @@ void truthtracks(){
 							// TODO i don't even know.
 							double xmax, xmin, ymax, ymin;
 							anmrdtrack.GetProjectionLimits(recoVertex.Z(),xmax, xmin, ymax, ymin);
-							recoVertexError = sqrt(pow(entrypoint.Z()-exitpoint.Z(),2)
+							double errormag = sqrt(pow(entrypoint.Z()-exitpoint.Z(),2)
 												  +pow(xmax-xmin,2)+pow(ymax-ymin,2));
+							recoVertexError=TVector3(errormag,errormag,errormag);
 							
 							// n.b. no directionality check required, but still save error
 							mrdDirectionError = anmrdtrack.GetTrackAngleError();
@@ -1304,11 +1322,11 @@ void truthtracks(){
 		}
 		
 		if(hadBonsaiEvent&&(matchedtrack>0)){
-			if(tracksareconsistent){
+			if(true){ // TODO store MRD track even if it doesn't match bonsai <<<<<<<<<<<<<<<<<<
 				// combine the information from bonsaiVertex and recalculate improved fit for 
 				// mrd values such as angle, energy loss etc. 
 				cMRDSubEvent* asubevent =(cMRDSubEvent*)mrdevents->At(matchedsubevent);
-				auto anmrdtrack = asubevent->GetMrdTracks()->at(matchedtrack);
+				auto anmrdtrack = asubevent->GetTracks()->at(matchedtrack);
 				anmrdtrack.AddTrackPoint(bonsaiVertex,
 					TVector3(bonsaiVertexError,bonsaiVertexError,bonsaiVertexError));
 				anmrdtrack.DoTGraphErrorsFit();
@@ -1345,12 +1363,7 @@ void truthtracks(){
 		// combine events to calculate neutrino reconstructed information
 		// ==================================================================================================
 		
-		if(recoVertex!=TVector3(0,0,0){
-			
-			// calculate the neutrino event information from the measured lepton kinematics
-			Double_t neutrinoenergyguess = thegenieinfo.probeenergy;	//TODO: how do we estimate this?
-			TVector3 momtrans = (leptonmomentumvec)-TVector3(0.,0.,neutrinoenergyguess);
-			Double_t calculatedq2 = -1 * momtrans.Mag2();
+		if(recoVertex!=TVector3(0,0,0)){
 			
 			hadRecoEvent            = true;
 			//recoVertex            = set above
@@ -1397,15 +1410,15 @@ void truthtracks(){
 	// ======================================================================================================
 	// ======================================================================================================
 	
-	Double_t numbeamspills = totalpots/(4.0 * TMath::Power(10.,12.));
-	Double_t numbeamspillsperday = (24.*60.*60.*1000.)/133.3333;	// 24 hours in ms / 133.33 ms between spills
-	Double_t numdays = numbeamspills/numbeamspillsperday;
-	cout<<"Results based on "<<totalpots<<" POTs, or "<<numbeamspills<<" beam spills, or "<<numdays<<" days of data"<<endl;
-	cout<<"There were "<<numneutrinoeventsintank<<" neutrino interactions in the tank, of which "<<numCCQEneutrinoeventsintank<<" were true CCQE events."<<endl;
-	cout<<"Of those, "<<numCCQEneutrinoeventsinfidvol<<" were within the fiducial volume."<<endl;
-	cout<<"Of those in turn, "<<numCCQEneutrinoeventsinfidvolmrd<<" produced an accepted MRD muon"<<endl;
-	cout<<"There were "<<nummuontracksintank<<" muons in the tank, of which "
-		<<nummuontracksinfidvol<<" were from (CCQE?) events in the fiducial volume."<<endl;
+//	Double_t numbeamspills = totalpots/(4.0 * TMath::Power(10.,12.));
+//	Double_t numbeamspillsperday = (24.*60.*60.*1000.)/133.3333;	// 24 hours in ms / 133.33 ms between spills
+//	Double_t numdays = numbeamspills/numbeamspillsperday;
+//	cout<<"Results based on "<<totalpots<<" POTs, or "<<numbeamspills<<" beam spills, or "<<numdays<<" days of data"<<endl;
+//	cout<<"There were "<<numneutrinoeventsintank<<" neutrino interactions in the tank, of which "<<numCCQEneutrinoeventsintank<<" were true CCQE events."<<endl;
+//	cout<<"Of those, "<<numCCQEneutrinoeventsinfidvol<<" were within the fiducial volume."<<endl;
+//	cout<<"Of those in turn, "<<numCCQEneutrinoeventsinfidvolmrd<<" produced an accepted MRD muon"<<endl;
+//	cout<<"There were "<<nummuontracksintank<<" muons in the tank, of which "
+//		<<nummuontracksinfidvol<<" were from (CCQE?) events in the fiducial volume."<<endl;
 	
 	// cleanup
 	// =======
@@ -1687,9 +1700,9 @@ void ClearMapHistos(std::map<std::string,TH2D*> maphistos){
 
 double CalculateNeutrinoEnergy(double recoMuonEnergy, double recoMuonAngle){
 	TDatabasePDG db;
-	Double_t neutronmass = (db.GetParticle(2112)->Mass()*1000.; // converted to MeV
+	Double_t neutronmass = (db.GetParticle(2112)->Mass())*1000.; // converted to MeV
 	Double_t protonmass = (db.GetParticle(2212)->Mass())*1000.; // converted to MeV
-	Double_t muonmass = (db.GetParticle(13)->Mass()*1000.;      // converted to MeV
+	Double_t muonmass = (db.GetParticle(13)->Mass())*1000.;      // converted to MeV
 	Double_t O16bindingEnergy = 7.9762086875; // MeV (per nucleon), from http://tinyurl.com/y8m9s4z6
 	Double_t boundneutronmass = neutronmass-O16bindingEnergy;
 	
@@ -1704,9 +1717,9 @@ double CalculateNeutrinoEnergy(double recoMuonEnergy, double recoMuonAngle){
 
 double CalculateEventQ2(double recoMuonEnergy, double recoNeutrinoEnergy, double recoMuonAngle){
 	TDatabasePDG db;
-	Double_t neutronmass = (db.GetParticle(2112)->Mass()*1000.; // converted to MeV
+	Double_t neutronmass = (db.GetParticle(2112)->Mass())*1000.; // converted to MeV
 	Double_t protonmass = (db.GetParticle(2212)->Mass())*1000.; // converted to MeV
-	Double_t muonmass = (db.GetParticle(13)->Mass()*1000.;      // converted to MeV
+	Double_t muonmass = (db.GetParticle(13)->Mass())*1000.;      // converted to MeV
 	Double_t O16bindingEnergy = 7.9762086875; // MeV (per nucleon), from http://tinyurl.com/y8m9s4z6
 	Double_t boundneutronmass = neutronmass-O16bindingEnergy;
 	

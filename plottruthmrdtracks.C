@@ -1,9 +1,20 @@
 /* vim:set noexpandtab tabstop=4 wrap */
-/*TODO: to modify for new source files:
-0. Re-generate and replace in this directory libWCSimRoot.so, .rootmap, .pcm files.
-1. Re-enable #include RootOptions.hh
-2. Disable timeArrayOffset lines.
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// XXX XXX Version of WCSim used to generate the file XXX XXX
+// XXX XXX      THIS MUST BE SET BEFORE CALLING       XXX XXX
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#define FILE_VERSION 2
+/*
+Version 1:
+wcsim_wdirt_07-02-17, 200 PMTs + 200 LAPPDs, including dirt intx.
+
+Version 2:
+wcsim_tankonly_03-05-17, 200 PMTs + 200 LAPPDs, tank only, with bug fixes, bad lappd pulse timing resoln
+
+Version 3:
+wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8inHQE), no LAPPDs.
 */
+
 #ifndef VERBOSE
 //#define VERBOSE
 #endif
@@ -11,7 +22,7 @@
 //#define WCSIMDEBUG
 #endif
 #ifndef MUTRACKDEBUG
-//#define MUTRACKDEBUG 1
+//#define MUTRACKDEBUG
 #endif
 #include "TROOT.h"
 #include "TSystem.h"
@@ -34,10 +45,12 @@
 #include "TLorentzVector.h"
 #ifdef __MAKECINT__
 #pragma link C++ class std::vector<TLorentzVector>+;
+#pragma link C++ class std::vector<TVector3>+;
 #endif
 #include "TLegend.h"
 #include "TText.h"
 #include "TColor.h"
+#include "TRandom3.h"
 #include <regex>
 #include "TStyle.h"
 #include <exception>	// for stdexcept
@@ -64,7 +77,9 @@
 #include "../wcsim/include/WCSimLAPPDInfo.hh"
 #include "../wcsim/include/WCSimEnumerations.hh"
 #include "../wcsim/include/WCSimRootLinkDef.hh"
+#if FILE_VERSION>2
 #include "../wcsim/include/WCSimRootOptions.hh"
+#endif
 
 // genie headers
 #include "GHEP/GHepParticle.h"
@@ -115,9 +130,15 @@ const Float_t MRD_depth = 139.09;         // total depth of the MRD in cm
 */
 std::vector<double> mrdscintlayers{336.080, 348.190, 360.300, 372.410, 384.520, 396.630, 408.740, 420.850, 432.960, 445.070, 457.180 };
 
+float* Getlappdqpe();
+static void SKIDigitizerThreshold(double& pe,int& iflag);
+TRandom3* mrand = new TRandom3();         // needed to generate charge and other things
+
+// not currently used but these should be stored in and retrieved from geo.
 const Int_t numtankpmts=128+2*(26); // 26 pmts and lappds on each cap
 const Int_t nummrdpmts=307;
 const Int_t numvetopmts=26;
+// these are used for making the pmt map.
 const Int_t caparraysize=8;         // pmts on the cap form an nxn grid where caparraysize=n
 const Int_t pmtsperring=16;         // pmts around each ring of the main walls
 const Int_t numpmtrings=8;          // num rings around the main walls
@@ -139,13 +160,22 @@ std::map<int, std::pair<int,int> > topcappositionmap;
 std::map<int, std::pair<int,int> > bottomcappositionmap;
 std::map<int, std::pair<int,int> > wallpositionmap;
 
+#if FILE_VERSION==1
+const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_wdirt_07-02-17";
+#elif FILE_VERSION==2
+const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17";
+//const char* wcsimpath="/annie/app/users/moflaher/wcsim/build";
+#elif FILE_VERSION==3
+const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17";
+#endif
+
 const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt";
 const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
 //const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim";  // first 1M sample, various issues
 //const char* wcsimpath="/annie/app/users/moflaher/wcsim/build";
-const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17";
 const char* wcsimlibrarypath="/annie/app/users/moflaher/wcsim/wcsim/libWCSimRoot.so";
 const char* outpath="/annie/app/users/moflaher/wcsim/root_work";
+//const char* outpath="/annie/app/users/moflaher/wcsim/root_work/temp";
 
 const Bool_t printneutrinoevent=false;
 
@@ -176,6 +206,11 @@ void truthtracks(){
 	std::string dirtfilename;
 	TTree* tankflux=0;
 	TTree* tankmeta=0;
+	
+	TFile* lappdfile=0;
+	TString lappdfilepath;
+	TTree* lappdtree=0;
+	Int_t numlappdentries=0;
 	
 	TFile* geniefile=0;
 	TString geniefilepath;
@@ -220,8 +255,59 @@ void truthtracks(){
 	TBranch* bp=0, *mp=0, *vp=0;
 	WCSimRootTrigger* atrigt=0, *atrigm=0, *atrigv=0;
 	
+	// lappdtree
+	// some of these are c-style arrays of all hits in the event, some are vectors of same.
+	// for c-style arrays, avoid re-allocations of memory by just setting one array big enough for all events
+	int lappd_evtnum;
+	int lappd_numhitsthisevt;
+	int LAPPDHITSMAX=1000;
+	int lappd_hittile[LAPPDHITSMAX];            // "lappdhit_objnum"
+	double lappd_hittilesposx[LAPPDHITSMAX];    // "lappdhit_x"
+	double lappd_hittilesposy[LAPPDHITSMAX];    // could get this from geo, since we have the tile ID
+	double lappd_hittilesposz[LAPPDHITSMAX];    // 
+	double lappd_numphots[LAPPDHITSMAX];        // "lappdhit_edep" - # digits on lappd
+	std::vector<double> lappd_hitcharge;        // "lappdhit_totalpes_perlappd2" - # hits on lappd
+	std::vector<double> lappd_hitpeposx;        // position of the hit in the tile's ref frame [mm]
+	std::vector<double> lappd_hitpeposy;        // "strip_coorx"
+	std::vector<double> lappd_hitpeposz;
+	std::vector<double> lappd_hittruetime;      // "strip_coort"
+	// need pointers to set the branch addresses
+	std::vector<double>* lappd_hitchargep=&lappd_hitcharge;
+	std::vector<double>* lappd_hitpeposxp=&lappd_hitpeposx;
+	std::vector<double>* lappd_hitpeposyp=&lappd_hitpeposy;
+	std::vector<double>* lappd_hitpeposzp=&lappd_hitpeposz;
+	std::vector<double>* lappd_hittruetimep=&lappd_hittruetime;
+#if FILE_VERSION>3
+	std::vector<double> lappd_hitglobalposx;    // hit position in global coordinates
+	std::vector<double> lappd_hitglobalposy;
+	std::vector<double> lappd_hitglobalposz;
+	std::vector<double>* lappd_hitglobalposxp=&lappd_hitglobalposx;
+	std::vector<double>* lappd_hitglobalposyp=&lappd_hitglobalposy;
+	std::vector<double>* lappd_hitglobalposzp=&lappd_hitglobalposz;
+#endif
+	
+	// not retrieved:
+	//LAPPDtree->Branch("lappdhit_totalpes_perevt", &lappdhit_totalpes_perevt, "lappdhit_totalpes_perevt/I");
+	//LAPPDtree->Branch("lappdhit_process",lappdhit_process,"lappdhit_process[lappd_numhits]/I");
+	//LAPPDtree->Branch("lappdhit_particleID",lappdhit_particleID,"lappdhit_particleID[lappd_numhits]/I");
+	//LAPPDtree->Branch("lappdhit_trackID",lappdhit_trackID,"lappdhit_trackID[lappd_numhits]/I");
+	//LAPPDtree->Branch("lappdhit_stripnum", &lappdhit_stripnum); // hit strip
+	//LAPPDtree->Branch("lappdhit_truetime2",&lappdhit_truetime2); // duplicate of strip_coort
+	//LAPPDtree->Branch("lappdhit_smeartime2", &lappdhit_smeartime2); // smeared time. bad in current version.
+	//LAPPDtree->Branch("lappdhit_primaryParentID2",&lappdhit_primaryParentID2);
+	//LAPPDtree->Branch("lappdhit_NoOfneighstripsHit", &lappdhit_NoOfneighstripsHit); // size of below vectors
+	//LAPPDtree->Branch("lappdhit_neighstripnum", &lappdhit_neighstripnum); // strip num
+	//LAPPDtree->Branch("lappdhit_neighstrippeak", &lappdhit_neighstrippeak); // pulse amplitude
+	//LAPPDtree->Branch("lappdhit_neighstrip_time", &lappdhit_neighstrip_time); // smeared hit time (0 of below)
+	//LAPPDtree->Branch("lappdhit_neighstrip_lefttime", &lappdhit_neighstrip_lefttime); // rel. pulse ETA @ LHS
+	//LAPPDtree->Branch("lappdhit_neighstrip_righttime", &lappdhit_neighstrip_righttime); // "    "   "   @ RHS
+	
 	// geoT
-	WCSimRootGeom* geo = 0; 
+	WCSimRootGeom* geo = 0;
+	int numpmts;
+	int numlappds;
+	std::vector<std::string> PMTNames;
+	std::vector<Int_t> NumPMTsByType;
 	
 	// information from genie:
 	GenieInfo thegenieinfo;
@@ -229,7 +315,7 @@ void truthtracks(){
 	// ==============================================================================================
 	// ==============================================================================================
 	// output file
-	TFile* fileout = new TFile("EventDistributions.root","RECREATE");
+	TFile* fileout = new TFile(TString::Format("%s/EventDistributions.root",outpath),"RECREATE");
 	fileout->cd();
 	TTree* treeout = new TTree("treeout","Tank Event Properties");
 	
@@ -244,6 +330,8 @@ void truthtracks(){
 	TBranch* bDirtEventNum = treeout->Branch("DirtEventNum",&dirteventnum);
 	TString wcsimfilestring;
 	TBranch* bWCSimFileString = treeout->Branch("WCSimFile",&wcsimfilestring);
+	TString lappdfilestring;
+	TBranch* bLAPPDFileString = treeout->Branch("LAPPDFile",&lappdfilestring);
 	int wcsimeventnum=-1;
 	TBranch* bWCSimEventNum = treeout->Branch("WCSimEventNum",&wcsimeventnum);
 	// now information about the event
@@ -321,6 +409,7 @@ void truthtracks(){
 	TBranch* bMuonTrackLengthInMRD = treeout->Branch("MuonTrackLengthInMRD",&mutracklengthinMRD);
 	double mutracklengthintank=0.;
 	TBranch* bMuonTrackLengthInTank = treeout->Branch("MuonTrackLengthInTank",&mutracklengthintank);
+	// TODO: add LAPPD hit info
 	int numTankDigits=0;
 	TBranch* bNumTankDigits = treeout->Branch("TotalTankDigits",&numTankDigits);
 	double totaltankcharge=0.;
@@ -414,7 +503,7 @@ void truthtracks(){
 	// ==============================================================================================
 	// file for outputting true vertices and digits for tank reconstruction efforts
 	gROOT->cd();
-	TFile* flateventfileout = new TFile("trueQEvertexinfo.root", "RECREATE");
+	TFile* flateventfileout = new TFile(TString::Format("%s/trueQEvertexinfo.root",outpath), "RECREATE");
 	flateventfileout->cd();
 	TLorentzVector filemuonstartvertex(0.,0.,0.,0.);
 	TLorentzVector filemuonstopvertex(0.,0.,0.,0.);
@@ -425,6 +514,10 @@ void truthtracks(){
 //	std::vector<TLorentzVector>* filedigitverticesp = &filedigitvertices;
 	std::vector<Double_t> filedigitQs;
 	std::vector<Double_t>* filedigitQsp = &filedigitQs;
+	std::vector<std::string> filedigitsensortypes;
+	std::vector<std::string>* filedigitsensortypesp=&filedigitsensortypes;
+	std::vector<Double_t> filedigittsmears;
+	std::vector<Double_t>* filedigittsmearsp=&filedigittsmears;
 	TTree* vertextreenocuts = new TTree("vertextreenocuts","All True Tank QE Events");
 	TBranch* MuonStartBranch = vertextreenocuts->Branch("MuonStartVertex",&filemuonstartvertex);
 	TBranch* MuonStopBranch = vertextreenocuts->Branch("MuonStopVertex", &filemuonstopvertex);
@@ -432,16 +525,49 @@ void truthtracks(){
 	TBranch* DigitVertexBranch = vertextreenocuts->Branch("DigitVertices", "std::vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &filedigitverticesp);
 //	TBranch* DigitVertexBranch = vertextreenocuts->Branch("DigitVertices", "std::vector<TLorentzVector>", &filedigitverticesp);
 	TBranch* DigitChargeBranch = vertextreenocuts->Branch("DigitCharges", &filedigitQsp);
-	if(MuonStartBranch==0||MuonStopBranch==0||MuonDirectionBranch==0||DigitVertexBranch==0||DigitChargeBranch==0){ 
+	TBranch* DigitDetTypeBranch = vertextreenocuts->Branch("DigitWhichDet",&filedigitsensortypesp);
+	TBranch* DigitSmearBranch = vertextreenocuts->Branch("DigitTimeSmear",&filedigittsmearsp);
+#ifdef LAPPD_DEBUG
+	std::vector<double> intileposx;
+	std::vector<double> intileposy;
+	std::vector<double> poserrx;
+	std::vector<double> poserry;
+	std::vector<double> poserrz;
+	std::vector<int> tileorient;
+	std::vector<int> octagonside;
+	std::vector<double>* intileposxp=&intileposx;
+	std::vector<double>* intileposyp=&intileposy;
+#if FILE_VERSION>3
+	std::vector<double>* poserrxp=&poserrx;
+	std::vector<double>* poserryp=&poserry;
+	std::vector<double>* poserrzp=&poserrz;
+#endif
+	std::vector<int>* tileorientp=&tileorient;
+	std::vector<int>* octagonsidep=&octagonside;
+	TBranch* LAPPD_intileposx = vertextreenocuts->Branch("LAPPD_intileposx",&intileposxp);
+	TBranch* LAPPD_intileposy = vertextreenocuts->Branch("LAPPD_intileposy",&intileposyp);
+#if FILE_VERSION>3
+	TBranch* LAPPD_poserrx = vertextreenocuts->Branch("LAPPD_poserrx",&poserrxp);
+	TBranch* LAPPD_poserry = vertextreenocuts->Branch("LAPPD_poserry",&poserryp);
+	TBranch* LAPPD_poserrz = vertextreenocuts->Branch("LAPPD_poserrz",&poserrzp);
+#endif
+	TBranch* LAPPD_tileorient = vertextreenocuts->Branch("LAPPD_tileorient",&tileorientp);
+	TBranch* LAPPD_octagonside = vertextreenocuts->Branch("LAPPD_octagonside",&octagonsidep);
+#endif
+	
+	if(MuonStartBranch==0||MuonStopBranch==0||MuonDirectionBranch==0||DigitVertexBranch==0||DigitChargeBranch==0||DigitDetTypeBranch==0||DigitSmearBranch==0){ 
 		cerr<<"branches are zombies argh!"<<endl; 
 		cout<<"MuonStartBranch="<<MuonStartBranch<<endl
 			<<"MuonStopBranch="<<MuonStopBranch<<endl
 			<<"MuonDirectionBranch="<<MuonDirectionBranch<<endl
 			<<"DigitVertexBranch="<<DigitVertexBranch<<endl
-			<<"DigitChargeBranch="<<DigitChargeBranch<<endl;
+			<<"DigitChargeBranch="<<DigitChargeBranch<<endl
+			<<"DigitDetTypeBranch="<<DigitDetTypeBranch<<endl
+			<<"DigitSmearBranch="<<DigitSmearBranch<<endl;
 		assert(false&&"branches are zombies argh!");
 	}
 	
+	// Jingbo tree of fiducial neutrino events
 	TTree* vertextreefiducialcut = new TTree("vertextreefiducialcut","True Tank QE Events in Fiducial Volume");
 	TBranch* MuonStartBranchFid = vertextreefiducialcut->Branch("MuonStartVertex",&filemuonstartvertex);
 	TBranch* MuonStopBranchFid = vertextreefiducialcut->Branch("MuonStopVertex", &filemuonstopvertex);
@@ -449,6 +575,8 @@ void truthtracks(){
 	TBranch* DigitVertexBranchFid = vertextreefiducialcut->Branch("DigitVertices", "std::vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &filedigitverticesp);
 //	TBranch* DigitVertexBranchFid = vertextreefiducialcut->Branch("DigitVertices", "std::vector<TLorentzVector>", &filedigitverticesp);
 	TBranch* DigitChargeBranchFid = vertextreefiducialcut->Branch("DigitCharges", &filedigitQsp);
+	TBranch* DigitDetTypeBranchFid = vertextreefiducialcut->Branch("DigitWhichDet",&filedigitsensortypesp);
+	TBranch* DigitSmearBranchFid = vertextreefiducialcut->Branch("DigitTimeSmear",&filedigittsmearsp);
 	
 	TTree* vertextreefiducialmrd = new TTree("vertextreefiducialmrd","True Tank QE Events in Fiducial Volume With Muon in MRD");
 	TBranch* MuonStartBranchFidMRD = vertextreefiducialmrd->Branch("MuonStartVertex",&filemuonstartvertex);
@@ -457,6 +585,8 @@ void truthtracks(){
 	TBranch* DigitVertexBranchFidMRD = vertextreefiducialmrd->Branch("DigitVertices", "std::vector<ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > >", &filedigitverticesp);
 //	TBranch* DigitVertexBranchFidMRD = vertextreefiducialmrd->Branch("DigitVertices", "std::vector<TLorentzVector>", &filedigitverticesp);
 	TBranch* DigitChargeBranchFidMRD = vertextreefiducialmrd->Branch("DigitCharges", &filedigitQsp);
+	TBranch* DigitDetTypeBranchFidMRD = vertextreefiducialmrd->Branch("DigitWhichDet",&filedigitsensortypesp);
+	TBranch* DigitSmearBranchFidMRD = vertextreefiducialmrd->Branch("DigitTimeSmear",&filedigittsmearsp);
 	
 	// some counters
 	Double_t numneutrinoeventsintank=0.;
@@ -480,7 +610,7 @@ void truthtracks(){
 	// ===================================================================================================
 	// histograms file
 	gROOT->cd();
-	TFile* histofileout = new TFile("TruthHistos.root","RECREATE");
+	TFile* histofileout = new TFile(TString::Format("%s/TruthHistos.root",outpath),"RECREATE");
 	
 	// genie histograms
 	TH1D* incidentneutrinoenergiesall = new TH1D("incidentneutrinoenergiesall","Distribution of Probe Neutrino Energies;Energy (GeV);Num Events",100,0,0.);
@@ -567,6 +697,18 @@ void truthtracks(){
 	maphistos.emplace("outconehistobottom",outconehistobottom);
 	
 	
+	// CHECKING DIGIT CHARGES AND TIMES
+	// ================================
+	TH1D* digitsqpmthist = new TH1D("digitsqpmthist","Digit Charges for PMTs",100,0.,30.);
+	TH1D* digitsqlappdhist = new TH1D("digitsqlappdhist","Digit Charges for LAPPDs",100,0.,30.);
+	TH1D* digitstpmthist = new TH1D("digitstpmthist","Digit Times for PMTs",1000,800.,3000.);
+	TH1D* digitstlappdhist = new TH1D("digitstlappdhist","Digit Times for LAPPDs",1000,800.,3000.);
+	TH1D* digittsmearpmthist = new TH1D("digittsmearpmthist","Digit T Smearings for PMTs",100,0.,5.);
+	TH1D* digittsmearlappdhist = new TH1D("digittsmearlappdhist","Digit T Smearings for LAPPDs",100,0.,0.1);
+	TH2D* pmttimesmearvsqhist = new TH2D("pmttimesmearvsqhist","PMT Q vs T Smearing",1000,0.,3.,100,0.,100.);
+	TH2D* lappdtimesmearvsqhist = new TH2D("lappdtimesmearvsqhist","LAPPD Q vs T Smearing",1000,0.,0.1,100,0.,100.);
+	
+	
 	// ===================================================================================================
 	// ===================================================================================================
 	// done declaring file: move to loading and processing
@@ -623,15 +765,15 @@ void truthtracks(){
 			if(geniefile) geniefile->Close(); geniefile=0;
 			geniefile = TFile::Open(geniefilepath);
 			if(!geniefile){
-				cout<<"this genie file doesn't exist!"<<endl; 
+				cerr<<"this genie file doesn't exist!"<<endl; 
 				inputEntry += thistreesentries;	// skip the loop iterator forward by all the entries in this file
 				continue; 
 			}
 			gtree = (TTree*)geniefile->Get("gtree");
-			if(!gtree){cout<<"gtree doesn't exist!"<<endl; break; }
+			if(!gtree){cerr<<"gtree doesn't exist!"<<endl; break; }
 			numgenietentries = gtree->GetEntries();
 			cout<<"gtree has "<<numgenietentries<<" entries in this file"<<endl;
-			if(numgenietentries<1){cout<<"gtree has no entries!"<<endl; break; }
+			if(numgenietentries<1){cerr<<"gtree has no entries!"<<endl; break; }
 			
 			// use regexp to pull out the file number needed for identifying the corresponding wcsim file
 			std::match_results<string::const_iterator> submatches;
@@ -641,7 +783,7 @@ void truthtracks(){
 			cout<<"matching regex for filename "<<dirtfilename<<endl;
 			std::regex_match (dirtfilename, submatches, theexpression);
 			std::string submatch = (std::string)submatches[0];	// match 0 is 'whole match' or smthg
-			if(submatch==""){ cout<<"unrecognised input file pattern: "<<dirtfilename<<endl; return; }
+			if(submatch==""){ cerr<<"unrecognised input file pattern: "<<dirtfilename<<endl; return; }
 			submatch = (std::string)submatches[1];
 			cout<<"extracted submatch is "<<submatch<<endl;
 			int filenum = atoi(submatch.c_str());
@@ -652,26 +794,57 @@ void truthtracks(){
 			if(wcsimfile) wcsimfile->Close(); wcsimfile=0;
 			wcsimfile = TFile::Open(wcsimfilepath);
 			if(!wcsimfile){
-				cout<<"this wcsimfile doesn't exist!"<<endl; 
+				cerr<<"this wcsimfile doesn't exist!"<<endl; 
 				inputEntry += thistreesentries;	// skip iterator forward by all the entries in this file
 				continue; 
 			}
 			// load the geometry tree and grab the geometry if we haven't already
 			if(geo==0){
 				TTree* geotree = (TTree*)wcsimfile->Get("wcsimGeoT");
-				if(geotree==0){ cout<<"NO GEOMETRY IN FIRST FILE?"<<endl; assert(false); }
+				if(geotree==0){ cerr<<"NO GEOMETRY IN FIRST FILE?"<<endl; assert(false); }
 				geotree->SetBranchAddress("wcsimrootgeom", &geo);
-				if (geotree->GetEntries() == 0) { cout<<"geotree has no entries!"<<endl; exit(9); }
+				if (geotree->GetEntries() == 0) { cerr<<"geotree has no entries!"<<endl; exit(9); }
 				geotree->GetEntry(0);
 				MakePMTmap(geo, topcappositionmap, bottomcappositionmap, wallpositionmap);
+				numpmts = geo->GetWCNumPMT();
+				numlappds = geo->GetWCNumLAPPD();
+#if FILE_VERSION>2
+				//TODO: save these
+				PMTNames = geo->GetPMTNames();
+				NumPMTsByType = geo->GetPmtCounts();
+#else
+				PMTNames=std::vector<std::string>{"PMT8inch"};
+				NumPMTsByType = std::vector<int>{numpmts};
+#endif
 			}
 			// load the next set of wcsim event info
 			wcsimT = (TTree*)wcsimfile->Get("wcsimT");
-			if(!wcsimT){cout<<"wcsimT doesn't exist!"<<endl; break; }
+			if(!wcsimT){cerr<<"wcsimT doesn't exist!"<<endl; break; }
 			numwcsimentries = wcsimT->GetEntries();
 			cout<<"wcsimT has "<<numwcsimentries<<" entries in this file"<<endl;
-			if(numwcsimentries<1){cout<<"wcsimT has no entries!"<<endl; break; }
+			if(numwcsimentries<1){cerr<<"wcsimT has no entries!"<<endl; break; }
 			wcsimTentry=-1;
+			
+			// use the filenum to open the corresponding lappd file
+			lappdfilepath = TString::Format("%s/wcsim_lappd_0.%d.root",wcsimpath,filenum);
+			cout<<"corresponding lappd file is "<<lappdfilepath<<endl;
+			if(lappdfile) lappdfile->Close(); lappdfile=0;
+			lappdfile = TFile::Open(lappdfilepath);
+			if(!lappdfile){
+				cerr<<"this lappdfile doesn't exist!"<<endl; 
+				inputEntry += thistreesentries;	// skip iterator forward by all the entries in this file
+				continue; 
+			}
+			//load the next set of lappd event info
+			lappdtree = (TTree*)lappdfile->Get("LAPPDTree");
+			if(!lappdtree){cerr<<"lappdtree doesn't exist!"<<endl; break; }
+			numlappdentries = lappdtree->GetEntries();
+			cout<<"lappdtree has "<<numlappdentries<<" entries in this file"<<endl;
+			if(numlappdentries!=numwcsimentries){
+				cerr<<"NUM LAPPD TREE ENTRIES != NUM WCSIMT ENTRIES!!!"<<endl;
+				break;
+			}
+			if(numlappdentries<1){cerr<<"lappdtree has no entries!"<<endl; break;}
 			
 			/* Set the branch addresses for the new trees */
 			// tankflux:
@@ -690,7 +863,7 @@ void truthtracks(){
 			Double_t lasttotpots=totalpots;
 			if(TMath::IsNaN(pots)==0){ totalpots += pots; }
 			if(totalpots<lasttotpots){ 
-				cout<<"ERROR! TOTAL POTS CAME DOWN FROM "<<lasttotpots<<" TO "<<totalpots<<endl; return; 
+				cerr<<"ERROR! TOTAL POTS CAME DOWN FROM "<<lasttotpots<<" TO "<<totalpots<<endl; return; 
 			} else {
 				cout<<"adding "<<pots<<" POTs to the running total, making "<<totalpots<<" POTs so far"<<endl;
 			}
@@ -703,7 +876,45 @@ void truthtracks(){
 			bp->SetAutoDelete(kTRUE);
 			mp->SetAutoDelete(kTRUE);
 			vp->SetAutoDelete(kTRUE);
-			if(bp==0||mp==0||vp==0){ cout<<"branches are zombies!"<<endl; }
+			if(bp==0||mp==0||vp==0){ cerr<<"branches are zombies!"<<endl; break; }
+			
+			// lappdtree:
+			int branchesok=0;
+			branchesok =lappdtree->SetBranchAddress("lappdevt",       &lappd_evtnum);
+			if(branchesok<0) cerr<<"lappdevt branch error "<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappd_numhits",  &lappd_numhitsthisevt);
+			if(branchesok<0) cerr<<"lappd_numhits="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoorx",    &lappd_hitpeposxp);
+			if(branchesok<0) cerr<<"lappd_stripcoorx="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoory",    &lappd_hitpeposyp);
+			if(branchesok<0) cerr<<"lappd_stripcoory="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoorz",    &lappd_hitpeposzp);
+			if(branchesok<0) cerr<<"lappd_stripcoorz="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoort",    &lappd_hittruetimep);
+			if(branchesok<0) cerr<<"lappd_stripcoort="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_objnum",        &lappd_hittile);
+			if(branchesok<0) cerr<<"lappd_objnum="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_x",             &lappd_hittilesposx);
+			if(branchesok<0) cerr<<"lappd_z="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_y",             &lappd_hittilesposy);
+			if(branchesok<0) cerr<<"lappd_y="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_z",             &lappd_hittilesposz);
+			if(branchesok<0) cerr<<"lappd_z="<<branchesok<<endl;
+#if FILE_VERSION>3
+			branchesok =lappdtree->SetBranchAddress("lappdhit_globalcoorx",   &lappd_hitglobalposxp);
+			if(branchesok<0) cerr<<"lappd_hitglobalx="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_globalcoory",   &lappd_hitglobalposyp);
+			if(branchesok<0) cerr<<"lappd_hitglobaly="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_globalcoorz",   &lappd_hitglobalposzp);
+			if(branchesok<0) cerr<<"lappd_hitglobalz="<<branchesok<<endl;
+#endif
+			branchesok =lappdtree->SetBranchAddress("lappdhit_edep",          &lappd_numphots);
+			if(branchesok<0) cerr<<"lappd_edep="<<branchesok<<endl;
+			// lappdhit_edep is an c-style array of doubles of #true photon hits on each LAPPD in an event
+			branchesok =lappdtree->SetBranchAddress("lappdhit_totalpes_perlappd2", &lappd_hitchargep);
+			// lappdhit_totalpes_perlappd2 is the same thing in a vector, retrieved from the digits not SD hits
+			// FIXME should store the charges
+			if(branchesok<0) cerr<<"lappd_hitcharge="<<branchesok<<endl;
 			
 			// gtree:
 			gtree->SetBranchAddress("gmcrec",&genierecordval,&genierecordBranch);
@@ -714,6 +925,7 @@ void truthtracks(){
 		geniefilestring=geniefilepath;
 		dirtfilestring=TString(dirtfilename);
 		wcsimfilestring=wcsimfilepath;
+		lappdfilestring=lappdfilepath;
 		dirteventnum=localEntry;
 		
 		/* 2. Check if genie primary, and volume is in tank - if not, continue */
@@ -725,7 +937,7 @@ void truthtracks(){
 #endif
 		nTankBranch->GetEntry(localEntry);
 		vertexmaterialbranch->GetEntry(localEntry);
-		if(strcmp(vertexmaterial,"TankWater")!=0){ cout<<"neutrino vtx not in tank"<<endl; continue; }
+		if(strcmp(vertexmaterial,"TankWater")!=0){ /*cout<<"neutrino vtx not in tank"<<endl;*/ continue; }
 		if(nuprimarybranchval){delete[] nuprimarybranchval;}
 		nuprimarybranchval = new Int_t[ntankbranchval];
 		nuprimaryBranch->SetAddress(nuprimarybranchval);
@@ -755,7 +967,9 @@ void truthtracks(){
 		genie::EventRecord* gevtRec = genierecordval->event;
 		genie::Interaction* genieint = gevtRec->Summary();
 		
+		//cout<<"scraping event info"<<endl;
 		GetGenieEntryInfo(gevtRec, genieint, thegenieinfo);  // fill thegenieinfo struct with all the genie info
+		//cout<<"done scraping info"<<endl;
 		
 		genieeventnum=genieentry;
 		eventtypes=thegenieinfo.eventtypes;
@@ -824,14 +1038,29 @@ void truthtracks(){
 		cout<<"getting wcsim entry "<<wcsimTentry<<endl;
 #endif
 		if(wcsimTentry>(numwcsimentries-1)){ cout<<"can't load wcsimT entry "<<wcsimTentry
-				<<" from "<<wcsimfilepath<<" wcsimT - not enough entries!"<<endl; continue; }
+				<<" from "<<wcsimfilepath<<" wcsimT - not enough entries!"<<endl; break; }
 		wcsimT->GetEntry(wcsimTentry);
 		atrigt = b->GetTrigger(0);
 		atrigm = m->GetTrigger(0);
 		atrigv = v->GetTrigger(0);
 		
 		wcsimeventnum=wcsimTentry;
+		int eventnumcheck=atrigt->GetHeader()->GetEvtNum();
 		
+		// Get LAPPD entries as well:
+		// first we need to allocate necessary dynamic arrays
+#ifdef VERBOSE
+		cout<<"getting lappd entry"<<wcsimTentry<<endl;
+#endif
+		if(wcsimTentry>(numlappdentries-1)){ cout<<"can't load lappdtree entry "<<wcsimTentry
+				<<" from "<<lappdfilepath<<" lappdtree - not enough entries!"<<endl; continue; }
+		lappdtree->GetEntry(wcsimTentry);
+		if(lappd_evtnum!=eventnumcheck){
+			cerr<<"mismatch between lappd_evtnum="<<lappd_evtnum<<", and wcsim header event num, "
+			<<"eventnumcheck="<<eventnumcheck<<". For ref: wcsimTentry="<<wcsimTentry<<endl;
+		}
+		
+		// process WCSim truth tracks
 		Int_t numtracks = atrigt->GetNtrack();
 #ifdef VERBOSE
 		cout<<"wcsim event had "<<numtracks<<" truth tracks"<<endl;
@@ -971,9 +1200,10 @@ void truthtracks(){
 			if(primaryparentpdg!=0) continue;
 			
 			// does it start in the tank?
-			Int_t primarystartvol = nextrack->GetStartvol();
-			// temporary override as these weren't correctly set in wcsim <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-			//TODO REMOVE THIS once 1M sample is regenerated
+			Int_t primarystartvol;
+#if FILE_VERSION>1
+			primarystartvol = nextrack->GetStartvol();
+#else
 			if(nextrack->GetStart(2)<tank_start){
 				primarystartvol = 20;						// start depth is facc or hall
 			} else if(nextrack->GetStart(2)>(tank_start+(2.*tank_radius))){
@@ -981,6 +1211,7 @@ void truthtracks(){
 			} else {
 				primarystartvol = 10;						// start depth is tank
 			}
+#endif
 			
 #ifdef VERBOSE
 			cout<<"primarystartvol is "<<primarystartvol<<endl;
@@ -989,10 +1220,11 @@ void truthtracks(){
 			nummuontracksintank++;
 			
 			// does it stop in the mrd, or pass completely through the MRD? 
-			Int_t primarystopvol = nextrack->GetStopvol();
-			// temporary override as these weren't correctly set in wcsim <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-			//TODO REMOVE THIS once 1M generated. 
-			// BUT need to think about how to check for 'range-out' mrd events. Maybe this is fine?
+			Int_t primarystopvol;
+#if FILE_VERSION>1
+			primarystopvol = nextrack->GetStopvol();
+#else
+			// Do we need to think about 'range-out' mrd events. Maybe this is preferable?
 			if(nextrack->GetStop(2)<tank_start){
 				primarystopvol = 20;						// start depth is facc or hall
 			} else if(nextrack->GetStop(2)>(tank_start+(2.*tank_radius))){
@@ -1000,6 +1232,8 @@ void truthtracks(){
 			} else {
 				primarystopvol = 10;						// start depth is tank
 			}
+#endif
+			
 #ifdef VERBOSE
 			cout<<"primarystopvol is "<<primarystopvol<<endl;
 #endif
@@ -1008,11 +1242,18 @@ void truthtracks(){
 												nextrack->GetStart(1),
 												nextrack->GetStart(2),
 												nextrack->GetTime());
+#if FILE_VERSION>2
 			TLorentzVector primarystopvertex(   nextrack->GetStop(0),
 												nextrack->GetStop(1),
 												nextrack->GetStop(2),
 												nextrack->GetStopTime());
-			
+#else
+			TLorentzVector primarystopvertex(   nextrack->GetStop(0),
+												nextrack->GetStop(1),
+												nextrack->GetStop(2),
+												-1); // not stored prior to this
+#endif
+
 #ifdef WCSIMDEBUG
 			switch (primarystartvol){
 			case 10:
@@ -1226,7 +1467,7 @@ void truthtracks(){
 			
 			// first find out the z value where the tank would leave the radius of the tank
 #ifdef MUTRACKDEBUG
-			cout<<"z0 = "<<genie_z-tank_start-tank_radius<<", x0 = "<<genie_x<<endl;
+			cout<<"z0 = "<<thegenieinfo.genie_z-tank_start-tank_radius<<", x0 = "<<thegenieinfo.genie_x<<endl;
 #endif
 			Double_t xatziszero = 
 			(thegenieinfo.genie_x - (thegenieinfo.genie_z-tank_start-tank_radius)*TMath::Tan(avgtrackanglex));
@@ -1241,13 +1482,18 @@ void truthtracks(){
 			} else {
 				tankendpointz = solution2;	// backward going track
 			}
-			Double_t tankendpointx = thegenieinfo.genie_x + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackanglex);
-			// correct for tank z offset (do after tankendpointx, before tankendpointy)
+			// correct for tank z offset
 			tankendpointz += tank_start+tank_radius;
+			Double_t tankendpointx = thegenieinfo.genie_x + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackanglex);
 			// now check if the particle would have exited through one of the caps before reaching this radius
 			Double_t tankendpointy = 
 			thegenieinfo.genie_y + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackangley);
 #ifdef MUTRACKDEBUG
+			cout<<"tank start: "<<tank_start<<endl;
+			cout<<"tank end: "<<(tank_start+2*tank_radius)<<endl;
+			cout<<"tank radius: "<<tank_radius<<endl;
+			cout<<"start dir =("<<primarymomentumdir.X()<<", "<<primarymomentumdir.Y()
+				<<", "<<primarymomentumdir.Z()<<")"<<endl;
 			cout<<"avgtrackanglex="<<avgtrackanglex<<endl;
 			cout<<"avgtrackangley="<<avgtrackangley<<endl;
 			cout<<"xatziszero="<<xatziszero<<endl;
@@ -1322,6 +1568,8 @@ void truthtracks(){
 			//cout<<"this event has "<<numdigitsthisevent<<" digits"<<endl;
 			filedigitvertices.clear();
 			filedigitQs.clear();
+			filedigittsmears.clear();
+			filedigitsensortypes.clear();
 			Double_t chargeinsidecherenkovcone=0;
 			Double_t chargeoutsidecherenkovcone=0;
 			tankchargefrommuon=0.;
@@ -1343,6 +1591,7 @@ void truthtracks(){
 				double digitsq = thedigihit->GetQ();
 				double digitst = thedigihit->GetT(); // this is time within the trigger window + 950ns
 				WCSimRootEventHeader* trigheader=atrigt->GetHeader();
+#if FILE_VERSION<2
 				double triggertime=trigheader->GetDate();
 				double absolutedigitst=digitst-950.+triggertime;
 				// to be able to match digits to HitTimes to get true times or parents 
@@ -1359,7 +1608,7 @@ void truthtracks(){
 						break;
 					}
 				}
-				timeArrayOffset=0;  //ENABLE THIS OFFSET FOR NEW FILES, DISABLE FOR OLD FILES
+#endif
 				std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
 				WCSimRootPMT pmt = geo->GetPMT(digitstubeid);
 				double digitsx = pmt.GetPosition(0);
@@ -1379,7 +1628,9 @@ void truthtracks(){
 				double firstphotontime = 0.;
 				for(int truephoton=0; truephoton<truephotonindices.size(); truephoton++){
 					int thephotonsid = truephotonindices.at(truephoton);
+#if FILE_VERSION<2
 					thephotonsid+=timeArrayOffset;  // this is where we need to add in the offset!
+#endif
 					WCSimRootCherenkovHitTime *thehittimeobject = 
 						(WCSimRootCherenkovHitTime*)atrigt->GetCherenkovHitTimes()->At(thephotonsid);
 					double ahittime = thehittimeobject->GetTruetime();
@@ -1412,7 +1663,9 @@ void truthtracks(){
 				//cout<<"   digit "<<i<<" has "<<truephotonindices.size()<<" true photons"<<endl;
 				for(int truephoton=0; truephoton<truephotonindices.size(); truephoton++){
 					int thephotonsid = truephotonindices.at(truephoton);
+#if FILE_VERSION<2
 					thephotonsid+=timeArrayOffset;
+#endif
 					WCSimRootCherenkovHitTime *thehittimeobject = 
 						(WCSimRootCherenkovHitTime*)atrigt->GetCherenkovHitTimes()->At(thephotonsid);
 					Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
@@ -1433,7 +1686,8 @@ void truthtracks(){
 					tankchargefrommuon += 
 						digitsq * ((double)numphotonsfromthismuon/(double)truephotonindices.size());
 					numtankdigitsfrommuon++;
-					if(std::find(tanktubeshitbymu.begin(), tanktubeshitbymu.end(), digitstubeid)==tanktubeshitbymu.end())
+					if(std::find(tanktubeshitbymu.begin(), tanktubeshitbymu.end(),
+						 digitstubeid)==tanktubeshitbymu.end())
 						tanktubeshitbymu.push_back(digitstubeid);
 				}
 				
@@ -1445,6 +1699,87 @@ void truthtracks(){
 //				TLorentzVector adigitvector = TLorentzVector(digitsx,digitsy,digitsz,digitst);
 //				filedigitvertices.push_back(adigitvector);
 				filedigitQs.push_back(digitsq);
+				std::string digitspst;
+#if FILE_VERSION<3
+				digitspst = "PMT8inch";
+#else
+				int tubetypeindex = geo->GetTubeIndex(digitstubeid);
+				digitspst = geo->GetWCPMTNameAt(tubetypeindex);
+#endif
+				filedigitsensortypes.push_back(digitspst);
+				double timingConstant;
+				double timingResConstant;
+				double timingResMinimum;
+				double timingResPower;
+				// WCSimPMTObject.cc:255
+				// float timingResolution = timingResConstant + sqrt(timingConstant/Q);
+				// if (timingResolution < 0.58) timingResolution=0.58;
+				// float Smearing_factor = G4RandGauss::shoot(0.0,timingResolution);
+				// --> HitTimeSmearing = returned as Smearing_factor
+				// WCSimWCPMT.cc:173
+				// time_PMT = time_true + PMT->HitTimeSmearing(Q);
+				if(digitspst=="PMT8inch"){                    // SK 8inch
+						timingConstant=1.890;
+						timingResConstant=0.33;
+						timingResMinimum=0.58;
+				}
+				else if(digitspst=="R7081"){                  // 10" LUX/Watchboy
+						timingConstant = 1.890;
+						timingResConstant=0.33;
+						timingResMinimum=0.58;                // TTS: 3.2ns;
+				}
+				else if(digitspst=="D784KFLB"){               // 11" HQE LBNE
+						timingConstant = 1.890;
+						timingResConstant=0.33;
+						timingResMinimum=0.58;                // TTS: 1.98ns;
+				}
+				else if(digitspst=="R5912HQE"){               // 8"  HQE new
+						timingConstant = 1.890;
+						timingResConstant=0.33;
+						timingResMinimum=0.58;                // TTS: 2.4ns;
+				}
+				else if(digitspst=="FlatFacedPMT2inch"){      // Veto / MRD PMT ver 1
+						timingConstant = 1.890;
+						timingResConstant=0.33;
+						timingResMinimum=0.58;                // TTS: 3.0ns;
+				}
+				else if(digitspst=="lappd_v1"){               // LAPPD
+						timingConstant = 0.04;                // not yet implemented
+						timingResConstant=0.001;
+						timingResMinimum=0.05;                // TTS: 50ps;
+						timingResPower=-0.7;
+				}
+				double digitqforsmearing = (digitsq > 0.5) ? digitsq : 0.5;
+				double filedigittsmeared;
+				if(digitspst.find("lappd")== std::string::npos){
+					filedigittsmeared = timingResConstant + sqrt(timingConstant/digitqforsmearing);
+					if (filedigittsmeared < timingResMinimum) filedigittsmeared=timingResMinimum;
+					// XXX saturates at 0.5 and 2.27 << due to digitqs minimum
+				} else {
+					digitqforsmearing = (digitsq > 0.5) ? digitsq : 0.5;
+					// based on a roughly similar form that gives ~60ps for Q~30 and ~5ps for Q~1
+					filedigittsmeared = // XXX if changing ensure it is mirrored below in lappd digit sec
+						timingResConstant + timingConstant*pow(digitqforsmearing,timingResPower);
+					if (filedigittsmeared < timingResMinimum) filedigittsmeared=timingResMinimum;
+				}
+				filedigittsmears.push_back(filedigittsmeared);
+				//float Smearing_factor = G4RandGauss::shoot(0.0,filedigittsmeared);
+				digitsqpmthist->Fill(digitsq);
+				digitstpmthist->Fill(digitst);
+				digittsmearpmthist->Fill(filedigittsmeared);
+				pmttimesmearvsqhist->Fill(filedigittsmeared,digitsq);
+
+#ifdef LAPPD_DEBUG
+				intileposx.push_back(0);
+				intileposy.push_back(0);
+#ifdef FILE_VERSION>3
+				poserrx.push_back(0);
+				poserry.push_back(0);
+				poserrz.push_back(0);
+#endif
+				tileorient.push_back(0);
+				octagonside.push_back(0);
+#endif
 				
 			}  // end loop over digits
 			
@@ -1479,27 +1814,188 @@ void truthtracks(){
 				fractionalchargeincone=0;
 			}
 			
+			// end of digit analysis
+			////////////////////////////////////////////////
+			
+			// ----------------------------------------------------------------------------------------------
+			// lappd digit analysis
+			// ----------------------------------------------------------------------------------------------
+			// FIXME: the vectors store all digits in the event regardless of which trigger they are in. 
+			// we should scan through and only retrieve / fill jingbo file vectors with events within
+			// the trigger window.
+			
+			int runningcount=0;
+			for(int lappdi=0; lappdi<lappd_numhitsthisevt; lappdi++){
+				// loop over LAPPDs that had at least one hit
+				int LAPPDID = lappd_hittile[lappdi];
+				double tileposx = lappd_hittilesposx[lappdi];  // position of LAPPD in global coords
+				double tileposy = lappd_hittilesposy[lappdi];
+				double tileposz = lappd_hittilesposz[lappdi];
+				WCSimRootPMT pmt = geo->GetLAPPD(LAPPDID-1);
+				double pmtx = pmt.GetPosition(0);              // verified these are equivalent ^
+				double pmty = pmt.GetPosition(1);
+				double pmtz = pmt.GetPosition(2);
+				double posxmod, posymod, poszmod;  // need to transform in-plane hit pos into global coords
+				int thepmtsloc = pmt.GetCylLoc();
+				double Rinnerstruct=270.9/2.; // cm octagonal inner structure radius = 106.64"
+				double Rthresh=Rinnerstruct*pow(2.,-0.5);
+				bool printthis=false;
+				double tileangle;
+				int theoctagonside;
+				switch (thepmtsloc){
+					case 0: break; // top cap
+					case 2: break; // bottom cap
+					case 1: // wall
+						// we need to account for the angle of the LAPPD within the tank
+						// determine the angle based on it's position
+						double octangle1=TMath::Pi()*(3./8.);
+						double octangle2=TMath::Pi()*(1./8.);
+						pmtz+=-tank_start-tank_radius;
+							 if(pmtx<-Rthresh&&pmtz<0)         {tileangle=-octangle1; theoctagonside=0;}
+						else if(-Rthresh<pmtx&&pmtx<0&&pmtz<0) {tileangle=-octangle2; theoctagonside=1;}
+						else if(0<pmtx&&pmtx<Rthresh&&pmtz<0)  {tileangle=octangle2;  theoctagonside=2;}
+						else if(Rthresh<pmtx&&pmtz<0)          {tileangle=octangle1;  theoctagonside=3;}
+						else if(pmtx<-Rthresh&&pmtz>0)         {tileangle=octangle1;  theoctagonside=4;}
+						else if(-Rthresh<pmtx&&pmtx<0&&pmtz>0) {tileangle=octangle2;  theoctagonside=5;}
+						else if(0<pmtx&&pmtx<Rthresh&&pmtz>0)  {tileangle=-octangle2; theoctagonside=6;}
+						else if(Rthresh<pmtx&&pmtz>0)          {tileangle=-octangle1; theoctagonside=7;}
+						break;
+				}
+				int numhitsthislappd=lappd_numphots[lappdi];
+				int lastrunningcount=runningcount;
+				// loop over all the hits on this lappd
+				for(;runningcount<(lastrunningcount+numhitsthislappd); runningcount++){
+					double peposx = lappd_hitpeposx.at(runningcount);      // position of hit on tile in LAPPD
+					double peposy = lappd_hitpeposy.at(runningcount);
+					//double peposz   = lappd_hitpeposz.at(runningcount);  // no apparent meaning
+					double digitsx, digitsy, digitsz;
+					switch (thepmtsloc){
+						case 0: // top cap
+							digitsx  = tileposx - peposx;  // perfect
+							digitsy  = tileposy;           // mostly error +9.2? but some down to -9.2?
+							digitsz  = tileposz - peposy;  // perfect
+							break;
+						case 2: // bottom cap
+							digitsx  = tileposx + peposx;  // perfect
+							digitsy  = tileposy;           // mostly error -9.2? but some up to +9.2?
+							digitsz  = tileposz - peposy;  // perfect
+							break;
+						case 1: // wall
+							digitsy  = tileposy + peposx; // perfect
+							if(theoctagonside<4){
+									digitsx  = tileposx - peposy*TMath::Cos(tileangle);
+									digitsz  = tileposz - peposy*TMath::Sin(tileangle);
+							} else {
+									digitsx  = tileposx + peposy*TMath::Cos(tileangle);
+									digitsz  = tileposz + peposy*TMath::Sin(tileangle);
+							}
+					}
+#ifdef LAPPD_DEBUG
+					static int printcount1=0;
+					static int printcount2=0;
+					static int printcount3=0;
+					static std::vector<int>printedtiles(30,-1);
+					if( printthis &&
+					   ((printcount1<10&&thepmtsloc==1) ||
+						(printcount2<10&&thepmtsloc==0) ||
+						(printcount3<10&&thepmtsloc==2)) &&
+					   (find(printedtiles.begin(),printedtiles.end(),LAPPDID)==printedtiles.end())){
+						switch (thepmtsloc){
+							case 1: printcount1++; cout<<"wall "; break;
+							case 0: printcount2++; cout<<"top cap "; break;
+							case 2: printcount3++; cout<<"bottom cap "; break;
+						}
+						cout<<"lappd position is: ("
+							<<tileposx<<", "<<tileposy<<", "<<tileposz<<")"<<endl;
+						cout<<"pepos is: ("<<peposx<<", "<<peposy<<")"<<endl;
+						cout<<"derived position is: ("
+							<<digitsx<<", "<<digitsy<<", "<<digitsz<<")"<<endl
+#ifdef FILE_VERSION>3
+							<<"true global position is: ("<<lappd_hitglobalposx.at(runningcount)
+							<<", "<<lappd_hitglobalposy.at(runningcount)
+							<<", "<<lappd_hitglobalposz.at(runningcount)<<")"<<endl;
+#endif
+					}
+#endif
+					double digitst  = lappd_hittruetime.at(runningcount);
+#if FILE_VERSION<10 // dont know what file version this will be fixed in 
+					// need to correct time as it isn't the time within the trigger window.
+					WCSimRootEventHeader* trigheader=atrigt->GetHeader();
+					double triggertime=trigheader->GetDate();
+					// n.b. all lappd digits are stored regardless of being in or outside trigger window.
+					// so this time may be way out, this digit may even be part of a different trigger.
+					// (we could check if abs time > trigger time for next trig...)
+					digitst=digitst+950.-triggertime;
+#endif
+					ROOT::Math::XYZTVector adigitvector =  // convert mm to cm 
+						ROOT::Math::XYZTVector(digitsx/10.,digitsy/10.,digitsz/10.,digitst);
+					
+#ifdef LAPPD_DEBUG
+					intileposx.push_back(peposx);
+					intileposy.push_back(peposy);
+#ifdef FILE_VERSION>3
+					poserrx.push_back(digitsx-lappd_hitglobalposx.at(runningcount));
+					poserry.push_back(digitsy-lappd_hitglobalposy.at(runningcount));
+					poserrz.push_back(digitsz-lappd_hitglobalposz.at(runningcount));
+#endif
+					tileorient.push_back(thepmtsloc);
+					octagonside.push_back(theoctagonside);
+#endif
+#if FILE_VERSION>10 // don't know when this will be fixed
+					double digitsq = lappd_hitcharge.at(runningcount);
+#else
+					// lappd hit charge is not stored - only a count of pes within the whole event is stored.
+					// for now we'll calculate the charge here using the formula WCSim would have used:
+					double random = mrand->Rndm();
+					double random2 = mrand->Rndm(); 
+					float *qpe0 = Getlappdqpe();
+					int irand;
+					for(irand = 0; irand < 501; irand++){ if (random <= *(qpe0+irand)) break; }
+					if(irand==500) random = mrand->Rndm();
+					double digitsq = (double(irand-50) + random2)/22.83;
+					// FIXME: digit charges for LAPPDs have a big peak at <1 charge, because there's
+					// no digitizer integration and rejection step. Don't know if we can transfer this... 
+//					int iflag;
+//					SKIDigitizerThreshold(digitsq,iflag);
+//					if(iflag!=0) continue; // this digit gets rejected by digitizer ... if it were a PMT
+//					// TODO need to move all vector push_back's after this if we want to 'continue' 
+//					// in order to keep all vectors the same size
+//					digitsq*0.985;         // efficiency in WCSimWCDigitizer
+#endif
+					filedigitvertices.push_back(adigitvector);
+					filedigitQs.push_back(digitsq);
+					filedigitsensortypes.push_back("lappd_v0"); // bad timing resolution used for pulses
+					double timingConstant = 0.04;
+					double timingResConstant=0.001;
+					double timingResMinimum=0.005;              // TTS: 50ps;
+					double timingResPower=-0.7;
+					double digitqforsmearing = (digitsq > 0.5) ? digitsq : 0.5;
+					// based on a roughly similar form that gives ~60ps for Q~1 and ~5ps for Q~30
+					double filedigittsmeared = // XXX if changing this ensure it is mirrored above.
+						timingResConstant + timingConstant*pow(digitqforsmearing,timingResPower);
+					// saturates @ 0.065 with majority of entries.
+					if (filedigittsmeared < timingResMinimum) filedigittsmeared=timingResMinimum;
+					filedigittsmears.push_back(filedigittsmeared);
+					digitsqlappdhist->Fill(digitsq);
+					digitstlappdhist->Fill(digitst);
+					digittsmearlappdhist->Fill(filedigittsmeared);
+					lappdtimesmearvsqhist->Fill(filedigittsmeared,digitsq);
+				}
+			}
+			
+			// end of lappd digit analysis
+			////////////////////////////////////////////////
+			
 			// Fill simplified file for reconstruction dev
 			///////////////////////////////////////////////
 			filemuonstartvertex = primarystartvertex;
 			filemuonstopvertex = primarystopvertex;
 			filemuondirectionvector = differencevector.Unit();
-			MuonStartBranch->Fill();
-			MuonStopBranch->Fill();
-			MuonDirectionBranch->Fill();
-			DigitVertexBranch->Fill();
-			DigitChargeBranch->Fill();
+			vertextreenocuts->Fill();
 			if(isinfiducialvol){
-					MuonStartBranchFid->Fill();
-					MuonStopBranchFid->Fill();
-					MuonDirectionBranchFid->Fill();
-					DigitVertexBranchFid->Fill();
-					DigitChargeBranchFid->Fill();
+					vertextreefiducialcut->Fill();
 					nummuontracksinfidvol++;
 			}
-			
-			// end of digit analysis
-			////////////////////////////////////////////////
 			
 			// ----------------------------------------------------------------------------------------------
 			// mrd digit analysis
@@ -1516,6 +2012,7 @@ void truthtracks(){
 					(WCSimRootCherenkovDigiHit*)atrigm->GetCherenkovDigiHits()->At(i);
 				int digitstubeid = thedigihit->GetTubeId()-1;
 				double digitsq = thedigihit->GetQ();
+#if FILE_VERSION<2
 				// we need to correct the indices returned by GetPhotonIds with the PMT offset
 				// to be able to retrieve digit parents and extract digits from primary mu
 				int timeArrayOffset=-1;
@@ -1529,14 +2026,16 @@ void truthtracks(){
 						break;
 					}
 				}
-				timeArrayOffset=0;  //ENABLE FOR NEW FILES, DISABLE FOR OLD FILES
+#endif
 				// Calculate total charge from muon
 				////////////////////////////////////
 				std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
 				int numphotonsfromthismuon=0;
 				for(int truephoton=0; truephoton<truephotonindices.size(); truephoton++){
 					int thephotonsid = truephotonindices.at(truephoton);
-					thephotonsid+=timeArrayOffset;   //TODO: DISABLE THIS WHEN ANALYSING 01-05-17 SAMPLE
+#if FILE_VERSION<2
+					thephotonsid+=timeArrayOffset;
+#endif
 					WCSimRootCherenkovHitTime *thehittimeobject = 
 						(WCSimRootCherenkovHitTime*)atrigm->GetCherenkovHitTimes()->At(thephotonsid);
 					Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
@@ -1584,6 +2083,7 @@ void truthtracks(){
 			bDirtFileString->Fill();
 			bDirtEventNum->Fill();
 			bWCSimFileString->Fill();
+			bLAPPDFileString->Fill();
 			bWCSimEventNum->Fill();
 			bInTank->Fill();
 			bEventType->Fill();
@@ -1732,24 +2232,13 @@ void truthtracks(){
 				fslenergiesacceptedfidcut->Fill(thegenieinfo.fsleptonenergy);
 				eventq2acceptedfidcut->Fill(thegenieinfo.Q2);
 				// fill flat tree for reconstruction dev
-				MuonStartBranchFidMRD->Fill();
-				MuonStopBranchFidMRD->Fill();
-				MuonDirectionBranchFidMRD->Fill();
-				DigitVertexBranchFidMRD->Fill();
-				DigitChargeBranchFidMRD->Fill();
+				vertextreefiducialmrd->Fill();
 				numCCQEneutrinoeventsinfidvolmrd++;
 				nummuontracksinfidvolmrd+=scatteringanglesvector.size();
 			}
 		}
 		
-		vertextreenocuts->SetEntries(MuonStartBranch->GetEntries());
-		vertextreefiducialcut->SetEntries(MuonStartBranchFid->GetEntries());
-		vertextreefiducialmrd->SetEntries(MuonStartBranchFidMRD->GetEntries());
 		flateventfileout->Write("",TObject::kOverwrite);
-//		flateventfileout->cd();
-//		vertextreenocuts->Write();
-//		vertextreefiducialcut->Write();
-//		vertextreefiducialmrd->Write();
 	}  // end of loop over events
 	
 	//======================================================================================================
@@ -2157,6 +2646,18 @@ void truthtracks(){
 	delete debug3;
 #endif  // WCSIMDEBUG
 #endif  // DRAW_HISTOS
+
+	if(flateventfileout){
+		flateventfileout->cd();
+		digitsqpmthist->Write();
+		digitsqlappdhist->Write();
+		digitstpmthist->Write();
+		digitstlappdhist->Write();
+		digittsmearpmthist->Write();
+		digittsmearlappdhist->Write();
+		lappdtimesmearvsqhist->Write();
+		pmttimesmearvsqhist->Write();
+	}
 	
 	// cleanup
 	// =======
@@ -2261,8 +2762,10 @@ void truthtracks(){
 	if(histofileout) histofileout->Close(); delete histofileout; histofileout=0;
 	
 	// delete flat file output
-	//cout<<"deleting flat file output"<<endl;
-	if(flateventfileout) flateventfileout->Close(); delete flateventfileout;
+	//cout<<"deleting flat file output "<<flateventfileout<<endl;
+	if(flateventfileout){
+		flateventfileout->Close(); delete flateventfileout;
+	}
 	
 	// write and close file of event information
 	fileout->cd();
@@ -2321,7 +2824,15 @@ void GetGenieEntryInfo(genie::EventRecord* gevtRec, genie::Interaction* genieint
 	thegenieinfo.eventtypes.at("IsWeakCC") = genieint->ProcInfo().IsWeakCC();
 	thegenieinfo.eventtypes.at("IsWeakNC") = genieint->ProcInfo().IsWeakNC();
 	thegenieinfo.eventtypes.at("IsMEC") = genieint->ProcInfo().IsMEC();
-	/*Int_t*/ thegenieinfo.neutinteractioncode = genie::utils::ghep::NeutReactionCode(gevtRec);
+	/*
+	getting the neut reaction code results in the printing of a bunch of surplus info, e.g:
+1501283211 NOTICE GHepUtils : [n] <GHepUtils.cxx::NeutReactionCode (106)> : Current event is RES or DIS with W<2
+1501283211 NOTICE GHepUtils : [n] <GHepUtils.cxx::NeutReactionCode (153)> : Num of primary particles: 
+ p = 1, n = 0, pi+ = 0, pi- = 1, pi0 = 0, eta = 0, K+ = 0, K- = 0, K0 = 0, Lambda's = 0, gamma's = 0
+	if we could redirect and capture this (rather than printing it to stdout) it might actually be useful,
+	as extracting number of other hadrons doesn't work! but for now, just turn it off to reduce verbosity.
+	*/
+	/*Int_t*/ thegenieinfo.neutinteractioncode = -1; //genie::utils::ghep::NeutReactionCode(gevtRec);
 	/*Int_t*/ thegenieinfo.nuanceinteractioncode  = genie::utils::ghep::NuanceReactionCode(gevtRec);
 	/*TLorentzVector**/ thegenieinfo.genieVtx = gevtRec->Vertex();
 	/*Double_t*/ thegenieinfo.genie_x = thegenieinfo.genieVtx->X() * 100.;         // same info as nuvtx in g4dirt file
@@ -2523,5 +3034,145 @@ void FillTankMapHist(WCSimRootGeom* geo, int tubeID, bool incone, std::map<std::
 void ClearMapHistos(std::map<std::string,TH2D*> maphistos){
 	for(std::map<std::string,TH2D*>::iterator it= maphistos.begin(); it!=maphistos.end(); it++){
 		it->second->Reset();
+	}
+}
+
+float* Getlappdqpe(){
+  static float qpe0[501]= {
+    // 1
+    0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+    0.000000, 0.000129, 0.000754, 0.004060, 0.028471,
+    // 2
+    0.068449, 0.115679, 0.164646, 0.203466, 0.235631,
+    0.262351, 0.282064, 0.303341, 0.320618, 0.338317,
+    0.357825, 0.371980, 0.385820, 0.398838, 0.413595,
+    0.428590, 0.444387, 0.461685, 0.482383, 0.502369,
+    0.520779, 0.540011, 0.559293, 0.579354, 0.599337,
+    0.619580, 0.639859, 0.659807, 0.679810, 0.699620,
+    0.718792, 0.737382, 0.755309, 0.772042, 0.788232,
+    0.803316, 0.817861, 0.831148, 0.844339, 0.855532,
+    0.866693, 0.876604, 0.886067, 0.894473, 0.902150,
+    0.909515, 0.915983, 0.922050, 0.927418, 0.932492,
+    // 3
+    0.936951, 0.940941, 0.944660, 0.948004, 0.951090,
+    0.953833, 0.956576, 0.958886, 0.961134, 0.963116,
+    0.964930, 0.966562, 0.968008, 0.969424, 0.970687,
+    0.971783, 0.972867, 0.973903, 0.974906, 0.975784,
+    0.976632, 0.977438, 0.978190, 0.978891, 0.979543,
+    0.980124, 0.980666, 0.981255, 0.981770, 0.982227,
+    0.982701, 0.983146, 0.983566, 0.983975, 0.984357,
+    0.984713, 0.985094, 0.985404, 0.985739, 0.986049,
+    0.986339, 0.986630, 0.986922, 0.987176, 0.987431,
+    0.987655, 0.987922, 0.988173, 0.988414, 0.988639,
+    // 4
+    0.988856, 0.989065, 0.989273, 0.989475, 0.989662,
+    0.989828, 0.990007, 0.990172, 0.990327, 0.990497,
+    0.990645, 0.990797, 0.990981, 0.991135, 0.991272,
+    0.991413, 0.991550, 0.991673, 0.991805, 0.991928,
+    0.992063, 0.992173, 0.992296, 0.992406, 0.992514,
+    0.992632, 0.992733, 0.992837, 0.992954, 0.993046,
+    0.993148, 0.993246, 0.993354, 0.993458, 0.993549,
+    0.993656, 0.993744, 0.993836, 0.993936, 0.994033,
+    0.994134, 0.994222, 0.994307, 0.994413, 0.994495,
+    0.994572, 0.994659, 0.994739, 0.994816, 0.994886,
+    // 5
+    0.994970, 0.995032, 0.995110, 0.995178, 0.995250,
+    0.995321, 0.995383, 0.995464, 0.995532, 0.995609,
+    0.995674, 0.995750, 0.995821, 0.995889, 0.995952,
+    0.996010, 0.996071, 0.996153, 0.996218, 0.996283,
+    0.996335, 0.996384, 0.996431, 0.996484, 0.996537,
+    0.996597, 0.996655, 0.996701, 0.996745, 0.996802,
+    0.996860, 0.996917, 0.996962, 0.997014, 0.997079,
+    0.997114, 0.997165, 0.997204, 0.997250, 0.997295,
+    0.997335, 0.997379, 0.997418, 0.997454, 0.997488,
+    0.997530, 0.997573, 0.997606, 0.997648, 0.997685,
+    // 6
+    0.997725, 0.997762, 0.997795, 0.997835, 0.997866,
+    0.997898, 0.997941, 0.997966, 0.997997, 0.998039,
+    0.998065, 0.998104, 0.998128, 0.998153, 0.998179,
+    0.998205, 0.998223, 0.998254, 0.998293, 0.998319,
+    0.998346, 0.998374, 0.998397, 0.998414, 0.998432,
+    0.998456, 0.998482, 0.998511, 0.998532, 0.998553,
+    0.998571, 0.998594, 0.998614, 0.998638, 0.998669,
+    0.998693, 0.998715, 0.998743, 0.998762, 0.998793,
+    0.998812, 0.998834, 0.998857, 0.998872, 0.998888,
+    0.998904, 0.998926, 0.998946, 0.998963, 0.998983,
+    // 7
+    0.999007, 0.999027, 0.999044, 0.999064, 0.999079,
+    0.999096, 0.999120, 0.999133, 0.999152, 0.999160,
+    0.999174, 0.999188, 0.999206, 0.999221, 0.999234,
+    0.999248, 0.999263, 0.999276, 0.999286, 0.999300,
+    0.999313, 0.999321, 0.999331, 0.999347, 0.999356,
+    0.999369, 0.999381, 0.999394, 0.999402, 0.999415,
+    0.999427, 0.999433, 0.999446, 0.999458, 0.999472,
+    0.999484, 0.999499, 0.999513, 0.999522, 0.999532,
+    0.999540, 0.999550, 0.999559, 0.999567, 0.999574,
+    0.999588, 0.999599, 0.999613, 0.999618, 0.999627,
+    // 8
+    0.999635, 0.999639, 0.999652, 0.999662, 0.999667,
+    0.999671, 0.999678, 0.999682, 0.999688, 0.999693,
+    0.999698, 0.999701, 0.999706, 0.999711, 0.999718,
+    0.999722, 0.999727, 0.999732, 0.999737, 0.999740,
+    0.999746, 0.999750, 0.999754, 0.999763, 0.999766,
+    0.999769, 0.999774, 0.999780, 0.999784, 0.999788,
+    0.999796, 0.999803, 0.999807, 0.999809, 0.999815,
+    0.999820, 0.999827, 0.999830, 0.999833, 0.999833,
+    0.999836, 0.999839, 0.999842, 0.999845, 0.999850,
+    0.999853, 0.999857, 0.999860, 0.999865, 0.999870,
+    // 9
+    0.999873, 0.999877, 0.999880, 0.999882, 0.999883,
+    0.999886, 0.999888, 0.999889, 0.999895, 0.999896,
+    0.999897, 0.999901, 0.999902, 0.999905, 0.999907,
+    0.999907, 0.999909, 0.999911, 0.999911, 0.999912,
+    0.999913, 0.999914, 0.999917, 0.999919, 0.999921,
+    0.999923, 0.999927, 0.999929, 0.999931, 0.999933,
+    0.999936, 0.999942, 0.999942, 0.999944, 0.999947,
+    0.999947, 0.999948, 0.999949, 0.999952, 0.999955,
+    0.999957, 0.999957, 0.999961, 0.999962, 0.999963,
+    0.999963, 0.999963, 0.999964, 0.999965, 0.999965,
+    // 10
+    0.999965, 0.999965, 0.999966, 0.999968, 0.999969,
+    0.999971, 0.999972, 0.999972, 0.999973, 0.999975,
+    0.999975, 0.999975, 0.999975, 0.999975, 0.999975,
+    0.999975, 0.999979, 0.999979, 0.999980, 0.999982,
+    0.999983, 0.999985, 0.999986, 0.999987, 0.999987,
+    0.999988, 0.999989, 0.999989, 0.999989, 0.999989,
+    0.999990, 0.999990, 0.999992, 0.999993, 0.999994,
+    0.999994, 0.999994, 0.999994, 0.999994, 0.999995,
+    0.999995, 0.999995, 0.999996, 0.999996, 0.999996,
+    0.999996, 0.999998, 0.999999, 1.000000, 1.000000,
+    // Dummy element for noticing if the loop reached the end of the array
+    0.0 
+  };
+  return qpe0;
+}
+
+void SKIDigitizerThreshold(double& pe,int& iflag){
+	double x = pe+0.1; iflag=0;
+	double thr; double RDUMMY,err;
+	if ( x<1.1) {
+	  thr = std::min(1.0,
+			 -0.06374+x*(3.748+x*(-63.23+x*(452.0+x*(-1449.0+x*(2513.0
+									+x*(-2529.+x*(1472.0+x*(-452.2+x*(51.34+x*2.370))))))))));
+	} else {
+	  thr = 1.0;
+	}
+	RDUMMY = mrand->Rndm();
+	if (thr < RDUMMY) {
+	  pe = 0.0;
+	  iflag = 1;
+	}
+	else {
+	  err = mrand->Gaus(0.0,0.03);
+	  /////      call rngaus(0.0, 0.03, err);
+	  pe = pe+err;
 	}
 }

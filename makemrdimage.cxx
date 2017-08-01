@@ -14,10 +14,10 @@
 #endif
 
 void cMRDSubEvent::DrawMrdCanvases(){
-// TODO: need to handle cleanup
 #ifdef DRAWVERBOSE
 	cout<<"making canvas plots"<<endl;
 #endif
+	if(fillstaticmembers) FillStaticMembers();  // fills the canvas colours
 	//debug: highlight the corner paddles for checking
 //	std::vector<int> holdme(pmts_hit); // remember to disable this also at the end of this method
 //	std::vector<int> pmtshit_debug{

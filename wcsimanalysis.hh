@@ -1,4 +1,7 @@
 /* vim:set noexpandtab tabstop=4 wrap */
+#ifndef WCSimAnalysisClass
+#define WCSimAnalysisClass
+
 #include "TROOT.h"
 #include "TSystem.h"
 #include "TSystemFile.h"
@@ -45,9 +48,6 @@
 //#include "../wcsim/include/WCSimRootLinkDef.hh"
 // #######################################################################
 
-#ifndef WCSimAnalysisClass
-#define WCSimAnalysisClass
-
 // CLASS DEF
 // =========
 class WCSimAnalysis : public TObject {
@@ -86,7 +86,7 @@ class WCSimAnalysis : public TObject {
 	std::string currentfilestring;
 	Int_t eventnum;
 	Int_t runnum;
-	Int_t subtriggernum;
+	Int_t triggernum;
 
 	// PMT MAP VARIABLES
 	// needed for drawing tank histograms
@@ -370,7 +370,6 @@ WCSimAnalysis::~WCSimAnalysis(){
 
 //TODO std::string intxnumtotype(gst genieeventasclass){
 
-#endif
 
 #ifdef __CINT__
 #pragma link C++ class WCSimAnalysis+;
@@ -379,8 +378,6 @@ WCSimAnalysis::~WCSimAnalysis(){
 // ###########################################################################
 
 // WCSim class summary:
-
-
 
 /* 
 WCSimRootTrack has methods: 
@@ -399,4 +396,6 @@ Int_t     GetParenttype()       parent pdg
 Float_t   GetTime()             trj->GetGlobalTime(); stopping(?) time of particle
 Int_t     GetId()               wcsim trackid
 */
+
+#endif
 

@@ -23,20 +23,18 @@
 #include "MRDSubEvent_ReconstructionClasses.hh"	// defines classes used in DoReconstruction() function
 #include "MRDTrackClass.hh"
 
-const std::vector<EColor> mycolours{kBlack, kBlue, (EColor)TColor::GetColorDark(kGreen), kRed, kViolet, kOrange, kMagenta,(EColor)(kAzure+2),(EColor)(kOrange+4),(EColor)(kViolet-6),(EColor)(kTeal-6)};
-
 class cMRDSubEvent : public TObject {
 	
 	// Private members
 	// ===============
 	private:
-	Int_t MRDSubEventID;					// ID of this track within the subtrigger
+	Int_t mrdsubevent_id;					// ID of this track within the trigger
 	
 	// Raw Info:
 	std::string wcsimfile;					// which wcsim file this was in
-	Int_t run_id;							// which run this file was in  FIXME is same as MRDSubEventID
-	Int_t event_id;							// which event this track was in FIXME loads of 0's
-	Int_t subtrigger;						// which (sub)trigger this track was in FIXME loads -1s/1's, no 0s
+	Int_t run_id;							// which run this file was in  FIXME is same as mrdsubevent_id
+	Int_t event_id;							// which event this track was in
+	Int_t trigger;							// which (sub)trigger this track was in FIXME loads -1s/1's, no 0s
 	std::vector<Int_t> digi_ids;			// vector of digi ids: GetCherenkovDigiHits()->At(digi_ids.at(i))
 	std::vector<Int_t> pmts_hit;			// vector of PMT IDs hit
 	std::vector<Double_t> digi_qs;			// vector of digit charges
@@ -49,8 +47,8 @@ class cMRDSubEvent : public TObject {
 	
 	// Calculated/Reconstructed Info
 	std::vector<cMRDTrack> tracksthissubevent;	// tracks created this SubEvent
-	std::vector<Int_t> layers_hit;			// vector of layers hit TODO currently empty
-	std::vector<Double_t> eDepsInLayers;	// (fixed length) vector of net energy deposition in each layer ^TODO
+	std::vector<Int_t> layers_hit;				// vector of layers hit TODO currently empty
+	std::vector<Double_t> eDepsInLayers;		// fixed len vector of energy deposition in each layer TODO
 	
 	// Involved in drawing
 	std::pair<double, double> xupcorner1, xupcorner2, xdowncorner1, xdowncorner2, yupcorner1, yupcorner2, ydowncorner1, ydowncorner2;  // TODO remove me, probably can just be defined in makemrdimage.cxx
@@ -65,7 +63,7 @@ class cMRDSubEvent : public TObject {
 	std::string GetFile(){return wcsimfile;}
 	Int_t GetRunID(){return run_id;}
 	Int_t GetEventID(){return event_id;}
-	Int_t GetSubTrigger(){return subtrigger;}
+	Int_t GetTrigger(){return trigger;}
 	
 	// Top level information about the subevent
 	Int_t GetNumDigits(){return digi_ids.size();}
@@ -82,6 +80,8 @@ class cMRDSubEvent : public TObject {
 	std::vector<TArrow*> GetCATrackArrows(){return trackarrows;}
 	std::vector<TArrow*> GetTrueTrackArrows(){return truetrackarrows;}
 	std::vector<TArrow*> GetTrackFitArrows(){return trackfitarrows;}
+	
+	void Print(); // print the subevent info.
 	
 //	// Digit Level Getters - all the obtainable information about a digit. Or just return the digit?
 //	// ===============================
@@ -128,12 +128,26 @@ class cMRDSubEvent : public TObject {
 	void DoReconstruction(bool printtracks, bool drawcells, bool drawfit);
 	// Used within DoReconstruction (CA version) 
 	void LeastSquaresMinimizer(Int_t numdatapoints, Double_t datapointxs[], Double_t datapointys[], Double_t datapointweights[], Double_t errorys[], Double_t &fit_gradient, Double_t &fit_offset, Double_t &chi2);
+	bool BridgeSearch(const std::vector<mrdcell*> &tracktotest, const std::vector<std::pair<int,int> > &matchedtracks, const std::vector<std::vector<mrdcell*> > &allpaddletracks, const std::string horv);
+	bool SearchForClusterInTracks(const std::vector<std::pair<int,int> > &matchedtracks, const std::vector<std::vector<mrdcell*> > &allpaddletracks, const std::vector<mrdcell*> tracktotest, const std::string horv);
+	
+	void FillStaticMembers(){
+//		// fill static members
+//		std::vector<Int_t> temp(aspectrum, aspectrum+19);
+//		//aspectrumv.assign(temp.rbegin(), temp.rend());
+//		aspectrumv.assign(temp.begin(), temp.end());
+		for(int i=0; i<19; i++){
+			Int_t colorindex = TColor::GetColor(colorhexes.at(i).c_str());
+			aspectrumv.at(i)=colorindex;
+		}
+		fillstaticmembers=false;
+	}
 	
 	// Default Constructor
 	// ====================
 	public:
 	// Default constructor that initialises all private members required for ROOT classes
-	cMRDSubEvent() : MRDSubEventID(-1), wcsimfile(""), run_id(-1), event_id(-1), subtrigger(-1), digi_ids(), pmts_hit(), digi_qs(), digi_ts(), digi_numphots(), digi_phot_ts(), digi_phot_parents(), layers_hit(), eDepsInLayers(), tracksthissubevent(), truetracks() {};
+	cMRDSubEvent() : mrdsubevent_id(-1), wcsimfile(""), run_id(-1), event_id(-1), trigger(-1), digi_ids(), pmts_hit(), digi_qs(), digi_ts(), digi_numphots(), digi_phot_ts(), digi_phot_parents(), layers_hit(), eDepsInLayers(), tracksthissubevent(), truetracks() {};
 	
 	// destructor
 	~cMRDSubEvent(){
@@ -145,13 +159,13 @@ class cMRDSubEvent : public TObject {
 	
 	// Actual Constructor
 	// ==================
-	cMRDSubEvent(Int_t mrdsubeventidin, std::string wcsimefilein, Int_t runidin, Int_t eventidin,
-	Int_t subtriggerin, std::vector<Int_t> digitidsin, std::vector<Int_t> digittubesin, std::vector<Double_t>
+	cMRDSubEvent(Int_t mrdsubevent_idin, std::string wcsimefilein, Int_t runidin, Int_t eventidin,
+	Int_t triggerin, std::vector<Int_t> digitidsin, std::vector<Int_t> digittubesin, std::vector<Double_t>
 	digitqsin, std::vector<Double_t> digittimesin, std::vector<Int_t> digitnumphotsin, std::vector<Double_t> 
 	digitstruetimesin, std::vector<Int_t> digitsparentsin, std::vector<WCSimRootTrack*> truetracksin) :
 	/* information retrieved when creating the track: initialize with input */
-	MRDSubEventID(mrdsubeventidin), wcsimfile(wcsimefilein), run_id(runidin), event_id(eventidin),
-	subtrigger(subtriggerin), digi_ids(digitidsin), pmts_hit(digittubesin), digi_qs(digitqsin),
+	mrdsubevent_id(mrdsubevent_idin), wcsimfile(wcsimefilein), run_id(runidin), event_id(eventidin),
+	trigger(triggerin), digi_ids(digitidsin), pmts_hit(digittubesin), digi_qs(digitqsin),
 	digi_ts(digittimesin), digi_numphots(digitnumphotsin), digi_phot_ts(digitstruetimesin),
 	digi_phot_parents(digitsparentsin),
 	/* information calculated: initialize to default */
@@ -166,17 +180,7 @@ class cMRDSubEvent : public TObject {
 #ifdef _MRDSubEvent_VERBOSE_
 		cout<<endl<<"constructing a subevent with "<<digi_ids.size()<<" digits"<<endl;
 #endif
-		if(fillstaticmembers){
-//			// fill static members
-//			std::vector<Int_t> temp(aspectrum, aspectrum+19);
-//			//aspectrumv.assign(temp.rbegin(), temp.rend());
-//			aspectrumv.assign(temp.begin(), temp.end());
-			for(int i=0; i<19; i++){
-				Int_t colorindex = TColor::GetColor(colorhexes.at(i).c_str());
-				aspectrumv.at(i)=colorindex;
-			}
-			fillstaticmembers=false;
-		}
+		if(fillstaticmembers) FillStaticMembers();
 		
 		Bool_t printtracks=false;
 		Bool_t drawcells=false;
@@ -185,8 +189,8 @@ class cMRDSubEvent : public TObject {
 		Bool_t saveimage=false;
 		
 		if(drawcells||drawfit||drawtruetracks) DrawMrdCanvases();  // creates the canvas with the digits
-		DoReconstruction(printtracks, drawcells, drawfit); // adds the tracks to the canvas
 		if(drawtruetracks) DrawTrueTracks();   // draws true tracks over the event
+		DoReconstruction(printtracks, drawcells, drawfit); // adds the tracks to the canvas
 		if(saveimage) imgcanvas->SaveAs(TString::Format("mrdtracks_%d.png",event_id));
 		//cout<<"sleeping for 5 seconds to analyse output"<<endl;
 		//if(tracksthissubevent.size()) std::this_thread::sleep_for (std::chrono::seconds(15));
@@ -200,6 +204,7 @@ class cMRDSubEvent : public TObject {
 	// =======
 	void DrawMrdCanvases();
 	void DrawTrueTracks();
+	void DrawTracks();
 	static Bool_t fillstaticmembers;
 	static TCanvas* imgcanvas;
 	static TText* titleleft;
@@ -209,6 +214,7 @@ class cMRDSubEvent : public TObject {
 	//Int_t aspectrum[19] = {kYellow, kOrange, (kOrange-3), (kOrange+8), (kOrange+10), kRed, (kRed+1), (kPink+4), (kMagenta+2), (kMagenta+1), kMagenta, (kViolet-2), (kViolet-3), (kViolet+7), (kViolet+9), (kBlue+2), (kBlue+1), kAzure, (kAzure+7)};
 	static std::vector<Int_t> aspectrumv;
 	static std::vector<std::string> colorhexes;
+	static std::vector<EColor> trackcolours;
 	
 	void RemoveArrows(){	// sometimes need to clear the arrows even before deleting the subevent.
 		for(auto anarrow : trackarrows){
@@ -230,12 +236,12 @@ class cMRDSubEvent : public TObject {
 	// Required by ROOT
 	// ================
 	void Clear(){
-		cout<<"calling clear on cMRDSubEvent "<<MRDSubEventID<<endl;
-		MRDSubEventID=-1;
+		cout<<"calling clear on cMRDSubEvent "<<mrdsubevent_id<<endl;
+		mrdsubevent_id=-1;
 		wcsimfile="";
 		run_id=-1;
 		event_id=-1;
-		subtrigger=-1;
+		trigger=-1;
 		digi_ids.clear();
 		pmts_hit.clear();
 		digi_qs.clear();
@@ -265,12 +271,14 @@ std::vector<TBox*> cMRDSubEvent::paddlepointers(nummrdpmts+(2*numpanels));
 //std::vector<Int_t> cMRDSubEvent::aspectrumv(19);
 //std::vector<Int_t> cMRDSubEvent::aspectrumv = ( []()->std::vector<Int_t> { std::vector<Int_t> temp {kYellow, kOrange, (kOrange-3), (kOrange+8), (kOrange+10), kRed, (kRed+1), (kPink+4), (kMagenta+2), (kMagenta+1), kMagenta, (kViolet-2), (kViolet-3), (kViolet+7), (kViolet+9), (kBlue+2), (kBlue+1), kAzure, (kAzure+7)}; return temp; }() );
 //std::vector<Int_t> cMRDSubEvent::aspectrumv{kYellow, kOrange, (kOrange-3), (kOrange+8), (kOrange+10), kRed, (kRed+1), (kPink+4), (kMagenta+2), (kMagenta+1), kMagenta, (kViolet-2), (kViolet-3), (kViolet+7), (kViolet+9), (kBlue+2), (kBlue+1), kAzure, (kAzure+7)};
-std::vector<Int_t> cMRDSubEvent::aspectrumv{1690, 1703, 1716, 1729, 1742, 1755, 1768, 1781, 1794, 1807, 1820, 1833, 1846, 1859, 1872, 1885, 1898, 1911, 1924};
+std::vector<Int_t> cMRDSubEvent::aspectrumv{1435, 1436, 1437, 1438, 1439, 1440, 1441, 1442, 1443, 1443, 1444, 1445, 885, 1446, 1447, 1448, 879, 1449, 1450};
 std::vector<std::string> cMRDSubEvent::colorhexes{"#21ffff", "#20deea", "#1fbcd5", "#21a8cd", "#269bcb", "#2b8fca", "#367fcb", "#416fcb", "#4965cd", "#505dcf", "#5855d0", "#6247cf", "#6d3ace", "#782acd", "#851acc", "#910dcc", "#9e07cd", "#aa00ce", "#bf00d7"};
+std::vector<EColor> cMRDSubEvent::trackcolours{kBlack, kBlue, (EColor)TColor::GetColorDark(kGreen), kRed, kViolet, kOrange, kMagenta,(EColor)(kAzure+2),(EColor)(kOrange+4),(EColor)(kViolet-6),(EColor)(kTeal-6)};
 
 #include "MRDSubEvent_DoReconstruction.cxx"			// contains reconstruction function definitions
 #include "makemrdimage.cxx"							// functions to draw the MRD top and side views
 #include "MRDSubEvent_DrawTruthTracks.cxx"			// contains the function to draw truth tracks
+#include "MRDSubEvent_Draw_Print.cxx"				// contains the print function
 
 #endif
 
