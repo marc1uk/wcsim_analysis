@@ -1591,9 +1591,9 @@ void truthtracks(){
 				double digitsq = thedigihit->GetQ();
 				double digitst = thedigihit->GetT(); // this is time within the trigger window + 950ns
 				WCSimRootEventHeader* trigheader=atrigt->GetHeader();
-#if FILE_VERSION<2
 				double triggertime=trigheader->GetDate();
 				double absolutedigitst=digitst-950.+triggertime;
+#if FILE_VERSION<2
 				// to be able to match digits to HitTimes to get true times or parents 
 				// we need to correct the indices returned by GetPhotonIds with the offset of the
 				// CherenkovHitTime entry matching the first CherenkovHit entry on the same PMT...!
@@ -1693,10 +1693,10 @@ void truthtracks(){
 				
 				// add the digit info for simplified file format
 				/////////////////////////////////////////////////
-				//TLorentzVector* adigitvector = new TLorentzVector(digitsx,digitsy,digitsz,digitst);
-				ROOT::Math::XYZTVector adigitvector = ROOT::Math::XYZTVector(digitsx,digitsy,digitsz,digitst);
+				//TLorentzVector* adigitvector = new TLorentzVector(digitsx,digitsy,digitsz,absolutedigitst);
+				ROOT::Math::XYZTVector adigitvector = ROOT::Math::XYZTVector(digitsx,digitsy,digitsz,absolutedigitst);
 				filedigitvertices.push_back(adigitvector);
-//				TLorentzVector adigitvector = TLorentzVector(digitsx,digitsy,digitsz,digitst);
+//				TLorentzVector adigitvector = TLorentzVector(digitsx,digitsy,digitsz,absolutedigitst);
 //				filedigitvertices.push_back(adigitvector);
 				filedigitQs.push_back(digitsq);
 				std::string digitspst;
@@ -1765,7 +1765,7 @@ void truthtracks(){
 				filedigittsmears.push_back(filedigittsmeared);
 				//float Smearing_factor = G4RandGauss::shoot(0.0,filedigittsmeared);
 				digitsqpmthist->Fill(digitsq);
-				digitstpmthist->Fill(digitst);
+				digitstpmthist->Fill(absolutedigitst);
 				digittsmearpmthist->Fill(filedigittsmeared);
 				pmttimesmearvsqhist->Fill(filedigittsmeared,digitsq);
 
@@ -1835,7 +1835,6 @@ void truthtracks(){
 				double pmtx = pmt.GetPosition(0);              // verified these are equivalent ^
 				double pmty = pmt.GetPosition(1);
 				double pmtz = pmt.GetPosition(2);
-				double posxmod, posymod, poszmod;  // need to transform in-plane hit pos into global coords
 				int thepmtsloc = pmt.GetCylLoc();
 				double Rinnerstruct=270.9/2.; // cm octagonal inner structure radius = 106.64"
 				double Rthresh=Rinnerstruct*pow(2.,-0.5);
@@ -1918,17 +1917,17 @@ void truthtracks(){
 					}
 #endif
 					double digitst  = lappd_hittruetime.at(runningcount);
-#if FILE_VERSION<10 // dont know what file version this will be fixed in 
-					// need to correct time as it isn't the time within the trigger window.
 					WCSimRootEventHeader* trigheader=atrigt->GetHeader();
 					double triggertime=trigheader->GetDate();
+#if FILE_VERSION<10 // dont know what file version this will be fixed in 
 					// n.b. all lappd digits are stored regardless of being in or outside trigger window.
 					// so this time may be way out, this digit may even be part of a different trigger.
+					// some sort of loop over trigger times to sort it here....
 					// (we could check if abs time > trigger time for next trig...)
-					digitst=digitst+950.-triggertime;
 #endif
+					double absolutedigitst=digitst+950.-triggertime;
 					ROOT::Math::XYZTVector adigitvector =  // convert mm to cm 
-						ROOT::Math::XYZTVector(digitsx/10.,digitsy/10.,digitsz/10.,digitst);
+						ROOT::Math::XYZTVector(digitsx/10.,digitsy/10.,digitsz/10.,absolutedigitst);
 					
 #ifdef LAPPD_DEBUG
 					intileposx.push_back(peposx);
@@ -1977,7 +1976,7 @@ void truthtracks(){
 					if (filedigittsmeared < timingResMinimum) filedigittsmeared=timingResMinimum;
 					filedigittsmears.push_back(filedigittsmeared);
 					digitsqlappdhist->Fill(digitsq);
-					digitstlappdhist->Fill(digitst);
+					digitstlappdhist->Fill(absolutedigitst);
 					digittsmearlappdhist->Fill(filedigittsmeared);
 					lappdtimesmearvsqhist->Fill(filedigittsmeared,digitsq);
 				}
