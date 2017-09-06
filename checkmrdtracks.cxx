@@ -131,15 +131,16 @@ void checkmrdtracks(){
 	
 	TH3D* htrackstart = new TH3D("trackstart","MRD Track Start Vertices",100,-170,170,100,300,480,100,-230,220);
 	TH3D* htrackstop = new TH3D("trackstop","MRD Track Stop Vertices",100,-170,170,100,300,480,100,-230,220);
+	TH3D* hpep = new TH3D("pep","Back Projected Tank Exit",100,-500,500,100,0,480,100,-330,320);
 	
 	// Import the gdml geometry for the detector:
-	TString gdmlpath = pwd+"/../wcsim/annie_v04.gdml";
+	TString gdmlpath = pwd+"/annie_v04_aligned.gdml";
 	TGeoManager::Import(gdmlpath);
 	// make all the materials semi-transparent so we can see the tracks going through them:
 	TList* matlist = gGeoManager->GetListOfMaterials();
 	TIter nextmaterial(matlist);
-	while(TGeoMixture* amaterial=(TGeoMixture*)nextmaterial()) amaterial->SetTransparency(50);
-	gGeoManager->GetVolume("EXP_HALL_LV")->Draw("ogl");
+	while(TGeoMixture* amaterial=(TGeoMixture*)nextmaterial()) amaterial->SetTransparency(90);
+	gGeoManager->GetVolume("WORLD2_LV")->Draw("ogl");
 	TCanvas* gdmlcanv = (TCanvas*)gROOT->FindObject("c1");
 	// maybe we can use these:
 //   TEveViewer *ev = gEve->GetDefaultViewer();
@@ -155,6 +156,9 @@ void checkmrdtracks(){
 	std::vector<TEveLine*> thiseventstracks;
 	int numevents=c->GetEntries();
 	// loop over events
+	//numevents=1;
+	int numtracksdrawn=0;
+	bool earlyexit=false;
 	for(int evi=0; evi<numevents; evi++){
 		numsubevsb->GetEntry(evi);
 		hnumsubevs->Fill(numsubevs);
@@ -173,6 +177,7 @@ void checkmrdtracks(){
 			int numtracks = tracksthissubevent->size();
 			hnumtracks->Fill(numtracks);
 			totnumtracks+=numtracks;
+			//cout<<"event "<<evi<<", subevent "<<subevi<<" had "<<numtracks<<" tracks"<<endl;
 			// loop over tracks (collections of hits in a line within a subevent)
 			for(auto&& thetrack : *tracksthissubevent){
 				thetracki++;
@@ -259,18 +264,33 @@ void checkmrdtracks(){
 				
 				TVector3* sttv = &thetrack.trackfitstart;
 				TVector3* stpv = &thetrack.trackfitstop;
+				TVector3* pep = &thetrack.projectedtankexitpoint;
 				htrackstart->Fill(sttv->X(),sttv->Z(),sttv->Y());
 				htrackstop->Fill(stpv->X(),stpv->Z(),stpv->Y());
+				//cout<<"track "<<thetracki<<" started at ("<<sttv->X()<<", "<<sttv->Y()<<", "<<sttv->Z()<<")"
+				//	<<" and ended at ("<<stpv->X()<<", "<<stpv->Y()<<", "<<stpv->Z()<<")"<<endl;
 				
 				TEveLine* evl = new TEveLine("track1",2);
-				evl->SetLineWidth(2);
-				evl->SetLineStyle(2);
+				evl->SetLineWidth(4);
+				evl->SetLineStyle(1);
+				evl->SetMarkerColor(kRed);
+				evl->SetRnrPoints(kTRUE);  // enable rendering of points
 				//int icolour = thetracki;
 				//while(icolour>=cMRDSubEvent::trackcolours.size()) icolour-=cMRDSubEvent::trackcolours.size();
 				//evl->SetLineColor(cMRDSubEvent::trackcolours.at(icolour));
 				evl->SetPoint(0,sttv->X(),sttv->Y(),sttv->Z());
 				evl->SetPoint(1,stpv->X(),stpv->Y(),stpv->Z());
+				if(!(pep->X()==0&&pep->Y()==0&&pep->Z()==0)){
+					evl->SetPoint(2,pep->X(),pep->Y(),pep->Z());
+					hpep->Fill(pep->X(),pep->Z(),pep->Y());
+					cout<<"back projected point intercepts the tank at ("
+						<<pep->X()<<", "<<pep->Y()<<", "<<pep->Z()<<")"<<endl;
+					if(abs(pep->X())>450.) earlyexit=true;
+				}
 				thiseventstracks.push_back(evl);
+				numtracksdrawn++;
+				//cout<<"eveline constructed at "<<evl<<endl;
+				//if(numtracksdrawn>100) earlyexit=true;
 				
 				
 				/*
@@ -283,24 +303,32 @@ void checkmrdtracks(){
 				thetrack->DrawReco(imgcanvas, trackarrows, thistrackscolour, paddlepointers);
 				thetrack->DrawFit(imgcanvas, trackfitarrows, fittrackscolour);
 				*/
-				
+				if(earlyexit) break;
 			} // end loop over tracks
 			
 			gdmlcanv->cd();
-			for(auto&& aline : thiseventstracks) aline->Draw();
+			for(auto&& aline : thiseventstracks){
+				//cout<<"drawing track at "<<aline<<" from ("<<aline->GetLineStart().fX
+				//<<", "<<aline->GetLineStart().fY<<", "<<aline->GetLineStart().fZ<<") to ("
+				//<<aline->GetLineEnd().fX<<", "<<aline->GetLineEnd().fY<<", "<<aline->GetLineEnd().fZ<<")"
+				//<<endl;
+				aline->Draw();
+			}
 			
-			/*
+			
 			thesubevent->DrawMrdCanvases();  // creates the canvas with the digits
 			thesubevent->DrawTracks();       // adds the CA tracks and their fit
 			thesubevent->DrawTrueTracks();   // draws true tracks over the event
 			thesubevent->imgcanvas->SaveAs(TString::Format("checkmrdtracks_%d.png",subevi+evi));
-			*/
+			
 			//thesubevent->RemoveArrows();
+			if(earlyexit) break;
 		} // end loop over subevents
 		gdmlcanv->Update();
-		std::this_thread::sleep_for (std::chrono::seconds(2));
-		for(auto aline : thiseventstracks) delete aline;
-		thiseventstracks.clear();
+		//std::this_thread::sleep_for (std::chrono::seconds(2));
+		//for(auto aline : thiseventstracks) delete aline;
+		//thiseventstracks.clear();
+		if(earlyexit) break;
 	} // end loop over events
 	
 	cout<<"Analysed "<<numevents<<" events, found "<<totnumtracks<<" MRD tracks, of which "
@@ -365,6 +393,8 @@ void checkmrdtracks(){
 	htrackstop->SetMarkerStyle(20);
 	htrackstop->SetMarkerColor(kBlue);
 	htrackstop->Draw();
+	TCanvas c28;
+	hpep->Draw();
 	
 	gPad->WaitPrimitive();
 	
