@@ -20,6 +20,8 @@
 
 //#include "Math/Polynomial.h"  // can be used to find ROOTs of polynomials
 
+double xgradmin,ygradmin,xgradmax,ygradmax,xoffmin,yoffmin,xoffmax,yoffmax;
+
 void cMRDTrack::DoReconstruction(){
 #ifdef MRDTrack_RECO_VERBOSE
 	cout<<"doing track reconstruction"<<endl;
@@ -86,6 +88,7 @@ void cMRDTrack::DoReconstruction(){
 	// Projection to tank, see if it's compatible with an interception.
 	// to account for errors, use the shallowest angles allowed to give best chance of interception
 	interceptstank = CheckTankIntercept(&projectedtankexitpoint,0,-1);
+	// for covariance!
 	// finally if compatible, note best fit interception point
 	if(true||interceptstank){ // calculate it anyway, it may be useful during analysis/debugging
 		// get the best fit interception point
@@ -207,6 +210,7 @@ void cMRDTrack::DoTGraphErrorsFit(){
 	htrackgradient = htrackfitresult->Value(1);
 	htrackgradienterror = htrackfitresult->ParError(1);
 	htrackfitchi2 = htrackfitresult->Chi2();
+	htrackfitcov = htrackfitresult->GetCovarianceMatrix();
 	
 	//c1.SaveAs(TString::Format("htrackfit_%d.png",MRDtrackID));
 	
@@ -224,6 +228,7 @@ void cMRDTrack::DoTGraphErrorsFit(){
 	vtrackgradient = vtrackfitresult->Value(1);
 	vtrackgradienterror = vtrackfitresult->ParError(1);
 	vtrackfitchi2 = vtrackfitresult->Chi2();
+	vtrackfitcov = vtrackfitresult->GetCovarianceMatrix();
 	//c1.SaveAs(TString::Format("vtrackfit_%d.png",MRDtrackID));
 	
 #ifdef MRDTrack_RECO_VERBOSE
@@ -256,18 +261,22 @@ bool cMRDTrack::CheckTankIntercept(TVector3* entrypoint, TVector3* exitpoint=0, 
 		// steepest angles
 		xgradient = vtrackgradient+(vtrackgradienterror*((vtrackgradient>0) ? -1. : 1.));
 		ygradient = htrackgradient+(htrackgradienterror*((htrackgradient>0) ? -1. : 1.));
-		xoffset=vtrackorigin+vtrackoriginerror;
-		yoffset=htrackorigin+htrackoriginerror;
+		xoffset=vtrackorigin + vtrackoriginerror + vtrackfitcov(0,1)*(vtrackgradient-xgradient);
+		yoffset=htrackorigin + htrackoriginerror + htrackfitcov(0,1)*(htrackgradient-ygradient);
 		break;
 	case -1:
 		// shallowest angles
 		xgradient = vtrackgradient+(vtrackgradienterror*((vtrackgradient>0) ? 1. : -1.));
 		ygradient = htrackgradient+(htrackgradienterror*((htrackgradient>0) ? 1. : -1.));
-		xoffset=vtrackorigin-vtrackoriginerror;
-		yoffset=htrackorigin-htrackoriginerror;
+		xoffset=vtrackorigin-vtrackoriginerror + vtrackfitcov(0,1)*(vtrackgradient-xgradient);
+		yoffset=htrackorigin-htrackoriginerror + htrackfitcov(0,1)*(htrackgradient-ygradient);
 		break;
 	}
-	
+	// remove this:
+	if((vtrackgradient>0){
+		
+	}
+	//
 	return CheckTankIntercept(ygradient, xgradient, yoffset, xoffset, entrypoint, exitpoint);
 }
 
@@ -279,6 +288,10 @@ bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradien
 	// first as it's easiest, check if projection vertically actually enters tank height.
 	double projectedtankexity = htrackoriginin + htrackgradientin*(tank_start+(2*tank_radius));
 	double projectedtankexitz, projectedtankexitx;
+#ifdef MRDTrack_RECO_VERBOSE
+	cout<<"initial back projection of track to tank back edge places projected height at "
+		<<projectedtankexity-tank_yoffset<<" relative to tank half-height "<tank_halfheight<<endl;
+#endif
 	if(TMath::Abs(projectedtankexity-tank_yoffset)>tank_halfheight){
 		return false;
 	} else {
@@ -297,32 +310,55 @@ bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradien
 		double coeffc = -(pow(tank_radius,2) - pow(linec,2));
 		// first check if there is an intercept
 		double determinnt = pow(coeffb,2) - 4*coeffa*coeffc;
+#ifdef MRDTrack_RECO_VERBOSE
+		cout<<"x-z plane interception equation has determinant "<<determinnt<<endl;
+#endif
 		if(determinnt>=0){
 			projectedtankexitz = ( -coeffb + TMath::Sqrt(determinnt) ) / (2*coeffa);
+#ifdef MRDTrack_RECO_VERBOSE
+			cout<<"x-z plane interception occurs at z= "<<projectedtankexitz
+				<<" in coordinates with origin centred on the tank"<<endl;
+#endif
 			projectedtankexitz += tank_start + tank_radius; // remove tank-centering offset
 			projectedtankexitx = vtrackoriginin + (vtrackgradientin*projectedtankexitz);
 			// we need to recalculate this as the relevant z value will have changed
 			projectedtankexity = htrackoriginin + htrackgradientin*projectedtankexitz;
+#ifdef MRDTrack_RECO_VERBOSE
+			cout<<"interception point in global coords is ("<<projectedtankexitx<<", "
+				<<projectedtankexity<<", "<<projectedtankexitz<<"). Rechecking y in range."<<endl;
+#endif
 			if(abs(projectedtankexity-tank_yoffset)>tank_halfheight) return false;
-			// ^ bailing here neglects the possibility of an upgoing line exiting from the tank cap
 			*solution1=TVector3(projectedtankexitx,projectedtankexity,projectedtankexitz);
 			if(solution2!=0){
 				projectedtankexitz = ( -coeffb - TMath::Sqrt(determinnt) ) / (2*coeffa);
 				projectedtankexitz += tank_start + tank_radius; // remove tank-centering offset
 				projectedtankexitx = vtrackoriginin + (vtrackgradientin*projectedtankexitz);
 				projectedtankexity = htrackoriginin + htrackgradientin*projectedtankexitz;
+#ifdef MRDTrack_RECO_VERBOSE
+			cout<<"second solution (tank exit) in global coords is ("<<projectedtankexitx<<", "
+				<<projectedtankexity<<", "<<projectedtankexitz<<"). Rechecking y in range."<<endl;
+#endif
 				if(abs(projectedtankexity-tank_yoffset)>tank_halfheight){
 					// the track exits a tank cap. 
 					if((projectedtankexity-tank_yoffset)>tank_halfheight){
 						// exits top cap
+#ifdef MRDTrack_RECO_VERBOSE
+						cout<<"tank exits top cap, recalculating"<<endl;
+#endif
 						projectedtankexity = tank_halfheight;
 					} else {
 						// exits bottom cap
+#ifdef MRDTrack_RECO_VERBOSE
+						cout<<"tank exits bottom cap, recalculating"<<endl;
+#endif
 						projectedtankexity = -tank_halfheight;
 					}
 					projectedtankexitz = (projectedtankexity-htrackoriginin)/htrackgradientin;
 					projectedtankexitx = vtrackoriginin + (vtrackgradientin*projectedtankexitz);
 				}
+#ifdef MRDTrack_RECO_VERBOSE
+				cout<<"second solution is ("<<projectedtankexitx<<", "
+					<<projectedtankexity<<", "<<projectedtankexitz<<") "<<endl;
 				*solution2=TVector3(projectedtankexitx,projectedtankexity,projectedtankexitz);
 			}
 			return true;

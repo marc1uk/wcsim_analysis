@@ -53,6 +53,7 @@ wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8in
 #include "TRandom3.h"
 #include <regex>
 #include "TStyle.h"
+#include "TF1.h"
 #include <exception>	// for stdexcept
 #include <vector>
 #include <map>
@@ -135,9 +136,9 @@ static void SKIDigitizerThreshold(double& pe,int& iflag);
 TRandom3* mrand = new TRandom3();         // needed to generate charge and other things
 
 // not currently used but these should be stored in and retrieved from geo.
-const Int_t numtankpmts=128+2*(26); // 26 pmts and lappds on each cap
-const Int_t nummrdpmts=307;
-const Int_t numvetopmts=26;
+Int_t numtankpmts=128+2*(26); // 26 pmts and lappds on each cap
+Int_t nummrdpmts=307;
+Int_t numvetopmts=26;
 // these are used for making the pmt map.
 const Int_t caparraysize=8;         // pmts on the cap form an nxn grid where caparraysize=n
 const Int_t pmtsperring=16;         // pmts around each ring of the main walls
@@ -505,6 +506,16 @@ void truthtracks(){
 	gROOT->cd();
 	TFile* flateventfileout = new TFile(TString::Format("%s/trueQEvertexinfo.root",outpath), "RECREATE");
 	flateventfileout->cd();
+	double fileeventnum;
+	double fileneutrinoE;
+	string fileinteractiontypestring;
+	double filemomtrans;
+	double filemuonenergy;
+	double filemuonangle;
+	double filepathlengthtotal;
+	double filepathlengthinwater;
+	double filepathlengthinmrd;
+	double fileenergylossinmrd;
 	TLorentzVector filemuonstartvertex(0.,0.,0.,0.);
 	TLorentzVector filemuonstopvertex(0.,0.,0.,0.);
 	TVector3 filemuondirectionvector(0.,0.,0.);
@@ -518,7 +529,19 @@ void truthtracks(){
 	std::vector<std::string>* filedigitsensortypesp=&filedigitsensortypes;
 	std::vector<Double_t> filedigittsmears;
 	std::vector<Double_t>* filedigittsmearsp=&filedigittsmears;
+	std::vector<int> filedigitPMTIDs;
+	std::vector<int>* filedigitPMTIDsp=&filedigitPMTIDs;
 	TTree* vertextreenocuts = new TTree("vertextreenocuts","All True Tank QE Events");
+	TBranch* FileEventNumBranch = vertextreenocuts->Branch("EventNum",&fileeventnum);
+	TBranch* NeutrinoEnergyBranch = vertextreenocuts->Branch("NeutrinoEnergy",&fileneutrinoE);
+	TBranch* InteractionTypeBranch = vertextreenocuts->Branch("InteractionType",&fileinteractiontypestring);
+	TBranch* MomTransBranch = vertextreenocuts->Branch("MomentumTransfer",&filemomtrans);
+	TBranch* MuonEnergyBranch = vertextreenocuts->Branch("MuonEnergy",&filemuonenergy);
+	TBranch* MuonAngleBranch = vertextreenocuts->Branch("MuonAngle",&filemuonangle);
+	TBranch* TotalTrackLengthBranch = vertextreenocuts->Branch("TotalTrackLength",&filepathlengthtotal);
+	TBranch* TrackLengthInWaterBranch = vertextreenocuts->Branch("TrackLengthInWater",&filepathlengthinwater);
+	TBranch* TrackLengthInMrdBranch = vertextreenocuts->Branch("TrackLengthInMrd",&filepathlengthinmrd);
+	TBranch* EnergyLossInMrdBranch =  vertextreenocuts->Branch("EnergyLossInMrd",&fileenergylossinmrd);
 	TBranch* MuonStartBranch = vertextreenocuts->Branch("MuonStartVertex",&filemuonstartvertex);
 	TBranch* MuonStopBranch = vertextreenocuts->Branch("MuonStopVertex", &filemuonstopvertex);
 	TBranch* MuonDirectionBranch = vertextreenocuts->Branch("MuonDirection", &filemuondirectionvector);
@@ -527,6 +550,7 @@ void truthtracks(){
 	TBranch* DigitChargeBranch = vertextreenocuts->Branch("DigitCharges", &filedigitQsp);
 	TBranch* DigitDetTypeBranch = vertextreenocuts->Branch("DigitWhichDet",&filedigitsensortypesp);
 	TBranch* DigitSmearBranch = vertextreenocuts->Branch("DigitTimeSmear",&filedigittsmearsp);
+	TBranch* DigitPmtIdBranch = vertextreenocuts->Branch("DigitPmtId",&filedigitPMTIDsp);
 #ifdef LAPPD_DEBUG
 	std::vector<double> intileposx;
 	std::vector<double> intileposy;
@@ -1465,95 +1489,109 @@ void truthtracks(){
 			// where it intercepts the tank. if this length > total track length, use total track length
 			// otherwise use this length. 
 			
-			// first find out the z value where the tank would leave the radius of the tank
-#ifdef MUTRACKDEBUG
-			cout<<"z0 = "<<thegenieinfo.genie_z-tank_start-tank_radius<<", x0 = "<<thegenieinfo.genie_x<<endl;
-#endif
-			Double_t xatziszero = 
-			(thegenieinfo.genie_x - (thegenieinfo.genie_z-tank_start-tank_radius)*TMath::Tan(avgtrackanglex));
-			Double_t firstterm = -TMath::Tan(avgtrackanglex)*xatziszero;
-			Double_t thirdterm = 1+TMath::Power(TMath::Tan(avgtrackanglex),2.);
-			Double_t secondterm = (TMath::Power(tank_radius,2.)*thirdterm) - TMath::Power(xatziszero,2.);
-			Double_t solution1 = (firstterm + TMath::Sqrt(secondterm))/thirdterm;
-			Double_t solution2 = (firstterm - TMath::Sqrt(secondterm))/thirdterm;
-			Double_t tankendpointz;
-			if(primarystopvertex.Z() > primarystartvertex.Z()){
-				tankendpointz = solution1;	//forward going track
+			// first check if the endpoint is actually in the tank - if so, there is no tank exit point
+			// and track length in tank is total length. 
+			// We assume (as it is required above - line 1243) that the track starts in the tank. fix this if this changes.
+			if(primarystopvol==10){ // stop volume is in the tank
+				mutracklengthintank=differencevector.Mag();
 			} else {
-				tankendpointz = solution2;	// backward going track
-			}
-			// correct for tank z offset
-			tankendpointz += tank_start+tank_radius;
-			Double_t tankendpointx = thegenieinfo.genie_x + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackanglex);
-			// now check if the particle would have exited through one of the caps before reaching this radius
-			Double_t tankendpointy = 
-			thegenieinfo.genie_y + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackangley);
+				
+				// first find out the z value where the tank would leave the radius of the tank
 #ifdef MUTRACKDEBUG
-			cout<<"tank start: "<<tank_start<<endl;
-			cout<<"tank end: "<<(tank_start+2*tank_radius)<<endl;
-			cout<<"tank radius: "<<tank_radius<<endl;
-			cout<<"start dir =("<<primarymomentumdir.X()<<", "<<primarymomentumdir.Y()
-				<<", "<<primarymomentumdir.Z()<<")"<<endl;
-			cout<<"avgtrackanglex="<<avgtrackanglex<<endl;
-			cout<<"avgtrackangley="<<avgtrackangley<<endl;
-			cout<<"xatziszero="<<xatziszero<<endl;
-			cout<<"firstterm="<<firstterm<<endl;
-			cout<<"thirdterm="<<thirdterm<<endl;
-			cout<<"secondterm="<<secondterm<<endl;
-			cout<<"solution1="<<solution1<<endl;
-			cout<<"solution2="<<solution2<<endl<<endl;
-			
-			cout<<"values before cap exit check"<<endl;
-			cout<<"tankendpointz="<<tankendpointz<<endl;
-			cout<<"tankendpointx="<<tankendpointx<<endl;
-			cout<<"tankendpointy="<<tankendpointy<<endl;
+				cout<<"z0 = "<<thegenieinfo.genie_z-tank_start-tank_radius<<", x0 = "<<thegenieinfo.genie_x<<endl;
 #endif
-			
-			if(TMath::Abs(tankendpointy-tank_yoffset)>(tank_halfheight)){
-				// this trajectory exits through the cap. Need to recalculate x, z exiting points...!
-				if(primarystopvertex.Y()>primarystartvertex.Y()){
-					tankendpointy = tank_halfheight+tank_yoffset;	// by definition of leaving through cap
+				Double_t xatziszero = 
+				(thegenieinfo.genie_x - (thegenieinfo.genie_z-tank_start-tank_radius)*TMath::Tan(avgtrackanglex));
+				Double_t firstterm = -TMath::Tan(avgtrackanglex)*xatziszero;
+				Double_t thirdterm = 1+TMath::Power(TMath::Tan(avgtrackanglex),2.);
+				Double_t secondterm = (TMath::Power(tank_radius,2.)*thirdterm) - TMath::Power(xatziszero,2.);
+				Double_t solution1 = (firstterm + TMath::Sqrt(secondterm))/thirdterm;
+				Double_t solution2 = (firstterm - TMath::Sqrt(secondterm))/thirdterm;
+				Double_t tankendpointz;
+				if(primarystopvertex.Z() > primarystartvertex.Z()){
+					tankendpointz = solution1;	//forward going track
 				} else {
-					tankendpointy = -tank_halfheight+tank_yoffset;
+					tankendpointz = solution2;	// backward going track
 				}
-				tankendpointz = 
-				thegenieinfo.genie_z + (tankendpointy-thegenieinfo.genie_y)/TMath::Tan(avgtrackangley);
-				tankendpointx = 
-				thegenieinfo.genie_x + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackanglex);
-			} else {
-				// this trajectory exited the tank by a side point; existing value is valid
-			}
-			Double_t maxtanktracklength = 
+				// correct for tank z offset
+				tankendpointz += tank_start+tank_radius;
+				Double_t tankendpointx = thegenieinfo.genie_x + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackanglex);
+				// now check if the particle would have exited through one of the caps before reaching this radius
+				Double_t tankendpointy = 
+				thegenieinfo.genie_y + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackangley);
+#ifdef MUTRACKDEBUG
+				cout<<"tank start: "<<tank_start<<endl;
+				cout<<"tank end: "<<(tank_start+2*tank_radius)<<endl;
+				cout<<"tank radius: "<<tank_radius<<endl;
+				cout<<"start dir =("<<primarymomentumdir.X()<<", "<<primarymomentumdir.Y()
+					<<", "<<primarymomentumdir.Z()<<")"<<endl;
+				cout<<"avgtrackanglex="<<avgtrackanglex<<endl;
+				cout<<"avgtrackangley="<<avgtrackangley<<endl;
+				cout<<"xatziszero="<<xatziszero<<endl;
+				cout<<"firstterm="<<firstterm<<endl;
+				cout<<"thirdterm="<<thirdterm<<endl;
+				cout<<"secondterm="<<secondterm<<endl;
+				cout<<"solution1="<<solution1<<endl;
+				cout<<"solution2="<<solution2<<endl<<endl;
+			
+				cout<<"values before cap exit check"<<endl;
+				cout<<"tankendpointz="<<tankendpointz<<endl;
+				cout<<"tankendpointx="<<tankendpointx<<endl;
+				cout<<"tankendpointy="<<tankendpointy<<endl;
+#endif
+				
+				if(TMath::Abs(tankendpointy-tank_yoffset)>(tank_halfheight)){
+					// this trajectory exits through the cap. Need to recalculate x, z exiting points...!
+					if(primarystopvertex.Y()>primarystartvertex.Y()){
+						tankendpointy = tank_halfheight+tank_yoffset;	// by definition of leaving through cap
+					} else {
+						tankendpointy = -tank_halfheight+tank_yoffset;
+					}
+					tankendpointz = 
+					thegenieinfo.genie_z + (tankendpointy-thegenieinfo.genie_y)/TMath::Tan(avgtrackangley);
+					tankendpointx = 
+					thegenieinfo.genie_x + (tankendpointz-thegenieinfo.genie_z)*TMath::Tan(avgtrackanglex);
+				} else {
+					// this trajectory exited the tank by a side point; existing value is valid
+				}
+				Double_t maxtanktracklength = 
 				TMath::Sqrt(TMath::Power(tank_radius*2.,2.)+TMath::Power(tank_halfheight*2.,2.));
 #ifdef MUTRACKDEBUG
-			cout<<"values after cap exit check"<<endl;
-			cout<<"tankendpointz="<<tankendpointz<<endl;
-			cout<<"tankendpointx="<<tankendpointx<<endl;
-			cout<<"tankendpointy="<<tankendpointy<<endl;
-			cout<<"max tank track length is "<<maxtanktracklength<<endl;
+				cout<<"values after cap exit check"<<endl;
+				cout<<"tankendpointz="<<tankendpointz<<endl;
+				cout<<"tankendpointx="<<tankendpointx<<endl;
+				cout<<"tankendpointy="<<tankendpointy<<endl;
+				cout<<"max tank track length is "<<maxtanktracklength<<endl;
 #endif
 			
-			// we're now able to determine muon track length in the tank:
-			mutracklengthintank = TMath::Sqrt(
-				TMath::Power((tankendpointx-thegenieinfo.genie_x),2)+
-				TMath::Power((tankendpointy-thegenieinfo.genie_y),2)+
-				TMath::Power((tankendpointz-thegenieinfo.genie_z),2) );
+				// we're now able to determine muon track length in the tank:
+				mutracklengthintank = TMath::Sqrt(
+					TMath::Power((tankendpointx-thegenieinfo.genie_x),2)+
+					TMath::Power((tankendpointy-thegenieinfo.genie_y),2)+
+					TMath::Power((tankendpointz-thegenieinfo.genie_z),2) );
 #ifdef MUTRACKDEBUG
-			cout<<"muon tank track length: ("<<(tankendpointx-thegenieinfo.genie_x)
-				<<", "<<(tankendpointy-thegenieinfo.genie_y)<<", "
-				<<(tankendpointz-thegenieinfo.genie_z)<<") = "<<mutracklengthintank<<"cm total"<<endl;
-			cout<<"muon tank exit point: ("<<tankendpointx<<", "<<tankendpointy<<", "<<tankendpointz<<") ";
-			cout<<"muon start point : ("<<thegenieinfo.genie_x<<", "<<thegenieinfo.genie_y
-				<<", "<<thegenieinfo.genie_z<<")"<<endl;
+				cout<<"muon tank track length: ("<<(tankendpointx-thegenieinfo.genie_x)
+					<<", "<<(tankendpointy-thegenieinfo.genie_y)<<", "
+					<<(tankendpointz-thegenieinfo.genie_z)<<") = "<<mutracklengthintank<<"cm total"<<endl;
+				cout<<"muon tank exit point: ("<<tankendpointx<<", "<<tankendpointy<<", "<<tankendpointz<<") ";
+				cout<<"muon start point : ("<<thegenieinfo.genie_x<<", "<<thegenieinfo.genie_y
+					<<", "<<thegenieinfo.genie_z<<")"<<endl;
 #endif
-			if(mutracklengthintank > maxtanktracklength){
-				cout<<"Track length is impossibly long!"<<endl;
-				assert(false);
+				if(mutracklengthintank > maxtanktracklength){
+					cout<<"Track length is impossibly long!"<<endl;
+					assert(false);
+				}
+				if(mutracklengthintank > differencevector.Mag()){
+					cout<<"Track length in tank is greater than total track length"<<endl;
+					assert(false);
+				}
+				if(TMath::IsNaN(mutracklengthintank)){
+					cout<<"NaN RESULT FROM MU TRACK LENGTH IN TANK?!"<<endl;
+					assert(false);
+				}
+			
 			}
-			if(TMath::IsNaN(mutracklengthintank)){
-				cout<<"NaN RESULT FROM MU TRACK LENGTH IN TANK?!"<<endl;
-				assert(false);
-			}
+			
 			fsltruetracklengthintank->Fill(mutracklengthintank);
 			if(mutracklengthintank>50){ nummuontracksintankpassedcut++; }
 			
@@ -1570,6 +1608,7 @@ void truthtracks(){
 			filedigitQs.clear();
 			filedigittsmears.clear();
 			filedigitsensortypes.clear();
+			filedigitPMTIDs.clear();
 			Double_t chargeinsidecherenkovcone=0;
 			Double_t chargeoutsidecherenkovcone=0;
 			tankchargefrommuon=0.;
@@ -1693,6 +1732,7 @@ void truthtracks(){
 				
 				// add the digit info for simplified file format
 				/////////////////////////////////////////////////
+				filedigitPMTIDs.push_back(digitstubeid);
 				//TLorentzVector* adigitvector = new TLorentzVector(digitsx,digitsy,digitsz,absolutedigitst);
 				ROOT::Math::XYZTVector adigitvector = ROOT::Math::XYZTVector(digitsx,digitsy,digitsz,absolutedigitst);
 				filedigitvertices.push_back(adigitvector);
@@ -1917,15 +1957,18 @@ void truthtracks(){
 					}
 #endif
 					double digitst  = lappd_hittruetime.at(runningcount);
+#if FILE_VERSION>10 // dont know what file version this will be fixed in (check, has been fixed?)
+					// but currently lappd digits store absolute digit time, NOT the time within a trigger....
 					WCSimRootEventHeader* trigheader=atrigt->GetHeader();
 					double triggertime=trigheader->GetDate();
-#if FILE_VERSION<10 // dont know what file version this will be fixed in 
-					// n.b. all lappd digits are stored regardless of being in or outside trigger window.
+					double absolutedigitst=digitst+950.-triggertime;
+					// ALSO all lappd digits are stored regardless of being in or outside trigger window.
 					// so this time may be way out, this digit may even be part of a different trigger.
 					// some sort of loop over trigger times to sort it here....
 					// (we could check if abs time > trigger time for next trig...)
+#else 
+					double absolutedigitst=digitst;
 #endif
-					double absolutedigitst=digitst+950.-triggertime;
 					ROOT::Math::XYZTVector adigitvector =  // convert mm to cm 
 						ROOT::Math::XYZTVector(digitsx/10.,digitsy/10.,digitsz/10.,absolutedigitst);
 					
@@ -1961,6 +2004,7 @@ void truthtracks(){
 //					// in order to keep all vectors the same size
 //					digitsq*0.985;         // efficiency in WCSimWCDigitizer
 #endif
+					filedigitPMTIDs.push_back(LAPPDID+numpmts);
 					filedigitvertices.push_back(adigitvector);
 					filedigitQs.push_back(digitsq);
 					filedigitsensortypes.push_back("lappd_v0"); // bad timing resolution used for pulses
@@ -1987,9 +2031,24 @@ void truthtracks(){
 			
 			// Fill simplified file for reconstruction dev
 			///////////////////////////////////////////////
-			filemuonstartvertex = primarystartvertex;
-			filemuonstopvertex = primarystopvertex;
-			filemuondirectionvector = differencevector.Unit();
+			fileeventnum=wcsimeventnum;
+			fileneutrinoE=eventEnu;
+			fileinteractiontypestring=thegenieinfo.interactiontypestring;
+			filemomtrans=eventq2;
+			filemuonstartvertex=primarystartvertex;
+			filemuonstopvertex=primarystopvertex;
+			filemuondirectionvector=differencevector.Unit();
+			filemuonenergy=thegenieinfo.fsleptonenergy;
+			filemuonangle=muonangle;
+			filepathlengthtotal=differencevector.Mag();
+			filepathlengthinwater=mutracklengthintank;
+			filepathlengthinmrd=mutracklengthinMRD;
+			// best fit funciton as of time of writing
+			TF1 MRDenergyvspenetration=TF1("af","expo(0)+pol0(2)+([3]/([4]-x))",0,1.6);
+			MRDenergyvspenetration.SetParameters(-3.62645, 3.75503, 2.68525, 3.59244, 1.66969);
+			double dEdx=MRDenergyvspenetration.Eval(muonangle);
+			fileenergylossinmrd=filepathlengthinmrd*dEdx;
+			
 			vertextreenocuts->Fill();
 			if(isinfiducialvol){
 					vertextreefiducialcut->Fill();

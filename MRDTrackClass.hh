@@ -82,11 +82,13 @@ class cMRDTrack : public TObject {
 	Double_t htrackgradient;
 	Double_t htrackgradienterror;
 	Double_t htrackfitchi2;
+	TMatrixDSym htrackfitcov;
 	Double_t vtrackorigin;
 	Double_t vtrackoriginerror;
 	Double_t vtrackgradient;
 	Double_t vtrackgradienterror;
 	Double_t vtrackfitchi2;
+	TMatrixDSym vtrackfitcov;
 	
 	TVector3 trackfitstart, trackfitstop;
 	double trackangle, trackangleerror;
