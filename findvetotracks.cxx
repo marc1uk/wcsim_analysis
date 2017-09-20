@@ -9,9 +9,9 @@
 // CREATE+OPEN OUTPUT FILE
 // =======================
 void WCSimAnalysis::OpenFACCtrackOutfile(int filenum){
-	cout<<"opening facc output file"<<endl;
-	if(vetotrackfile) vetotrackfile->Close();
 	TString filenameout = TString::Format("%s/vetotrackfile.%d.root",outputdir,filenum);
+	cout<<"opening facc output file"<<filenameout.Data()<<endl;
+	if(vetotrackfile) vetotrackfile->Close();
 	vetotrackfile = new TFile(filenameout.Data(),"RECREATE","Veto Events file");
 	vetotrackfile->cd();
 	vetotree = new TTree("vetotree","Tree for event data");

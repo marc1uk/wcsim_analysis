@@ -68,7 +68,7 @@ void checkmrdtracks(){
 	TChain* c = new TChain("mrdtree");
 	//c->Add("/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_ana/mrdtrackfile.1000.root");
 	TString pwd = gSystem->Getenv("PWD");
-	TString chainpattern = pwd+"/mrdtrackfile.1000.root";
+	TString chainpattern = pwd+"/out/temp/mrdtrackfile.1146.root";
 	c->Add(chainpattern.Data());
 	int numents = c->GetEntries();
 	cout<<"loaded "<<numents<<" entries in the chain"<<endl;
@@ -154,33 +154,39 @@ void checkmrdtracks(){
 //   gv->RequestDraw();
 	
 	std::vector<TEveLine*> thiseventstracks;
-	int numevents=c->GetEntries();
 	// loop over events
-	//numevents=1;
+	//numents=1;
 	int numtracksdrawn=0;
 	bool earlyexit=false;
-	for(int evi=0; evi<numevents; evi++){
+	cout<<"scanning "<<numents<<" events"<<endl;
+	for(int evi=0; evi<numents; evi++){
 		numsubevsb->GetEntry(evi);
 		hnumsubevs->Fill(numsubevs);
 		thesubeventarray->Clear();
 		thesubevsb->GetEntry(evi);
 		assert(thesubeventarray->GetEntriesFast()==numsubevs&&"Num subevents is different from TClonesArray size!");
 		numtracksinevb->GetEntry(evi); // compare this later with sum of cMRDTracks found in all SubEvents
+		int numtracksrunningtot=0;
 		
 		int thetracki=-1;
 		// loop over subevents (collections of hits on the MRD within a narrow time window)
+		cout<<"scanning "<<numsubevs<<" subevents in event "<<evi<<endl;
 		for(int subevi=0; subevi<numsubevs; subevi++){
 			cMRDSubEvent* thesubevent = (cMRDSubEvent*)thesubeventarray->At(subevi);
+			cout<<"printing subevent "<<subevi<<endl;
 			thesubevent->Print();
 			
 			std::vector<cMRDTrack>* tracksthissubevent = thesubevent->GetTracks();
 			int numtracks = tracksthissubevent->size();
 			hnumtracks->Fill(numtracks);
+			numtracksrunningtot+=numtracks;
 			totnumtracks+=numtracks;
 			//cout<<"event "<<evi<<", subevent "<<subevi<<" had "<<numtracks<<" tracks"<<endl;
 			// loop over tracks (collections of hits in a line within a subevent)
+			cout<<"scanning "<<numtracks<<" tracks in subevent "<<subevi<<endl;
 			for(auto&& thetrack : *tracksthissubevent){
 				thetracki++;
+				cout<<"printing next track"<<endl;
 				thetrack.Print2();  // finding tracks needs to be re-run with new class def
 				/* the same as Print2.
 				cout<<"wcsimfile: "<<thetrack.wcsimfile<<endl
@@ -224,6 +230,7 @@ void checkmrdtracks(){
 				else numsideexit++;
 				if(thetrack.interceptstank) numtankintercepts++;
 				else numtankmisses++;
+				if(!thetrack.interceptstank) earlyexit=true;
 				
 				hrun->Fill(thetrack.run_id);
 				hevent->Fill(thetrack.event_id);
@@ -270,6 +277,7 @@ void checkmrdtracks(){
 				//cout<<"track "<<thetracki<<" started at ("<<sttv->X()<<", "<<sttv->Y()<<", "<<sttv->Z()<<")"
 				//	<<" and ended at ("<<stpv->X()<<", "<<stpv->Y()<<", "<<stpv->Z()<<")"<<endl;
 				
+				cout<<"adding track to event display"<<endl;
 				TEveLine* evl = new TEveLine("track1",2);
 				evl->SetLineWidth(4);
 				evl->SetLineStyle(1);
@@ -307,6 +315,7 @@ void checkmrdtracks(){
 			} // end loop over tracks
 			
 			gdmlcanv->cd();
+			cout<<"drawing event display"<<endl;
 			for(auto&& aline : thiseventstracks){
 				//cout<<"drawing track at "<<aline<<" from ("<<aline->GetLineStart().fX
 				//<<", "<<aline->GetLineStart().fY<<", "<<aline->GetLineStart().fZ<<") to ("
@@ -321,9 +330,14 @@ void checkmrdtracks(){
 			thesubevent->DrawTrueTracks();   // draws true tracks over the event
 			thesubevent->imgcanvas->SaveAs(TString::Format("checkmrdtracks_%d.png",subevi+evi));
 			
-			//thesubevent->RemoveArrows();
+			thesubevent->RemoveArrows();
 			if(earlyexit) break;
 		} // end loop over subevents
+		
+		if(numtracksinev!=numtracksrunningtot){
+			cerr<<"number of tracks in event does not correspond to sum of tracks in subevents!"<<endl;
+		}
+		
 		gdmlcanv->Update();
 		//std::this_thread::sleep_for (std::chrono::seconds(2));
 		//for(auto aline : thiseventstracks) delete aline;
@@ -331,60 +345,62 @@ void checkmrdtracks(){
 		if(earlyexit) break;
 	} // end loop over events
 	
-	cout<<"Analysed "<<numevents<<" events, found "<<totnumtracks<<" MRD tracks, of which "
+	cout<<"Analysed "<<numents<<" events, found "<<totnumtracks<<" MRD tracks, of which "
 		<<numstopped<<" stopped in the MRD, "<<numpenetrated<<" fully penetrated and the remaining "
 		<<numsideexit<<" exited the side."<<endl
 		<<"Back projection suggests "<<numtankintercepts<<" tracks would have originated in the tank, while "
 		<<numtankmisses<<" would not intercept the tank through back projection."<<endl;
 	
-	TCanvas c2;
-	hnumsubevs->Draw();
-	TCanvas c3;
-	hnumtracks->Draw();
-	TCanvas c4;
-	hrun->Draw();
-	TCanvas c5;
-	hevent->Draw();
-	TCanvas c6;
-	hmrdsubev->Draw();
-	TCanvas c7;
-	htrigger->Draw();
-	TCanvas c8;
-	hnumhclusters->Draw();
-	TCanvas c9;
-	hnumvclusters->Draw();
-	TCanvas c10;
-	hnumhcells->Draw();
-	TCanvas c11;
-	hnumvcells->Draw();
-	TCanvas c12;
-	hpaddleids->Draw();
-	TCanvas c13;
-	hdigittimes->Draw();
-	TCanvas c14;
-	hhangle->Draw();
-	TCanvas c15;
-	hhangleerr->Draw();
-	TCanvas c16;
-	hvangle->Draw();
-	TCanvas c17;
-	hvangleerr->Draw();
-	TCanvas c18;
-	htotangle->Draw();
-	TCanvas c19;
-	htotangleerr->Draw();
-	TCanvas c20;
-	henergyloss->Draw();
-	TCanvas c21;
-	henergylosserr->Draw();
-	TCanvas c22;
-	htracklength->Draw();
-	TCanvas c23;
-	htrackpen->Draw();
-	TCanvas c24;
-	htrackpenvseloss->Draw();
-	TCanvas c25;
-	htracklenvseloss->Draw();
+//	TCanvas c2;
+//	hnumsubevs->Draw();
+//	TCanvas c3;
+//	hnumtracks->Draw();
+//	TCanvas c4;
+//	hrun->Draw();
+//	TCanvas c5;
+//	hevent->Draw();
+//	TCanvas c6;
+//	hmrdsubev->Draw();
+//	TCanvas c7;
+//	htrigger->Draw();
+//	TCanvas c8;
+//	hnumhclusters->Draw();
+//	TCanvas c9;
+//	hnumvclusters->Draw();
+//	TCanvas c10;
+//	hnumhcells->Draw();
+//	TCanvas c11;
+//	hnumvcells->Draw();
+//	TCanvas c12;
+//	hpaddleids->Draw();
+//	TCanvas c13;
+//	hdigittimes->Draw();
+//	TCanvas c14;
+//	hhangle->Draw();
+//	TCanvas c15;
+//	hhangleerr->Draw();
+//	TCanvas c16;
+//	hvangle->Draw();
+//	TCanvas c17;
+//	hvangleerr->Draw();
+//	TCanvas c18;
+//	htotangle->Draw();
+//	TCanvas c19;
+//	htotangleerr->Draw();
+//	TCanvas c20;
+//	henergyloss->Draw();
+//	TCanvas c21;
+//	henergylosserr->Draw();
+//	TCanvas c22;
+//	htracklength->Draw();
+//	TCanvas c23;
+//	htrackpen->Draw();
+//	TCanvas c24;
+//	htrackpenvseloss->Draw();
+//	TCanvas c25;
+//	htracklenvseloss->Draw();
+	
+	// should put these on the same canvas
 	TCanvas c26;
 	htrackstart->SetMarkerStyle(20);
 	htrackstart->SetMarkerColor(kRed);
@@ -394,6 +410,7 @@ void checkmrdtracks(){
 	htrackstop->SetMarkerColor(kBlue);
 	htrackstop->Draw();
 	TCanvas c28;
+	hpep->SetMarkerStyle(20);
 	hpep->Draw();
 	
 	gPad->WaitPrimitive();

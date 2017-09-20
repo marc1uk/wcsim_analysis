@@ -2,6 +2,7 @@
 in/
 in_unused/
 out/
+imgs/
 
 #ignore gedit backups
 *~

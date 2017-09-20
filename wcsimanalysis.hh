@@ -3,6 +3,7 @@
 #define WCSimAnalysisClass
 
 #include "TROOT.h"
+#include "TRint.h"
 #include "TSystem.h"
 #include "TSystemFile.h"
 #include "TSystemDirectory.h"

@@ -162,16 +162,19 @@ std::map<int, std::pair<int,int> > bottomcappositionmap;
 std::map<int, std::pair<int,int> > wallpositionmap;
 
 #if FILE_VERSION==1
-const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_wdirt_07-02-17";
+const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_wdirt_07-02-17_rhatcher";
 #elif FILE_VERSION==2
-const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17";
+//const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_rhatcher";
+const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_BNB_World_10k_29-06-17";
 //const char* wcsimpath="/annie/app/users/moflaher/wcsim/build";
 #elif FILE_VERSION==3
-const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17";
+const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_rhatcher";
 #endif
 
-const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt";
-const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
+//const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt_rhatcher";
+const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt_vincentsgenie/world";
+//const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
+const char* geniepath="/pnfs/annie/persistent/users/vfischer/genie/BNB_World_10k_29-06-17";
 //const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim";  // first 1M sample, various issues
 //const char* wcsimpath="/annie/app/users/moflaher/wcsim/build";
 const char* wcsimlibrarypath="/annie/app/users/moflaher/wcsim/wcsim/libWCSimRoot.so";
@@ -509,6 +512,7 @@ void truthtracks(){
 	double fileeventnum;
 	double fileneutrinoE;
 	string fileinteractiontypestring;
+	int fileneutcode;
 	double filemomtrans;
 	double filemuonenergy;
 	double filemuonangle;
@@ -535,6 +539,7 @@ void truthtracks(){
 	TBranch* FileEventNumBranch = vertextreenocuts->Branch("EventNum",&fileeventnum);
 	TBranch* NeutrinoEnergyBranch = vertextreenocuts->Branch("NeutrinoEnergy",&fileneutrinoE);
 	TBranch* InteractionTypeBranch = vertextreenocuts->Branch("InteractionType",&fileinteractiontypestring);
+	TBranch* NeutCodeBranch = vertextreenocuts->Branch("NeutCode",&fileneutcode);
 	TBranch* MomTransBranch = vertextreenocuts->Branch("MomentumTransfer",&filemomtrans);
 	TBranch* MuonEnergyBranch = vertextreenocuts->Branch("MuonEnergy",&filemuonenergy);
 	TBranch* MuonAngleBranch = vertextreenocuts->Branch("MuonAngle",&filemuonangle);
@@ -593,6 +598,17 @@ void truthtracks(){
 	
 	// Jingbo tree of fiducial neutrino events
 	TTree* vertextreefiducialcut = new TTree("vertextreefiducialcut","True Tank QE Events in Fiducial Volume");
+	TBranch* FileEventNumBranchFid = vertextreefiducialcut->Branch("EventNum",&fileeventnum);
+	TBranch* NeutrinoEnergyBranchFid = vertextreefiducialcut->Branch("NeutrinoEnergy",&fileneutrinoE);
+	TBranch* InteractionTypeBranchFid = vertextreefiducialcut->Branch("InteractionType",&fileinteractiontypestring);
+	TBranch* NeutCodeBranchFid = vertextreefiducialcut->Branch("NeutCode",&fileneutcode);
+	TBranch* MomTransBranchFid = vertextreefiducialcut->Branch("MomentumTransfer",&filemomtrans);
+	TBranch* MuonEnergyBranchFid = vertextreefiducialcut->Branch("MuonEnergy",&filemuonenergy);
+	TBranch* MuonAngleBranchFid = vertextreefiducialcut->Branch("MuonAngle",&filemuonangle);
+	TBranch* TotalTrackLengthBranchFid = vertextreefiducialcut->Branch("TotalTrackLength",&filepathlengthtotal);
+	TBranch* TrackLengthInWaterBranchFid = vertextreefiducialcut->Branch("TrackLengthInWater",&filepathlengthinwater);
+	TBranch* TrackLengthInMrdBranchFid = vertextreefiducialcut->Branch("TrackLengthInMrd",&filepathlengthinmrd);
+	TBranch* EnergyLossInMrdBranchFid =  vertextreefiducialcut->Branch("EnergyLossInMrd",&fileenergylossinmrd);
 	TBranch* MuonStartBranchFid = vertextreefiducialcut->Branch("MuonStartVertex",&filemuonstartvertex);
 	TBranch* MuonStopBranchFid = vertextreefiducialcut->Branch("MuonStopVertex", &filemuonstopvertex);
 	TBranch* MuonDirectionBranchFid = vertextreefiducialcut->Branch("MuonDirection", &filemuondirectionvector);
@@ -601,8 +617,20 @@ void truthtracks(){
 	TBranch* DigitChargeBranchFid = vertextreefiducialcut->Branch("DigitCharges", &filedigitQsp);
 	TBranch* DigitDetTypeBranchFid = vertextreefiducialcut->Branch("DigitWhichDet",&filedigitsensortypesp);
 	TBranch* DigitSmearBranchFid = vertextreefiducialcut->Branch("DigitTimeSmear",&filedigittsmearsp);
+	TBranch* DigitPmtIdBranchFid = vertextreefiducialcut->Branch("DigitPmtId",&filedigitPMTIDsp);
 	
 	TTree* vertextreefiducialmrd = new TTree("vertextreefiducialmrd","True Tank QE Events in Fiducial Volume With Muon in MRD");
+	TBranch* FileEventNumBranchFidMRD = vertextreefiducialmrd->Branch("EventNum",&fileeventnum);
+	TBranch* NeutrinoEnergyBranchFidMRD = vertextreefiducialmrd->Branch("NeutrinoEnergy",&fileneutrinoE);
+	TBranch* InteractionTypeBranchFidMRD = vertextreefiducialmrd->Branch("InteractionType",&fileinteractiontypestring);
+	TBranch* NeutCodeBranchFidMRD = vertextreefiducialmrd->Branch("NeutCode",&fileneutcode);
+	TBranch* MomTransBranchFidMRD = vertextreefiducialmrd->Branch("MomentumTransfer",&filemomtrans);
+	TBranch* MuonEnergyBranchFidMRD = vertextreefiducialmrd->Branch("MuonEnergy",&filemuonenergy);
+	TBranch* MuonAngleBranchFidMRD = vertextreefiducialmrd->Branch("MuonAngle",&filemuonangle);
+	TBranch* TotalTrackLengthBranchFidMRD = vertextreefiducialmrd->Branch("TotalTrackLength",&filepathlengthtotal);
+	TBranch* TrackLengthInWaterBranchFidMRD = vertextreefiducialmrd->Branch("TrackLengthInWater",&filepathlengthinwater);
+	TBranch* TrackLengthInMrdBranchFidMRD = vertextreefiducialmrd->Branch("TrackLengthInMrd",&filepathlengthinmrd);
+	TBranch* EnergyLossInMrdBranchFidMRD =  vertextreefiducialmrd->Branch("EnergyLossInMrd",&fileenergylossinmrd);
 	TBranch* MuonStartBranchFidMRD = vertextreefiducialmrd->Branch("MuonStartVertex",&filemuonstartvertex);
 	TBranch* MuonStopBranchFidMRD = vertextreefiducialmrd->Branch("MuonStopVertex", &filemuonstopvertex);
 	TBranch* MuonDirectionBranchFidMRD = vertextreefiducialmrd->Branch("MuonDirection", &filemuondirectionvector);
@@ -611,6 +639,7 @@ void truthtracks(){
 	TBranch* DigitChargeBranchFidMRD = vertextreefiducialmrd->Branch("DigitCharges", &filedigitQsp);
 	TBranch* DigitDetTypeBranchFidMRD = vertextreefiducialmrd->Branch("DigitWhichDet",&filedigitsensortypesp);
 	TBranch* DigitSmearBranchFidMRD = vertextreefiducialmrd->Branch("DigitTimeSmear",&filedigittsmearsp);
+	TBranch* DigitPmtIdBranchFidMRD = vertextreefiducialmrd->Branch("DigitPmtId",&filedigitPMTIDsp);
 	
 	// some counters
 	Double_t numneutrinoeventsintank=0.;
@@ -1051,7 +1080,7 @@ void truthtracks(){
 			fslanglesallfidcut->Fill(thegenieinfo.fslanglegenie);
 			fslenergiesallfidcut->Fill(thegenieinfo.fsleptonenergy);
 			eventq2allfidcut->Fill(thegenieinfo.Q2);
-			numCCQEneutrinoeventsinfidvol++;
+			if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic")) numCCQEneutrinoeventsinfidvol++;
 		}
 		
 		/*5. primary neutrino true QE vertex in the tank: load wcsim detector response. */
@@ -1207,15 +1236,6 @@ void truthtracks(){
 #ifdef VERBOSE
 			cout<<"primarypdg is "<<primarypdg<<endl;
 #endif
-			switch (primarypdg){
-				case 111: numpizerotracks++; break;
-				case 211: numpiplustracks++; break;
-				case -211: numpiminustracks++; break;
-				case 13: nummutracks++; break;
-				case 22: numgammatracks++; break;
-				case 2112: numneutrontracks++; break;
-				case 2212: numprotontracks++; break;
-			}
 			if(TMath::Abs(primarypdg)!=13) continue;       // not a muon
 			
 			// for now we use truth information
@@ -1414,12 +1434,12 @@ void truthtracks(){
 						if(mrdexitpoint<layerzval) break;
 						mrdpenetrationlayers++;
 					}
-					if(mrdexitpoint>mrdscintlayers.back()){
+					if(mrdexitpoint>mrdscintlayers.back()){ // includes side exits as mrdexitpoint is earliest side exit.
 						muonrangesoutMRD=true;
 						muonstopsinMRD=false;
 					} else {
 						muonrangesoutMRD=false;
-						if((TMath::Abs(primarystopvertex.X())<MRD_width)
+						if((TMath::Abs(primarystopvertex.X())<MRD_width) // needed.
 							&&(TMath::Abs(primarystopvertex.Y())<MRD_height)) muonstopsinMRD=true;
 					}
 					
@@ -1432,16 +1452,21 @@ void truthtracks(){
 						(MRD_start-primarystartvertex.Z())*TMath::Tan(avgtrackanglex);
 					muYentrypoint = primarystartvertex.Y() + 
 						(MRD_start-primarystartvertex.Z())*TMath::Tan(avgtrackangley);
-					if(trackZlengthbeforeMRDexit==trackZlengthbeforeMRDXexit){
-						// track exits the MRD through one of the sides
-						muXexitpoint= (primarystopvertex.X()>0) ? MRD_width : -MRD_width;
-						muYexitpoint=
-							primarystartvertex.Y()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackangley));
+					if(muonstopsinMRD){
+						muXexitpoint=primarystopvertex.X();
+						muYexitpoint=primarystopvertex.Y();
 					} else {
-						// track exits through the top or bottom of the MRD
-						(primarystopvertex.Y()>0) ? muYexitpoint=MRD_height : muYexitpoint=-MRD_height;
-						muXexitpoint=
-							primarystartvertex.X()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackanglex));
+						if(trackZlengthbeforeMRDexit==trackZlengthbeforeMRDXexit){
+							// track exits the MRD through one of the sides
+							muXexitpoint= (primarystopvertex.X()>0) ? MRD_width : -MRD_width;
+							muYexitpoint=
+								primarystartvertex.Y()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackangley));
+						} else {
+							// track exits through the top or bottom of the MRD
+							(primarystopvertex.Y()>0) ? muYexitpoint=MRD_height : muYexitpoint=-MRD_height;
+							muXexitpoint=
+								primarystartvertex.X()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackanglex));
+						}
 					}
 					muXdistanceinMRD=muXexitpoint-muXentrypoint;
 					muYdistanceinMRD=muYexitpoint-muYentrypoint;
@@ -2033,7 +2058,10 @@ void truthtracks(){
 			///////////////////////////////////////////////
 			fileeventnum=wcsimeventnum;
 			fileneutrinoE=eventEnu;
-			fileinteractiontypestring=thegenieinfo.interactiontypestring;
+			fileinteractiontypestring=thegenieinfo.procinfostring;
+			// thegenieinfo.procinfostring gives format "<DIS - Weak[CC]>" for which symbols might not be ideal. Strip them.
+			fileinteractiontypestring=fileinteractiontypestring.substr(1,fileinteractiontypestring.length() - 2);
+			fileneutcode=thegenieinfo.neutinteractioncode;
 			filemomtrans=eventq2;
 			filemuonstartvertex=primarystartvertex;
 			filemuonstopvertex=primarystopvertex;
@@ -2281,7 +2309,8 @@ void truthtracks(){
 			fslanglesaccepted->Fill(thegenieinfo.fslanglegenie);
 			fslenergiesaccepted->Fill(thegenieinfo.fsleptonenergy);
 			eventq2accepted->Fill(thegenieinfo.Q2);
-			neutrinovertexQEaccepted->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
+			if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic"))
+				neutrinovertexQEaccepted->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
 			// if it passes the fiducial cut, we've also accepted it, fill.
 			if(isinfiducialvol){
 				// genie values
@@ -2290,8 +2319,8 @@ void truthtracks(){
 				fslenergiesacceptedfidcut->Fill(thegenieinfo.fsleptonenergy);
 				eventq2acceptedfidcut->Fill(thegenieinfo.Q2);
 				// fill flat tree for reconstruction dev
-				vertextreefiducialmrd->Fill();
-				numCCQEneutrinoeventsinfidvolmrd++;
+				if(muonentersMRD) vertextreefiducialmrd->Fill();
+				if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic")) numCCQEneutrinoeventsinfidvolmrd++;
 				nummuontracksinfidvolmrd+=scatteringanglesvector.size();
 			}
 		}
@@ -2772,7 +2801,7 @@ void truthtracks(){
 	histofileout->cd();
 	for(int i=0; i<histopointers.size(); i++){
 		TH1D* temp = histopointers.at(i);
-		if(temp) temp->Write();
+		if(temp) temp->Write("",TObject::kOverwrite);
 		// some histograms are in the vector twice, so only delete it if it doesn't appear again
 		if(std::count((histopointers.begin()+i), histopointers.end(), histopointers.at(i))==0) delete temp;
 	}
@@ -2781,7 +2810,7 @@ void truthtracks(){
 	//cout<<"deleting scaled histograms"<<endl;
 	for(int i=0; i<scaledhistopointers.size(); i++){
 		TH1D* temp = scaledhistopointers.at(i);
-		if(temp) temp->Write(); 
+		if(temp) temp->Write("",TObject::kOverwrite);
 		// some histograms are in the vector twice, so only delete it if it doesn't appear again
 		if(std::count((scaledhistopointers.begin()+i), scaledhistopointers.end(), scaledhistopointers.at(i))==0) delete temp;
 	}
@@ -2890,7 +2919,7 @@ void GetGenieEntryInfo(genie::EventRecord* gevtRec, genie::Interaction* genieint
 	if we could redirect and capture this (rather than printing it to stdout) it might actually be useful,
 	as extracting number of other hadrons doesn't work! but for now, just turn it off to reduce verbosity.
 	*/
-	/*Int_t*/ thegenieinfo.neutinteractioncode = -1; //genie::utils::ghep::NeutReactionCode(gevtRec);
+	/*Int_t*/ thegenieinfo.neutinteractioncode = genie::utils::ghep::NeutReactionCode(gevtRec);
 	/*Int_t*/ thegenieinfo.nuanceinteractioncode  = genie::utils::ghep::NuanceReactionCode(gevtRec);
 	/*TLorentzVector**/ thegenieinfo.genieVtx = gevtRec->Vertex();
 	/*Double_t*/ thegenieinfo.genie_x = thegenieinfo.genieVtx->X() * 100.;         // same info as nuvtx in g4dirt file
@@ -2990,7 +3019,8 @@ void GetGenieEntryInfo(genie::EventRecord* gevtRec, genie::Interaction* genieint
 	(thegenieinfo.targetnucleon) ? (NucleonM*NucleonM + 2*NucleonM*thegenieinfo.Etransf - thegenieinfo.Q2) : -1;
 	
 	if(printneutrinoevent){
-		cout<<"This was a "<< thegenieinfo.procinfostring <<" interaction of a "
+		cout<<"This was a "<< thegenieinfo.procinfostring <<" (neut code "<<thegenieinfo.neutinteractioncode
+			<<") interaction of a "
 			<<thegenieinfo.probeenergy<<"GeV " << thegenieinfo.probepartname << " on a "; 
 		
 		if( thegenieinfo.targetnucleonpdg==2212 || thegenieinfo.targetnucleonpdg==2122 ){

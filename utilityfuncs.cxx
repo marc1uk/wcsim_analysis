@@ -1,5 +1,6 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 //############################################################################################
+#include "type_name_as_string.hh" // this is some code from StackExchange that defines a function that can print a variables type
 
 // INITIALISE ENVIRONMENT
 // ======================
@@ -22,7 +23,7 @@ void WCSimAnalysis::InitEnvironment(){
 // ================
 void WCSimAnalysis::LoadInputFiles(){
 	cout<<"Setting output directory to "<<outputdir<<endl;
-	cout<<"Loading files from"<<inputdir<<"..."<<endl;
+	cout<<"Loading files from "<<inputdir<<"..."<<endl;
 	//TFile* f = TFile::Open("wcsim6.root");
 	//TTree* t = (TTree*)f->Get("wcsimT");
 

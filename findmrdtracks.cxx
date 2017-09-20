@@ -11,7 +11,7 @@
 // =======================
 void WCSimAnalysis::OpenMRDtrackOutfile(int filenum){
 	TString filenameout = TString::Format("%s/mrdtrackfile.%d.root",outputdir,filenum);
-	cout<<"opening mrd output file"<<filenameout.Data()<<endl;
+	cout<<"opening mrd output file "<<filenameout.Data()<<endl;
 	if(mrdtrackfile) mrdtrackfile->Close();
 	mrdtrackfile = new TFile(filenameout.Data(),"RECREATE","MRD Tracks file");
 	mrdtrackfile->cd();

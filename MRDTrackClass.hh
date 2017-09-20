@@ -12,9 +12,13 @@
 #include "TVector3.h"
 #include "TText.h"
 #include "TBox.h"
+#include "TGraph.h"
 #include "TGraphErrors.h"
 #include "TF1.h"
 #include "TFitResult.h"
+#include "TMinuit.h"
+#include "TMatrixD.h"
+#include "TVirtualFitter.h"
 #include "Math/GenVector/PxPyPzE4D.h"
 #include "Math/GenVector/LorentzVector.h"
 #include <exception>	// for stdexcept
@@ -82,13 +86,13 @@ class cMRDTrack : public TObject {
 	Double_t htrackgradient;
 	Double_t htrackgradienterror;
 	Double_t htrackfitchi2;
-	TMatrixDSym htrackfitcov;
+	TMatrixDSym htrackfitcov{2}; // it's necessary to specify the dimensionality when constructing!!!!
 	Double_t vtrackorigin;
 	Double_t vtrackoriginerror;
 	Double_t vtrackgradient;
 	Double_t vtrackgradienterror;
 	Double_t vtrackfitchi2;
-	TMatrixDSym vtrackfitcov;
+	TMatrixDSym vtrackfitcov{2};
 	
 	TVector3 trackfitstart, trackfitstop;
 	double trackangle, trackangleerror;
@@ -132,6 +136,9 @@ class cMRDTrack : public TObject {
 	// Information required for matching to tank tracks
 	double GetTrackAngle(){return trackangle;}
 	double GetTrackAngleError(){return trackangleerror;}
+	void GetAngleAndOffset(int tracktype, double &xgradient, double &ygradient, double &xoffset, double &yoffset);
+	std::pair<double,double> CalculateCovariantError(double errorx, int indexgiven, TMatrixDSym covariancematrix, bool flag);
+	double CalculateCovariantError(double errorx, int indexgiven, TMatrixDSym covariancematrix);
 	TVector3 GetMrdEntryPoint(){return mrdentrypoint;}
 	std::pair<double, double> GetMrdEntryBoundsX(){return mrdentryxbounds;}
 	std::pair<double, double> GetMrdEntryBoundsY(){return mrdentryybounds;}
@@ -152,6 +159,9 @@ class cMRDTrack : public TObject {
 	bool GetIsSideExit(){return sideexit;}
 	void GetProjectionLimits(double zplane, double &xmax, double &xmin, double &ymax, double &ymin);
 	TVector3 GetProjectedPoint(double zplane);
+	
+	// debugging functions
+	void TestCovarianceErrorCalc();
 	
 	// provided in MRDTrack_Draw_Print.cxx: draw cell arrows from reconstructio
 	void DrawReco(TCanvas* imgcanvas, std::vector<TArrow*> &trackarrows, EColor thistrackscolour, std::vector<TBox*> paddlepointers);
@@ -269,6 +279,21 @@ class cMRDTrack : public TObject {
 #endif
 		eDepsInLayers.assign(numpanels, 0.);	// can't assign the size in the class def. 
 		DoReconstruction();
+		
+		if((ispenetrating&&isstopped)||(ispenetrating&&sideexit)||(isstopped&&sideexit)){
+			cerr<<"ERROR!"<<endl<<"ispenetrating="<<ispenetrating<<", isstopped="<<isstopped<<", sideexit="<<sideexit<<endl;
+			assert(false);
+		}
+		if(trackfitstart.X()<1.&&trackfitstart.Y()<1&&trackfitstart.Z()<1){
+			cerr<<"POSSIBLE ERROR!"<<endl<<"Track fit start = ("
+				<<trackfitstart.X()<<", "<<trackfitstart.Y()<<", "<<trackfitstart.Z()<<")"<<endl;
+			assert(false);
+		}
+		if(trackfitstop.X()<1.&&trackfitstop.Y()<1&&trackfitstop.Z()<1){
+			cerr<<"POSSIBLE ERROR!"<<endl<<"Track fit stop = ("
+				<<trackfitstop.X()<<", "<<trackfitstop.Y()<<", "<<trackfitstop.Z()<<")"<<endl;
+			assert(false);
+		}
 	}
 	
 	// Copy Constructor
