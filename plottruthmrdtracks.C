@@ -25,14 +25,14 @@ wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8in
 //#define MUTRACKDEBUG
 #endif
 #ifndef MUTRACKLENGTHDEBUG
-#define MUTRACKLENGTHDEBUG
+//#define MUTRACKLENGTHDEBUG
 #endif
 #ifndef PARTICLEGUNEVENTS
-#define PARTICLEGUNEVENTS // currently setup to match files of format wcsim_####.root and wcsim_lappd_####.root
-#define NOGENIE           // this needs to be changed in several places! search for "_####.root"
+//#define PARTICLEGUNEVENTS // currently setup to match files of format wcsim_####.root and wcsim_lappd_####.root
+//#define NOGENIE           // this needs to be changed in several places! search for "_####.root"
 #endif
 #ifndef NOGENIE
-#define NOGENIE
+//#define NOGENIE
 #endif
 
 #include "TROOT.h"
@@ -200,10 +200,11 @@ const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
 //const char* geniepath="/pnfs/annie/persistent/users/vfischer/genie/BNB_World_10k_29-06-17";
 
 //std::string outpathstlstring=std::string(gSystem->pwd())+"/out/muongun_beamsim";
-//const char* outpath=outpathstlstring.c_str();
+std::string outpathstlstring=std::string(gSystem->pwd())+"/temp";
+const char* outpath=outpathstlstring.c_str();
 //const char* outpath=gSystem->pwd();
 //const char* outpath="/annie/app/users/moflaher/wcsim/root_work";
-const char* outpath="/annie/app/users/moflaher/wcsim/root_work/temp";
+//const char* outpath="/annie/app/users/moflaher/wcsim/root_work/temp";
 
 const Bool_t printneutrinoevent=false;
 
@@ -1356,7 +1357,7 @@ void truthtracks(){
 			// is it a primary?
 			Int_t primaryparentpdg = nextrack->GetParenttype();
 #ifdef VERBOSE
-				if(primaryparentpdg) ? cout<<"a primary"<<endl : cout<<"not a primary"<<endl;
+			(primaryparentpdg!=0) ? cout<<"a primary"<<endl : cout<<"not a primary"<<endl;
 #endif
 			if(primaryparentpdg!=0) continue;
 			
@@ -2440,10 +2441,10 @@ void truthtracks(){
 				fslanglesacceptedfidcut->Fill(thegenieinfo.fslanglegenie);
 				fslenergiesacceptedfidcut->Fill(thegenieinfo.fsleptonenergy);
 				eventq2acceptedfidcut->Fill(thegenieinfo.Q2);
+				if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic")) numCCQEneutrinoeventsinfidvolmrd++;
 #endif
 				// fill flat tree for reconstruction dev
 				if(muonentersMRD) vertextreefiducialmrd->Fill();
-				if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic")) numCCQEneutrinoeventsinfidvolmrd++;
 				nummuontracksinfidvolmrd+=scatteringanglesvector.size();
 			}
 		}
