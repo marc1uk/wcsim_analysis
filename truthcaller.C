@@ -1,12 +1,11 @@
 {
 /* vim:set noexpandtab tabstop=4 wrap */
 #ifndef PARTICLEGUNEVENTS
-#define PARTICLEGUNEVENTS
-#define NOGENIE
+//#define PARTICLEGUNEVENTS
+//#define NOGENIE
 #endif
 	TString curr_dir = gSystem->pwd();
 #ifndef NOGENIE
-#define NOGENIE
 	TString script_dir = gSystem->Getenv("GENIE");
 	script_dir += "/src/scripts/gcint/";
 	gSystem->cd(script_dir.Data());

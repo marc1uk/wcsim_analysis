@@ -18,7 +18,7 @@
 //#include "/annie/app/users/moflaher/annie_rootlogon.C"
 //void annie_rootlogon();
 //void Preliminary(TString data="");
-//void PreliminarySide(TString data="");
+//void Preliminary(TString data="");
 //void Simulation();
 //void SimulationSide();
 //void CenterTitles(TH1* histo);
@@ -39,7 +39,7 @@ double CalculateEventQ2(double recoMuonEnergy, double recoNeutrinoEnergy, double
 
 void comparemuEs(){
 	const char* pwd = gSystem->pwd();
-	std::string outstring = std::string(pwd)+"/out/muongun_beamsim";
+	std::string outstring = std::string(pwd)+"/out/q2comparison";
 	const char* outdir=outstring.c_str();
 #ifdef VERBOSE
 	cout<<"setting output directory to "<<outdir<<endl;
@@ -50,16 +50,18 @@ void comparemuEs(){
 #endif
 	// muon:
 	//TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonE.root");
-	TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEW.root");
+	//TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEW.root");
+	//TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEWB.root");
+	TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEWC2.root");
 	TTree* t1 = (TTree*)f1->Get("tuple");
-	t1->SetBranchStatus("*",0);
-	t1->SetBranchStatus("trueKE",1);
-	t1->SetBranchStatus("recoKE",1);
-	t1->SetBranchStatus("dirX",1);
-	t1->SetBranchStatus("dirY",1);
-	t1->SetBranchStatus("dirZ",1);
-	t1->SetBranchStatus("TrueMomentumTransfer",1);
-	t1->SetBranchStatus("TrueMuonAngle",1);
+//	t1->SetBranchStatus("*",0);
+//	t1->SetBranchStatus("trueKE",1);
+//	t1->SetBranchStatus("recoKE",1);
+//	t1->SetBranchStatus("dirX",1);
+//	t1->SetBranchStatus("dirY",1);
+//	t1->SetBranchStatus("dirZ",1);
+//	t1->SetBranchStatus("TrueMomentumTransfer",1);
+//	t1->SetBranchStatus("TrueMuonAngle",1);
 	TVector3 recomuondirection;
 	float truemuE, recomuE, recomudirx, recomudiry, recomudirz, trueq2, trueangle;
 	t1->SetBranchAddress("trueKE",&truemuE);
@@ -74,14 +76,16 @@ void comparemuEs(){
 	cout<<"loading neutrino reco file"<<endl;
 #endif
 	// neutrino:
-	TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTreconeutrinoE.root");
+	//TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTreconeutrinoE.root");
+	//TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonEneuNEWB.root");
+	TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTreconeutrinoENEWC2.root");
 	TTree* t2 = (TTree*)f2->Get("tuple");
-	t2->SetBranchStatus("*",0);
-	t2->SetBranchStatus("trueKE",1);
-	t2->SetBranchStatus("recoKE",1);
-	t2->SetBranchStatus("vtxX",1);
-	t2->SetBranchStatus("vtxY",1);
-	t2->SetBranchStatus("vtxZ",1);
+//	t2->SetBranchStatus("*",0);
+//	t2->SetBranchStatus("trueKE",1);
+//	t2->SetBranchStatus("recoKE",1);
+//	t2->SetBranchStatus("vtxX",1);
+//	t2->SetBranchStatus("vtxY",1);
+//	t2->SetBranchStatus("vtxZ",1);
 	float truenuE, reconuE, recovtxx, recovtxy, recovtxz;
 	t2->SetBranchAddress("trueKE",&truenuE);
 	t2->SetBranchAddress("recoKE",&reconuE);
@@ -121,7 +125,7 @@ void comparemuEs(){
 #endif
 	TTree* treeout = new TTree("q2tree","Reco vs True Comparison of Q2");
 	double outtruenuE, outtruemuE, outreconuE, outrecomuE, outtrueangle, outrecoangle, outtrueq2, outrecoq2, 
-	outvtxerr, outangerr, outmuEerr, outnuEerr, outq2err;
+	outvtxerr, outangerr, outmuEerr, outnuEerr, outq2err, outrecodirx, outrecodiry, outrecodirz;
 	bool outinfidvol, outhasmrdtrack;
 	TVector3 outtruevtx, outrecovtx, outtruedir, outrecodir;
 	treeout->Branch("TrueNuE",&outtruenuE);
@@ -143,112 +147,115 @@ void comparemuEs(){
 	treeout->Branch("RecoVtx",&outrecovtx);
 	treeout->Branch("TrueDir",&outtruedir);
 	treeout->Branch("RecoDir",&outrecodir);
+	treeout->Branch("RecoDirX",&outrecodirx);
+	treeout->Branch("RecoDirY",&outrecodiry);
+	treeout->Branch("RecoDirZ",&outrecodirz);
 	
 #ifdef VERBOSE
 	cout<<"creating truth histograms"<<endl;
 #endif
 	// histograms to compare distributions
 	/* true sample histograms */
-	TH1D truenuKEhist("truenuKEhist","True Neutrino KE",50,0,2000);
+	TH1D truenuKEhist("truenuKEhist","True Neutrino KE",50,0,2500);
 	t2->Draw("trueKE>>truenuKEhist");
-	PreliminarySide("Simulation"); CenterTitles(&truenuKEhist);
-	TH1D truemuKEhist("truemuKEhist","True Muon KE",50,0,2000);
+	Preliminary("Simulation"); CenterTitles(&truenuKEhist);
+	TH1D truemuKEhist("truemuKEhist","True Muon KE",50,0,2500);
 	t1->Draw("trueKE>>truemuKEhist");
-	PreliminarySide("Simulation"); CenterTitles(&truemuKEhist);
+	Preliminary("Simulation"); CenterTitles(&truemuKEhist);
 	TH1D trueanglehist("trueanglehist","True Scattering Angle",50,0,TMath::Pi());
 	t1->Draw("TrueMuonAngle>>trueanglehist");
-	PreliminarySide("Simulation"); CenterTitles(&trueanglehist);
-	TH1D trueQ2hist("trueQ2hist","True Momentum Transfer",50,0,2000000);
-	t1->Draw("(TrueMomentumTransfer*1000000.)>>trueQ2hist");
-	PreliminarySide("Simulation"); CenterTitles(&trueQ2hist);
+	Preliminary("Simulation"); CenterTitles(&trueanglehist);
+	TH1D trueQ2hist("trueQ2hist","True Momentum Transfer",50,0,2);
+	t1->Draw("(TrueMomentumTransfer)>>trueQ2hist");
+	Preliminary("Simulation"); CenterTitles(&trueQ2hist);
 	TH3D truevertexhist("truevertexhist","True Vertex",50,-150,150,50,-220,220,50,-150,150);
 	// do not yet have XXX remember to use 'goff' option
-	PreliminarySide("Simulation"); CenterTitles(&truevertexhist);
+	Preliminary("Simulation"); CenterTitles(&truevertexhist);
 	TH3D truedirhist("truedirhist","True Direction",50,-1.0,1.0,50,-1.0,1.0,50,-1.0,1.0);
 	// do not yet have XXX remember to use 'goff' option
-	PreliminarySide("Simulation"); CenterTitles(&truedirhist);
+	Preliminary("Simulation"); CenterTitles(&truedirhist);
 	
 #ifdef VERBOSE
 	cout<<"creating reco histograms"<<endl;
 #endif
 	/* reco sample histograms */
-	TH1D reconuKEhist("reconuKEhist","Reco Neutrino KE",50,0,2000);
+	TH1D reconuKEhist("reconuKEhist","Reco Neutrino KE",50,0,2500);
 	t2->Draw("recoKE>>reconuKEhist");
-	PreliminarySide("Simulation"); CenterTitles(&reconuKEhist);
-	TH1D recomuKEhist("recomuKEhist","Reco Muon KE",50,0,2000);
+	Preliminary("Simulation"); CenterTitles(&reconuKEhist);
+	TH1D recomuKEhist("recomuKEhist","Reco Muon KE",50,0,2500);
 	t1->Draw("recoKE>>recomuKEhist");
-	PreliminarySide("Simulation"); CenterTitles(&recomuKEhist);
+	Preliminary("Simulation"); CenterTitles(&recomuKEhist);
 	TH1D recoanglehist("recoanglehist","Reco Scattering Angle",50,0,TMath::Pi());
 	// fill in loop
-	PreliminarySide("Simulation"); CenterTitles(&recoanglehist);
-	TH1D recoQ2hist("recoQ2hist","Reco Momentum Transfer",50,0,2000000);
+	Preliminary("Simulation"); CenterTitles(&recoanglehist);
+	TH1D recoQ2hist("recoQ2hist","Reco Momentum Transfer",50,0,2);
 	// fill in loop
-	PreliminarySide("Simulation"); CenterTitles(&recoQ2hist);
+	Preliminary("Simulation"); CenterTitles(&recoQ2hist);
 	TH3D recovertexhist("recovertexhist","Reco Vertex",50,-150,150,50,-220,220,50,-150,150);
 	t2->Draw("vtxX:vtxY:vtxZ>>recovertexhist","","goff");
-	PreliminarySide("Simulation"); CenterTitles(&recovertexhist);
+	Preliminary("Simulation"); CenterTitles(&recovertexhist);
 	TH3D recodirhist("recodirhist","Reco Direction",50,-1.0,1.0,50,-1.0,1.0,50,-1.0,1.0);
 	t1->Draw("dirX:dirY:dirZ>>recodirhist","","goff");
-	PreliminarySide("Simulation"); CenterTitles(&recodirhist);
+	Preliminary("Simulation"); CenterTitles(&recodirhist);
 	
 #ifdef VERBOSE
 	cout<<"creating input histograms"<<endl;
 #endif
 	/* true all histograms */
-	TH1D truenuKEallhist("truenuKEallhist","True Neutrino KE (All)",50,0,2000);
+	TH1D truenuKEallhist("truenuKEallhist","True Neutrino KE (All)",50,0,2500);
 	t3->Draw("NeutrinoEnergy>>(truenuKEallhist*1000.)");
-	PreliminarySide("Simulation"); 
-	TH1D truemuKEallhist("truemuKEallhist","True Muon KE (All)",50,0,2000);
+	Preliminary("Simulation"); 
+	TH1D truemuKEallhist("truemuKEallhist","True Muon KE (All)",50,0,2500);
 	t3->Draw("(MuonEnergy*1000.)>>truemuKEallhist");
-	PreliminarySide("Simulation"); CenterTitles(&truemuKEallhist);
+	Preliminary("Simulation"); CenterTitles(&truemuKEallhist);
 	TH1D trueangleallhist("trueangleallhist","True Scattering Angle (All)",50,0,TMath::Pi());
 	t3->Draw("MuonAngle>>trueangleallhist");
-	PreliminarySide("Simulation"); CenterTitles(&trueangleallhist);
-	TH1D trueQ2allhist("trueQ2allhist","True Momentum Transfer (All)",50,0,2000000);
-	t3->Draw("(MomentumTransfer*1000000.)>>trueQ2allhist");
-	PreliminarySide("Simulation"); CenterTitles(&trueQ2allhist);
+	Preliminary("Simulation"); CenterTitles(&trueangleallhist);
+	TH1D trueQ2allhist("trueQ2allhist","True Momentum Transfer (All)",50,0,2);
+	t3->Draw("(MomentumTransfer)>>trueQ2allhist");
+	Preliminary("Simulation"); CenterTitles(&trueQ2allhist);
 	TH3D truevertexallhist("truevertexallhist","True Vertex (All)",50,-150,150,50,-220,220,50,-150,150);
 	t3->Draw("MuonStartVertex.X():MuonStartVertex.Y():MuonStartVertex.Z()>>truevertexallhist","","goff");
-	PreliminarySide("Simulation"); CenterTitles(&truevertexallhist);
+	Preliminary("Simulation"); CenterTitles(&truevertexallhist);
 	TH3D truedirallhist("truedirallhist","True Direction (All)",50,-1.0,1.0,50,-1.0,1.0,50,-1.0,1.0);
 	t3->Draw("MuonDirection.X():MuonDirection.Y():MuonDirection.Z()>>truedirallhist","","goff");
-	PreliminarySide("Simulation"); CenterTitles(&truedirallhist);
+	Preliminary("Simulation"); CenterTitles(&truedirallhist);
 	
 #ifdef VERBOSE
 	cout<<"creating fractional error histograms"<<endl;
 #endif
 	/* fractional errors */
 	TH1D nuEfracerrhist("nuEfracerrhist","Relative Neutrino Energy Error",50,-1.0,1.0);
-	PreliminarySide("Simulation"); CenterTitles(&nuEfracerrhist);
+	Preliminary("Simulation"); CenterTitles(&nuEfracerrhist);
 	TH1D muEfracerrhist("muEfracerrhist","Relative Muon Energy Error",50,-1.0,1.0);
-	PreliminarySide("Simulation"); CenterTitles(&muEfracerrhist);
+	Preliminary("Simulation"); CenterTitles(&muEfracerrhist);
 	TH1D angfracerrhist("angfracerrhist","Relative Scattering Angle Error",50,-1.0,1.0);
-	PreliminarySide("Simulation"); CenterTitles(&angfracerrhist);
+	Preliminary("Simulation"); CenterTitles(&angfracerrhist);
 	TH1D q2fracerrhist("q2fracerrhist","Relative Q^{2} Error",50,-1.0,1.0);
-	PreliminarySide("Simulation"); CenterTitles(&q2fracerrhist);
+	Preliminary("Simulation"); CenterTitles(&q2fracerrhist);
 	
 #ifdef VERBOSE
 	cout<<"creating 2D histograms"<<endl;
 #endif
 	/* true val vs reco val */
-	TH2D nuEtruevsreco("nuEtruevsreco","True vs Reco Neutrino Energy",50,0,2000,50,0,2000);
-	PreliminarySide("Simulation"); CenterTitles(&nuEtruevsreco);
-	TH2D muEtruevsreco("muEtruevsreco","True vs Reco Muon Energy",50,0,2000,50,0,2000);
-	PreliminarySide("Simulation"); CenterTitles(&muEtruevsreco);
+	TH2D nuEtruevsreco("nuEtruevsreco","True vs Reco Neutrino Energy",50,0,2500,50,0,2500);
+	Preliminary("Simulation"); CenterTitles(&nuEtruevsreco);
+	TH2D muEtruevsreco("muEtruevsreco","True vs Reco Muon Energy",50,0,2500,50,0,2500);
+	Preliminary("Simulation"); CenterTitles(&muEtruevsreco);
 	TH2D angtruevsreco("angtruevsreco","True vs Reco Scattering Angle",50,0,TMath::Pi(),50,0,TMath::Pi());
-	PreliminarySide("Simulation"); CenterTitles(&angtruevsreco);
-	TH2D q2truevsreco("q2truevsreco","True vs Reco Q^{2}",50,0,2000000,50,0,2000000);
-	PreliminarySide("Simulation"); CenterTitles(&q2truevsreco);
+	Preliminary("Simulation"); CenterTitles(&angtruevsreco);
+	TH2D q2truevsreco("q2truevsreco","True vs Reco Q^{2}",50,0,2,50,0,2);
+	Preliminary("Simulation"); CenterTitles(&q2truevsreco);
 	
 	/* fractional errors vs value */
-	TH2D nuEfracerrhist2("nuEfracerrhist2","Relative Neutrino Energy Error vs True Neutrino Energy",50,-1.0,1.0,50,0,2000);
-	PreliminarySide("Simulation"); CenterTitles(&nuEfracerrhist2);
-	TH2D muEfracerrhist2("muEfracerrhist2","Relative Muon Energy Error vs True Muon Energy",50,-1.0,1.0,50,0,2000);
-	PreliminarySide("Simulation"); CenterTitles(&muEfracerrhist2);
-	TH2D angfracerrhist2("angfracerrhist2","Relative Scattering Angle Error vs True Angle",50,-1.0,1.0,50,0,TMath::Pi());
-	PreliminarySide("Simulation"); CenterTitles(&angfracerrhist2);
-	TH2D q2fracerrhist2("q2fracerrhist2","Relative Q^{2} Error vs True Q^{2}",50,-1.0,1.0,50,0,2000000);
-	PreliminarySide("Simulation"); CenterTitles(&q2fracerrhist2);
+	TH2D nuEfracerrhist2("nuEfracerrhist2","Relative Neutrino Energy Error vs True Neutrino Energy",50,0,2500,50,-1.0,1.0);
+	Preliminary("Simulation"); CenterTitles(&nuEfracerrhist2);
+	TH2D muEfracerrhist2("muEfracerrhist2","Relative Muon Energy Error vs True Muon Energy",50,0,2500,50,-1.0,1.0);
+	Preliminary("Simulation"); CenterTitles(&muEfracerrhist2);
+	TH2D angfracerrhist2("angfracerrhist2","Relative Scattering Angle Error vs True Angle",50,0,TMath::Pi(),50,-1.0,1.0);
+	Preliminary("Simulation"); CenterTitles(&angfracerrhist2);
+	TH2D q2fracerrhist2("q2fracerrhist2","Relative Q^{2} Error vs True Q^{2}",50,0,2,50,-1.0,1.0);
+	Preliminary("Simulation"); CenterTitles(&q2fracerrhist2);
 	
 #ifdef VERBOSE
 	cout<<"looping over reconstructed events"<<endl;
@@ -265,11 +272,12 @@ void comparemuEs(){
 		outrecovtx=TVector3(recovtxx, recovtxy, recovtxz);
 		outtruedir=TVector3(-1,-1,-1); // do not yet have
 		outrecodir=TVector3(recomudirx, recomudiry, recomudirz);
+		outrecodirx=recomudirx; outrecodiry=recomudiry; outrecodirz=recomudirz;
 		outtrueangle=trueangle;
 		outrecoangle=outrecodir.Angle(TVector3(0,0,1));
 		recoanglehist.Fill(outrecoangle);
-		outtrueq2=trueq2*1000000.;
-		outrecoq2=CalculateEventQ2(recomuE, reconuE, outrecoangle);
+		outtrueq2=trueq2;
+		outrecoq2=CalculateEventQ2(recomuE, reconuE, outrecoangle)/1000000.;
 		recoQ2hist.Fill(outrecoq2);
 		outnuEerr=outtruenuE-outreconuE;
 		outmuEerr=outtruemuE-outrecomuE;
@@ -292,10 +300,10 @@ void comparemuEs(){
 		angfracerrhist.Fill((outtrueangle-outrecoangle)/outtrueangle);
 		q2fracerrhist.Fill((outtrueq2-outrecoq2)/outtrueq2);
 		// fractional error histos vs true val
-		nuEfracerrhist2.Fill((truenuE-reconuE)/truenuE,truenuE);
-		muEfracerrhist2.Fill((truemuE-recomuE)/truemuE,truemuE);
-		angfracerrhist2.Fill((outtrueangle-outrecoangle)/outtrueangle,outtrueangle);
-		q2fracerrhist2.Fill((outtrueq2-outrecoq2)/outtrueq2,outtrueq2);
+		nuEfracerrhist2.Fill(truenuE,(truenuE-reconuE)/truenuE);
+		muEfracerrhist2.Fill(truemuE,(truemuE-recomuE)/truemuE);
+		angfracerrhist2.Fill(outtrueangle,(outtrueangle-outrecoangle)/outtrueangle);
+		q2fracerrhist2.Fill(outtrueq2,(outtrueq2-outrecoq2)/outtrueq2);
 		
 		treeout->Fill();
 	}
@@ -421,44 +429,44 @@ void comparemuEs(){
 	cout<<"saving 2D histograms"<<endl;
 #endif
 	// True vs Reco histos
-	nuEtruevsreco.GetXaxis()->SetTitle("True Neutrino Energy");
-	nuEtruevsreco.GetYaxis()->SetTitle("Reconstructed Neutrino Energy");
+	nuEtruevsreco.GetXaxis()->SetTitle("True Neutrino Energy [MeV]");
+	nuEtruevsreco.GetYaxis()->SetTitle("Reconstructed Neutrino Energy [MeV]");
 	CenterTitles(&nuEtruevsreco);
 	nuEtruevsreco.Write();
 
-	muEtruevsreco.GetXaxis()->SetTitle("True Muon Energy");
-	muEtruevsreco.GetYaxis()->SetTitle("Reconstructed Muon Energy");
+	muEtruevsreco.GetXaxis()->SetTitle("True Muon Energy [MeV]");
+	muEtruevsreco.GetYaxis()->SetTitle("Reconstructed Muon Energy [MeV]");
 	CenterTitles(&muEtruevsreco);
 	muEtruevsreco.Write();
 
-	angtruevsreco.GetXaxis()->SetTitle("True Scattering Angle");
-	angtruevsreco.GetYaxis()->SetTitle("Reconstructed Scattering Angle");
+	angtruevsreco.GetXaxis()->SetTitle("True Scattering Angle [rads]");
+	angtruevsreco.GetYaxis()->SetTitle("Reconstructed Scattering Angle [rads]");
 	CenterTitles(&angtruevsreco);
 	angtruevsreco.Write();
 
-	q2truevsreco.GetXaxis()->SetTitle("True Momentum Transfer");
-	q2truevsreco.GetYaxis()->SetTitle("Reconstructed Momentum Transfer");
+	q2truevsreco.GetXaxis()->SetTitle("True Momentum Transfer [(GeV/c)^{2}]");
+	q2truevsreco.GetYaxis()->SetTitle("Reconstructed Momentum Transfer [(GeV/c)^{2}]");
 	CenterTitles(&q2truevsreco);
 	q2truevsreco.Write();
 	
 	// Error histos
-	nuEfracerrhist2.GetXaxis()->SetTitle("Fractional Neutrino Energy Error");
-	nuEfracerrhist2.GetYaxis()->SetTitle("True Neutrino Energy");
+	nuEfracerrhist2.GetYaxis()->SetTitle("Fractional Neutrino Energy Error");
+	nuEfracerrhist2.GetXaxis()->SetTitle("True Neutrino Energy [MeV]");
 	CenterTitles(&nuEfracerrhist2);
 	nuEfracerrhist2.Write();
 	
-	muEfracerrhist2.GetXaxis()->SetTitle("Fractional Muon Energy Error");
-	muEfracerrhist2.GetYaxis()->SetTitle("True Muon Energy");
+	muEfracerrhist2.GetYaxis()->SetTitle("Fractional Muon Energy Error");
+	muEfracerrhist2.GetXaxis()->SetTitle("True Muon Energy [MeV]");
 	CenterTitles(&muEfracerrhist2);
 	muEfracerrhist2.Write();
 	
-	angfracerrhist2.GetXaxis()->SetTitle("Fractional Scattering Error");
-	angfracerrhist2.GetYaxis()->SetTitle("True Scattering Angle");
+	angfracerrhist2.GetYaxis()->SetTitle("Fractional Scattering Error");
+	angfracerrhist2.GetXaxis()->SetTitle("True Scattering Angle");
 	CenterTitles(&angfracerrhist2);
 	angfracerrhist2.Write();
 	
-	q2fracerrhist2.GetXaxis()->SetTitle("Fractional Q^{2} Error");
-	q2fracerrhist2.GetYaxis()->SetTitle("True Q^{2}");
+	q2fracerrhist2.GetYaxis()->SetTitle("Fractional Q^{2} Error");
+	q2fracerrhist2.GetXaxis()->SetTitle("True Q^{2} [(GeV/c)^{2}]");
 	CenterTitles(&q2fracerrhist2);
 	q2fracerrhist2.Write();
 	
@@ -470,17 +478,24 @@ void comparemuEs(){
 	// this draws a normalized copy of the histo. You either need to call pad->Clear(), or delete the returned pointer!
 	TCanvas c1;
 	THStack* thestack = new THStack("thestack","Stacked Histos");
+	TLegend* leg;
+	thestack->SetTitle("");
 	// thestack->GetHists()->Clear(); <<< clears the histograms but doesn't allow the X-axis range to rescale with new histos.
 	truenuKEhist.Scale(1/truenuKEhist.Integral());
+	truenuKEhist.SetTitle("True");
 	thestack->Add(&truenuKEhist);
 	reconuKEhist.Scale(1/reconuKEhist.Integral());
+	reconuKEhist.SetTitle("Reco");
 	thestack->Add(&reconuKEhist);
 	thestack->Draw("nostack");
 	thestack->GetXaxis()->SetTitle("Neutrino Energy [MeV]");
 	thestack->GetYaxis()->SetTitle("Num Events");
 	CenterTitles(thestack);
 	//thestack->SetTitle("Neutrino Energy");
-	c1.BuildLegend();
+	leg = c1.BuildLegend();
+	leg->SetFillStyle(0);
+	Preliminary("Simulation"); // must get called AFTER BuildLegend, else it gets added to it!
+	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
 	c1.SaveAs(TString::Format("%s/reconstructed_neutrino_energy.png",outdir));
 	
 #ifdef VERBOSE
@@ -488,8 +503,10 @@ void comparemuEs(){
 #endif
 	delete thestack; thestack = new THStack("thestack","Stacked Histos");
 	truemuKEhist.Scale(1/truemuKEhist.Integral());
+	truemuKEhist.SetTitle("True");
 	thestack->Add(&truemuKEhist);
 	recomuKEhist.Scale(1/recomuKEhist.Integral());
+	recomuKEhist.SetTitle("Reco");
 	thestack->Add(&recomuKEhist);
 	thestack->Draw("nostack");
 	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
@@ -497,8 +514,10 @@ void comparemuEs(){
 	thestack->GetYaxis()->SetTitle("Num Events");
 	CenterTitles(thestack);
 	thestack->Draw("nostack");
+	leg = c1.BuildLegend();
+	leg->SetFillStyle(0);
+	Preliminary("Simulation");
 	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
-	c1.BuildLegend();
 	c1.SaveAs(TString::Format("%s/reconstructed_muon_energy.png",outdir));
 	
 #ifdef VERBOSE
@@ -506,11 +525,13 @@ void comparemuEs(){
 #endif
 	/*c1.Clear();*/ thestack->GetHists()->Clear(); delete thestack; thestack = new THStack("thestack","Stacked Histos");
 	trueanglehist.Scale(1/trueanglehist.Integral());
+	trueanglehist.SetTitle("True");
 	thestack->Add(&trueanglehist);
 	//obselete: compare w/ distribution of all events
 	//trueangleallhist.Scale(1/trueangleallhist.Integral());
 	//thestack->Add(&trueangleallhist);
 	recoanglehist.Scale(1/recoanglehist.Integral());
+	recoanglehist.SetTitle("Reco");
 	thestack->Add(&recoanglehist);
 	thestack->Draw("nostack");
 	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
@@ -518,8 +539,10 @@ void comparemuEs(){
 	thestack->GetYaxis()->SetTitle("Num Events");
 	CenterTitles(thestack);
 	thestack->Draw("nostack");
+	leg = c1.BuildLegend();
+	leg->SetFillStyle(0);
+	Preliminary("Simulation");
 	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
-	c1.BuildLegend();
 	c1.SaveAs(TString::Format("%s/reconstructed_scattering_angle.png",outdir));
 	
 #ifdef VERBOSE
@@ -527,20 +550,24 @@ void comparemuEs(){
 #endif
 	delete thestack; thestack = new THStack("thestack","Stacked Histos");
 	trueQ2hist.Scale(1/trueQ2hist.Integral());
+	trueQ2hist.SetTitle("True");
 	thestack->Add(&trueQ2hist);
 	//obselete: compare all events
 	//trueQ2allhist.Scale(1/trueQ2allhist.Integral());
 	//thestack->Add(&trueQ2allhist);
 	recoQ2hist.Scale(1/recoQ2hist.Integral());
+	recoQ2hist.SetTitle("Reco");
 	thestack->Add(&recoQ2hist);
 	thestack->Draw("nostack");
 	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
-	thestack->GetXaxis()->SetTitle("Momentum Transfer [(MeV/c)^{2}]");
+	thestack->GetXaxis()->SetTitle("Momentum Transfer [(GeV/c)^{2}]");
 	thestack->GetYaxis()->SetTitle("Num Events");
 	CenterTitles(thestack);
 	thestack->Draw("nostack");
+	leg = c1.BuildLegend();
+	leg->SetFillStyle(0);
+	Preliminary("Simulation");
 	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
-	c1.BuildLegend();
 	c1.SaveAs(TString::Format("%s/reconstructed_momentum_transfer.png",outdir));
 	
 #ifdef VERBOSE
@@ -550,6 +577,7 @@ void comparemuEs(){
 	c1.Clear();
 	nuEfracerrhist.Scale(1/nuEfracerrhist.Integral());
 	nuEfracerrhist.Draw();
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/reconstructed_nue_error.png",outdir));
 	
 #ifdef VERBOSE
@@ -558,6 +586,7 @@ void comparemuEs(){
 	c1.Clear();
 	muEfracerrhist.Scale(1/muEfracerrhist.Integral());
 	muEfracerrhist.Draw();
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/reconstructed_mue_error.png",outdir));
 	
 #ifdef VERBOSE
@@ -566,6 +595,7 @@ void comparemuEs(){
 	c1.Clear();
 	angfracerrhist.Scale(1/angfracerrhist.Integral());
 	angfracerrhist.Draw();
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/reconstructed_angle_error.png",outdir));
 	
 #ifdef VERBOSE
@@ -574,6 +604,7 @@ void comparemuEs(){
 	c1.Clear();
 	q2fracerrhist.Scale(1/q2fracerrhist.Integral());
 	q2fracerrhist.Draw();
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/reconstructed_q2_error.png",outdir));
 	
 #ifdef VERBOSE
@@ -582,6 +613,7 @@ void comparemuEs(){
 	c1.Clear();
 	//nuEtruevsreco.Scale(1/nuEtruevsreco.Integral());
 	nuEtruevsreco.Draw("colz");
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/nue_reco_vs_true.png",outdir));
 	
 #ifdef VERBOSE
@@ -590,6 +622,7 @@ void comparemuEs(){
 	c1.Clear();
 	//muEtruevsreco.Scale(1/muEtruevsreco.Integral());
 	muEtruevsreco.Draw("colz");
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/mue_reco_vs_true.png",outdir));
 	
 #ifdef VERBOSE
@@ -598,6 +631,7 @@ void comparemuEs(){
 	c1.Clear();
 	//angtruevsreco.Scale(1/angtruevsreco.Integral());
 	angtruevsreco.Draw("colz");
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/angle_reco_vs_true.png",outdir));
 	
 #ifdef VERBOSE
@@ -606,6 +640,7 @@ void comparemuEs(){
 	c1.Clear();
 	//q2truevsreco.Scale(1/q2truevsreco.Integral());
 	q2truevsreco.Draw("colz");
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/reconstructed_q2_reco_vs_true.png",outdir));
 	
 #ifdef VERBOSE
@@ -615,6 +650,7 @@ void comparemuEs(){
 	c1.Clear();
 	//nuEfracerrhist2.Scale(1/nuEfracerrhist2.Integral());
 	nuEfracerrhist2.Draw("colz");
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/reconstructed_nue_error_vs_true.png",outdir));
 	
 #ifdef VERBOSE
@@ -623,6 +659,7 @@ void comparemuEs(){
 	c1.Clear();
 	//muEfracerrhist2.Scale(1/muEfracerrhist2.Integral());
 	muEfracerrhist2.Draw("colz");
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/reconstructed_mue_error_vs_true.png",outdir));
 	
 #ifdef VERBOSE
@@ -631,6 +668,7 @@ void comparemuEs(){
 	c1.Clear();
 	//angfracerrhist2.Scale(1/angfracerrhist2.Integral());
 	angfracerrhist2.Draw("colz");
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/reconstructed_angle_error_vs_true.png",outdir));
 	
 #ifdef VERBOSE
@@ -639,6 +677,7 @@ void comparemuEs(){
 	c1.Clear();
 	//q2fracerrhist2.Scale(1/q2fracerrhist2.Integral());
 	q2fracerrhist2.Draw("colz");
+	Preliminary("Simulation");
 	c1.SaveAs(TString::Format("%s/reconstructed_q2_error_vs_true.png",outdir));
 	
 //	// loop over trueQevertexinfo file, because draw is acting weird.

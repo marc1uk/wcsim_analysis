@@ -1,8 +1,9 @@
 /* vim:set noexpandtab tabstop=4 wrap */
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// XXX XXX Version of WCSim used to generate the file XXX XXX
-// XXX XXX      THIS MUST BE SET BEFORE CALLING       XXX XXX
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// XXX XXX FILE_VERSION of wcsim used to generate the file   XXX XXX
+// XXX XXX          and Git source file COMMIT               XXX XXX
+// XXX XXX          MUST BE SET BEFORE CALLING               XXX XXX
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #define FILE_VERSION 2
 /*
 Version 1:
@@ -14,6 +15,10 @@ wcsim_tankonly_03-05-17, 200 PMTs + 200 LAPPDs, tank only, with bug fixes, bad l
 Version 3:
 wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8inHQE), no LAPPDs.
 */
+
+#ifndef USE_GRID
+//#define USE_GRID
+#endif
 
 #ifndef VERBOSE
 //#define VERBOSE
@@ -65,6 +70,7 @@ wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8in
 #include <regex>
 #include "TStyle.h"
 #include "TF1.h"
+#include "TStopwatch.h"
 #include <exception>	// for stdexcept
 #include <vector>
 #include <map>
@@ -118,6 +124,11 @@ void ColourPlotStyle();
 void FillTankMapHist(WCSimRootGeom* geo, int tubeID, bool incone, std::map<std::string, TH2D*> &maphistos, double weight);
 void ClearMapHistos(std::map<std::string,TH2D*> maphistos);	// clear the histograms
 
+// helper functions to find the MRD intersection points
+bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, TVector3 &Hit, TVector3 &Hit2, bool &error);
+int inline InBox( TVector3 Hit, TVector3 B1, TVector3 B2, const int Axis);
+int inline GetIntersection( float fDst1, float fDst2, TVector3 P1, TVector3 P2, TVector3 &Hit);
+
 #ifndef NOGENIE
 #include "genieinfo_struct.cxx"           // definition of a struct to hold genie info
 // function to fill the into
@@ -129,6 +140,7 @@ const Float_t MRD_height = (274./2.);     // half height of steel in cm
 const Float_t MRD_layer2 = 290.755;       // position in wcsim coords of second scint layer in cm
 const Float_t MRD_start = 325.5;          // position in wcsim coord of MRD front face in cm
 const Float_t MRD_depth = 139.09;         // total depth of the MRD in cm
+const Float_t MRD_end = MRD_start + MRD_depth;
 /* output from WCSim:
 ########## MRD front face: 325.5                     ##########
 ########## MRD total Z length: 139.09                ##########
@@ -181,7 +193,7 @@ std::map<int, std::pair<int,int> > wallpositionmap;
 // is the implementation of this the same as VERSION_1? not sure...
 #elif FILE_VERSION==1
 const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_wdirt_07-02-17_rhatcher";
-#elif FILE_VERSION==2
+#elif FILE_VERSION==2 // lappd branch commit: 744169e224cc9d8573ea269132104c84b459466c
 const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_rhatcher";
 //const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_BNB_World_10k_29-06-17";
 #elif FILE_VERSION==3
@@ -199,12 +211,16 @@ const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
 //const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt_vincentsgenie/world";
 //const char* geniepath="/pnfs/annie/persistent/users/vfischer/genie/BNB_World_10k_29-06-17";
 
+#ifdef USE_GRID
+const char* outpath=gSystem->pwd();
+#else
 //std::string outpathstlstring=std::string(gSystem->pwd())+"/out/muongun_beamsim";
 std::string outpathstlstring=std::string(gSystem->pwd())+"/temp";
 const char* outpath=outpathstlstring.c_str();
 //const char* outpath=gSystem->pwd();
 //const char* outpath="/annie/app/users/moflaher/wcsim/root_work";
 //const char* outpath="/annie/app/users/moflaher/wcsim/root_work/temp";
+#endif
 
 const Bool_t printneutrinoevent=false;
 
@@ -257,7 +273,13 @@ void truthtracks(){
 #ifndef PARTICLEGUNEVENTS
 	// TChain for dirt files - this will be the main driver of the loop - all it's events will be processed.
 	TChain* c =  new TChain("tankflux");
+#ifdef USE_GRID
+	const char* fnumchars = gSystem->Getenv("FILENUM");
+	if(fnumchars==nullptr){cerr<<"FILENUM environmental variable not defined!!"<<endl; assert(false);}
+	TString chainpattern = TString::Format("%s/annie_tank_flux.%s.root",dirtpath,fnumchars);	//1000->*
+#else
 	TString chainpattern = TString::Format("%s/annie_tank_flux.*.root",dirtpath);	//1000->*
+#endif
 	cout<<"loading TChain entries from "<<chainpattern<<endl;
 	c->Add(chainpattern);
 	Int_t numents = c->GetEntries();
@@ -836,14 +858,17 @@ void truthtracks(){
 	6. Load tracks, look for primary mu track through the MRD, record interaction details. 
 	*/
 	
+	TStopwatch* timer = new TStopwatch();
+	
 	cout<<"looping over tchain entries"<<endl;
-//	numents=10000;
+//	numents=100;
 	Int_t wcsimTentry;
 	// since WCSim only propagated tank events, there is no longer a 1:1 mapping between event numbers
 	// in dirt files and WCSim files. As long as the selection criterion for dirt events is the same here
 	// as in WCSim's PrimaryGeneratorAction, we can select the dirt files, and then just pull the next 
 	// wcsim entry
 	for(Int_t inputEntry=0; inputEntry<numents; inputEntry++){
+		timer->Start();
 		/* 	1. Load next g4dirt entry */ 
 		//==================================================================================================
 		//==================================================================================================
@@ -1502,152 +1527,279 @@ void truthtracks(){
 			//	continue;	// track does not meet MRD penetration requirement
 			// if we got to here, we have a muon that stops in, or penetrates at least 2 MRD layers!
 			
-			
-			// Alternatively, calculate the MRD penetration & place the cuts afterwards
-			////////////////////////////////////////////////////////////////////////////
-			
-			if(primarystopvertex.Z()<MRD_start){
-				// the track stops before reaching the MRD
-				muonentersMRD=false;
+			//new version based on external function calls
+			///////////////////////////////////////////////
+			// bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, 
+			//					  TVector3 &Hit, TVector3 &Hit2, bool &error)
+			// returns true if line (L1, L2) intersects with the box (B1, B2)
+			// returns intersection with smaller Z in Hit
+			// if 2 interceptions are found, returns interception with larger Z,
+			// if 1 interception is found, returns L2 (stopping point).
+			// error returns true if >2 intercepts are found, or other error.
+			TVector3 MRDentrypoint(0,0,0), MRDexitpoint(0,0,0), MuTrackInMRD(0,0,0);
+			// check for intercept and record entry point
+			bool checkboxlinerror=false;
+			muonentersMRD  =  CheckLineBox( primarystartvertex.Vect(), primarystopvertex.Vect(), 
+											TVector3(-MRD_width,-MRD_height,MRD_start), 
+											TVector3(MRD_width,MRD_height,MRD_end),
+											MRDentrypoint, MRDexitpoint, checkboxlinerror );
+			// sanity check: XXX DISABLE TO ALLOW TRACKS STARTING IN THE MRD
+			assert(MRDentrypoint!=primarystartvertex.Vect()&&"track starts in MRD!?");
+			// check if MRD stops in the MRD
+			muonstopsinMRD = ( abs(primarystopvertex.X())<MRD_width&&
+							   abs(primarystopvertex.Y())<MRD_height&&
+							   primarystopvertex.Z()>MRD_start&&
+							   primarystopvertex.Z()<(MRD_start+MRD_depth) );
+			if(muonentersMRD){
+				muonrangesoutMRD = ((MRDentrypoint.Z()==MRD_start)&&(MRDexitpoint.Z()==MRD_end));
+				MuTrackInMRD = (MRDexitpoint-MRDentrypoint);
+				mutracklengthinMRD = MuTrackInMRD.Mag();
+				mrdpenetrationcm = MuTrackInMRD.Z();
+				mrdpenetrationlayers=0;
+				for(auto layerzval : mrdscintlayers){
+					if(MRDexitpoint.Z()<layerzval) break;
+					mrdpenetrationlayers++;
+				}
+			} else {
 				muonstopsinMRD=false;
 				muonrangesoutMRD=false;
 				mrdpenetrationcm=0.;
 				mrdpenetrationlayers=0;
 				mutracklengthinMRD=0.;
-			} else {
-				// the track travels a depth past the MRD start, but may do so outside its angular acceptance
-				Float_t trackZlengthbeforeMRDXexit;
-				if(TMath::Abs(primarystopvertex.X())<MRD_width){
-					trackZlengthbeforeMRDXexit=primarystopvertex.Z()-primarystartvertex.Z();
-				} else {
-					double trackXdistanceinMRD=0.;
-					if(primarystopvertex.X()>0){
-						trackXdistanceinMRD=MRD_width-primarystartvertex.X();
-					} else {
-						trackXdistanceinMRD=-MRD_width-primarystartvertex.X();
-					}
-					trackZlengthbeforeMRDXexit= trackXdistanceinMRD/TMath::Tan(avgtrackanglex);
-				}
-				Float_t trackZlengthbeforeMRDYexit;
-				if(TMath::Abs(primarystopvertex.Y())<MRD_height){
-					trackZlengthbeforeMRDYexit=primarystopvertex.Z()-primarystartvertex.Z();
-				} else {
-					double trackYdistanceinMRD=0.;
-					if(primarystopvertex.Y()>0){
-						trackYdistanceinMRD=MRD_height-primarystartvertex.Y();
-					} else {
-						trackYdistanceinMRD=-MRD_height-primarystartvertex.Y();
-					}
-					trackZlengthbeforeMRDYexit= trackYdistanceinMRD/TMath::Tan(avgtrackangley);
-				}
-				Double_t trackZlengthbeforeMRDexit=
-					TMath::Min(trackZlengthbeforeMRDXexit,trackZlengthbeforeMRDYexit);
-				// above is the travel distance in Z before exiting the X or Y bounds of the MRD. 
-				// if a bound is not exceeded, the total track length in Z is used.
-				// but we also need to account for exiting the MRD by exceeding Z extent:
-				trackZlengthbeforeMRDexit=TMath::Min(trackZlengthbeforeMRDexit,MRD_start+MRD_depth-primarystartvertex.Z());
-#ifdef MUTRACKLENGTHDEBUG
-				cout<<"particle travels "<<trackZlengthbeforeMRDexit<<"cm before exiting MRD bounds"<<endl
-					<<"particle travels "<<trackZlengthbeforeMRDXexit<<"cm before leaving X bounds"<<endl
-					<<"particle travles "<<trackZlengthbeforeMRDYexit<<"cm before leaving Y bounds"<<endl;
-#endif
-				double mrdexitpoint=primarystartvertex.Z()+trackZlengthbeforeMRDexit;
-				if(mrdexitpoint<MRD_start){
-					// track has such a steep angle it exits MRD acceptance before reaching its start
-					muonentersMRD=false;
-					muonstopsinMRD=false;
-					muonrangesoutMRD=false;
-					mrdpenetrationcm=0.;
-					mrdpenetrationlayers=0;
-					mutracklengthinMRD=0.;
-				} else {
-					muonentersMRD=true;
-					mrdpenetrationcm=trackZlengthbeforeMRDexit-(MRD_start-primarystartvertex.Z());
-					mrdpenetrationlayers=0;
-					for(auto layerzval : mrdscintlayers){
-						if(mrdexitpoint<layerzval) break;
-						mrdpenetrationlayers++;
-					}
-					if(mrdexitpoint>mrdscintlayers.back()){ // includes side exits as mrdexitpoint is earliest side exit.
-						muonrangesoutMRD=true;
-						muonstopsinMRD=false;
-					} else {
-						muonrangesoutMRD=false;
-						if((TMath::Abs(primarystopvertex.X())<MRD_width)
-							&&(TMath::Abs(primarystopvertex.Y())<MRD_height)) muonstopsinMRD=true;
-						else muonstopsinMRD=false;
-					}
-					
-					// calculate total distance travelled in MRD
-					////////////////////////////////////////////
-					double muXdistanceinMRD, muYdistanceinMRD;
-					double muXexitpoint, muYexitpoint;
-					double muXentrypoint, muYentrypoint;
-					muXentrypoint = primarystartvertex.X() + 
-						(MRD_start-primarystartvertex.Z())*TMath::Tan(avgtrackanglex);
-					muYentrypoint = primarystartvertex.Y() + 
-						(MRD_start-primarystartvertex.Z())*TMath::Tan(avgtrackangley);
-					if(muonstopsinMRD){
-						muXexitpoint=primarystopvertex.X();
-						muYexitpoint=primarystopvertex.Y();
-					} else {
-						if(trackZlengthbeforeMRDexit==trackZlengthbeforeMRDXexit){
-							// track exits the MRD through one of the sides
-#ifdef MUTRACKLENGTHDEBUG
-							cout<<"track exits an MRD side"<<endl;
-#endif
-							muXexitpoint= (primarystopvertex.X()>0) ? MRD_width : -MRD_width;
-							muYexitpoint=
-								primarystartvertex.Y()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackangley));
-						} else {
-							// track exits through the top or bottom of the MRD
-#ifdef MUTRACKLENGTHDEBUG
-							cout<<"track exits the MRD top or bottom"<<endl;
-#endif
-							(primarystopvertex.Y()>0) ? muYexitpoint=MRD_height : muYexitpoint=-MRD_height;
-							muXexitpoint=
-								primarystartvertex.X()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackanglex));
-						}
-					}
-					muXdistanceinMRD=muXexitpoint-muXentrypoint;
-					muYdistanceinMRD=muYexitpoint-muYentrypoint;
-					mutracklengthinMRD=
-						TMath::Sqrt(TMath::Power(muXdistanceinMRD,2)+TMath::Power(muYdistanceinMRD,2)
-						+TMath::Power(mrdpenetrationcm,2));
-#ifdef MUTRACKLENGTHDEBUG
-					muxtracklength=muXdistanceinMRD;
-					muytracklength=muYdistanceinMRD;
-					muztracklength=mrdpenetrationcm;
-#endif
-					double maxtracklengthinMRD = TMath::Sqrt(TMath::Power(MRD_width*2,2)+TMath::Power(MRD_height*2,2)
-						+TMath::Power(MRD_depth,2));
-					if((mutracklengthinMRD>maxtracklengthinMRD)||
-						(muXdistanceinMRD>((MRD_width*2)*1.01))||(muYdistanceinMRD>((MRD_height*2)*1.01))||
-						(mrdpenetrationcm>(MRD_depth*1.01))){ // stupid float inaccuracies...
-						cerr<<"MRD track length is impossibly long!"<<endl
-							<<"Max track length is "<<maxtracklengthinMRD<<"cm"
-							<<", this track is "<<mutracklengthinMRD<<"cm, "
-							<<"distances are ("<<muXdistanceinMRD<<", "
-							<<muYdistanceinMRD<<", "<<mrdpenetrationcm<<")"<<endl
-							<<"compare to maximum extents ("<<(2*MRD_width)
-							<<", "<<(2*MRD_height)<<", "<<MRD_depth<<")"<<endl
-							<<"Track goes = ("<<muXentrypoint<<", "<<muYentrypoint<<", "
-							<<MRD_start<<") -> ("<<muXexitpoint<<", "<<muYexitpoint<<", "
-							<<mrdexitpoint<<") and ";
-							if(muonstopsinMRD) cerr<<"stops in the MRD"<<endl;
-							else if(muonrangesoutMRD) cerr<<"penetrates the MRD"<<endl;
-							else cerr<<"exits the side of the MRD"<<endl;
-						cerr<<"MRD width is "<<MRD_width<<", MRD height is "<<MRD_height
-							<<", MRD start is "<<MRD_start<<", MRD end is "<<(MRD_start+MRD_depth)<<endl
-							<<"particle goes "<<trackZlengthbeforeMRDexit<<" before exiting the MRD bounds"<<endl
-							<<"total path is from ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()
-							<<", "<<primarystartvertex.Z()<<") -> ("<<primarystopvertex.X()<<", "
-							<<primarystopvertex.Y()<<", "<<primarystopvertex.Z()<<")"<<endl;
-						
-						assert(false);
-					}
-				}
 			}
+#ifndef MUTRACKLENGTHDEBUG
+			double muxtracklength=MuTrackInMRD.X();
+			double muytracklength=MuTrackInMRD.Y();
+			double muztracklength=MuTrackInMRD.Z();
+#else
+			muxtracklength=MuTrackInMRD.X();
+			muytracklength=MuTrackInMRD.Y();
+			muztracklength=MuTrackInMRD.Z();
+			cout<<"particle travels "<<mutracklengthinMRD<<"cm before exiting MRD bounds"<<endl
+				<<"particle travels "<<muxtracklength<<"cm before leaving X bounds"<<endl
+				<<"particle travles "<<muxtracklength<<"cm before leaving Y bounds"<<endl;
+#endif
+			double maxtracklengthinMRD = TMath::Sqrt(
+					TMath::Power(MRD_width*2,2) +
+					TMath::Power(MRD_height*2,2) +
+					TMath::Power(MRD_depth,2) );
+			if((mutracklengthinMRD>maxtracklengthinMRD)||
+				(muxtracklength>((MRD_width*2)*1.01)) || (muytracklength>((MRD_height*2)*1.01))||
+				(mrdpenetrationcm>(MRD_depth*1.01))   || checkboxlinerror ){ // stupid float inaccuracies...
+				cerr<<"MRD track length is bad!"<<endl
+					<<"Max track length is "<<maxtracklengthinMRD<<"cm"
+					<<", this track is "<<mutracklengthinMRD<<"cm, "
+					<<"distances are ("<<muxtracklength<<", "
+					<<muytracklength<<", "<<mrdpenetrationcm<<")"<<endl
+					<<"compare to maximum extents ("<<(2*MRD_width)
+					<<", "<<(2*MRD_height)<<", "<<MRD_depth<<")"<<endl
+					<<"Track goes = ("<<MRDentrypoint.X()<<", "<<MRDentrypoint.Y()<<", "
+					<<MRDentrypoint.Z()<<") -> ("<<MRDexitpoint.X()<<", "<<MRDexitpoint.Y()<<", "
+					<<MRDexitpoint.Z()<<") and ";
+					if(muonstopsinMRD) cerr<<"stops in the MRD"<<endl;
+					else if(muonrangesoutMRD) cerr<<"penetrates the MRD"<<endl;
+					else cerr<<"exits the side of the MRD"<<endl;
+				cerr<<"MRD width is "<<MRD_width<<", MRD height is "<<MRD_height
+					<<", MRD start is "<<MRD_start<<", MRD end is "<<(MRD_start+MRD_depth)<<endl
+					<<"total path is from ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()
+					<<", "<<primarystartvertex.Z()<<") -> ("<<primarystopvertex.X()<<", "
+					<<primarystopvertex.Y()<<", "<<primarystopvertex.Z()<<")"<<endl
+					<<"avgtrackangley="<<avgtrackangley<<", avgtrackanglex="<<avgtrackanglex<<endl
+					<<"CheckLineBox error is "<<checkboxlinerror<<endl;
+				
+				assert(false);
+			}
+					
+//			// Alternatively, calculate the MRD penetration & place the cuts afterwards
+//			////////////////////////////////////////////////////////////////////////////
+//			
+//			if(primarystopvertex.Z()<MRD_start){
+//				// the track stops before reaching the MRD
+//				muonentersMRD=false;
+//				muonstopsinMRD=false;
+//				muonrangesoutMRD=false;
+//				mrdpenetrationcm=0.;
+//				mrdpenetrationlayers=0;
+//				mutracklengthinMRD=0.;
+//			} else {
+//				// the track travels a depth past the MRD start, but may do so outside its angular acceptance
+//				Float_t trackZlengthbeforeMRDXexit;
+//				if(TMath::Abs(primarystopvertex.X())<MRD_width){
+//					trackZlengthbeforeMRDXexit=primarystopvertex.Z()-primarystartvertex.Z();
+//				} else {
+//					double trackXdistanceinMRD=0.; // badly named: X distance before MRD X bound exit
+//					if(primarystopvertex.X()>0){
+//						trackXdistanceinMRD=MRD_width-primarystartvertex.X();
+//					} else {
+//						trackXdistanceinMRD=-MRD_width-primarystartvertex.X();
+//					}
+//					trackZlengthbeforeMRDXexit= trackXdistanceinMRD/TMath::Tan(avgtrackanglex);
+//				}
+//				Float_t trackZlengthbeforeMRDYexit;
+//				// additional check that the track enters the MRD Y bound before both the track and MRD end.
+//				// (unlike X, it is possible the particle enters MRD Y bound after the MRD end)
+//				/* 3 cases:
+//				a) starts inside Y bounds, ends inside Y bounds: trackZlengthbeforeMRDYexit = track z length
+//				b) starts inside Y bounds, ends outside Y bounds: trackZlengthbeforeMRDYexit = calculate as above.
+//				c) starts outside Y bounds, ends outside Y bounds: trackZlengthbeforeMRDYexit = 0
+//				d) starts outside Y bounds, ends inside Y bounds: trackZlengthbeforeMRDYexit <<< check
+//				*/
+//				double endpointz = TMath::Min((double)(MRD_start+MRD_depth),primarystopvertex.Z());
+//				double yatEnd = primarystartvertex.Y() 
+//									+ (endpointz-primarystartvertex.Z())*TMath::Tan(avgtrackangley);
+//				if(TMath::Abs(primarystartvertex.Y())>MRD_height&&TMath::Abs(yatEnd)>MRD_height
+//					&&((primarystartvertex.Y()*primarystopvertex.Y())>0)){
+//					trackZlengthbeforeMRDYexit=0;
+//				} else if(TMath::Abs(primarystopvertex.Y())<MRD_height){
+//					trackZlengthbeforeMRDYexit=primarystopvertex.Z()-primarystartvertex.Z();
+//				} else {
+//					if(TMath::Abs(primarystartvertex.Y())>MRD_height){
+//						trackZlengthbeforeMRDYexit=0;  // Y start may be outside the Y bounds of the MRD!
+//					} else {
+//						double trackYdistanceinMRD=0.; // badly named: Y distance before MRD Y bound exit
+//						if(primarystopvertex.Y()>0){
+//							trackYdistanceinMRD=MRD_height-primarystartvertex.Y();
+//						} else {
+//							trackYdistanceinMRD=-MRD_height-primarystartvertex.Y();
+//						}
+//						trackZlengthbeforeMRDYexit= trackYdistanceinMRD/TMath::Tan(avgtrackangley);
+//					}
+//				}
+//				Double_t trackZlengthbeforeMRDexit=
+//					TMath::Min(trackZlengthbeforeMRDXexit,trackZlengthbeforeMRDYexit);
+//				// above is the travel distance in Z before exiting the X or Y bounds of the MRD. 
+//				// if a bound is not exceeded, the total track length in Z is used.
+//				// but we also need to account for exiting the MRD by exceeding Z extent:
+//				trackZlengthbeforeMRDexit=TMath::Min(trackZlengthbeforeMRDexit,MRD_start+MRD_depth-primarystartvertex.Z());
+//#ifdef MUTRACKLENGTHDEBUG
+//				cout<<"particle travels "<<trackZlengthbeforeMRDexit<<"cm before exiting MRD bounds"<<endl
+//					<<"particle travels "<<trackZlengthbeforeMRDXexit<<"cm before leaving X bounds"<<endl
+//					<<"particle travles "<<trackZlengthbeforeMRDYexit<<"cm before leaving Y bounds"<<endl;
+//#endif
+//				double mrdexitpoint=primarystartvertex.Z()+trackZlengthbeforeMRDexit;
+//				if(mrdexitpoint<MRD_start){
+//					// track has such a steep angle it exits MRD acceptance before reaching its start
+//					muonentersMRD=false;
+//					muonstopsinMRD=false;
+//					muonrangesoutMRD=false;
+//					mrdpenetrationcm=0.;
+//					mrdpenetrationlayers=0;
+//					mutracklengthinMRD=0.;
+//				} else {
+//					muonentersMRD=true;
+//					
+//					// calculate total distance travelled in MRD
+//					////////////////////////////////////////////
+//					// to calculate the penetration / track length in MRD 
+//					// we need to know the entry and exit points.
+//					
+//					// Entry point
+//					double muXentrypoint, muYentrypoint, muZentrypoint;
+//					// use projection to MRD_start as a first point
+//					muXentrypoint = primarystartvertex.X() + 
+//						(MRD_start-primarystartvertex.Z())*TMath::Tan(avgtrackanglex);
+//					muYentrypoint = primarystartvertex.Y() + 
+//						(MRD_start-primarystartvertex.Z())*TMath::Tan(avgtrackangley);
+//					muZentrypoint=MRD_start;
+//					// but the MRD is shorter than the tank (height 137 vs 198cm) so it is possible
+//					// that the Y projection to the MRD_start is outside the MRD bounds!
+//					if(abs(muYentrypoint)>MRD_height){
+//#ifdef MUTRACKLENGTHDEBUG
+//						cout<<"overriding entry point"<<endl;
+//#endif
+//						// project forward until the y value is inside MRD bounds:
+//						muYentrypoint = (primarystartvertex.Y()>0) ? MRD_height : -MRD_height;
+//						double ytoentry = muYentrypoint-primarystartvertex.Y();
+//						muZentrypoint = primarystartvertex.Z() + ytoentry/TMath::Tan(avgtrackangley);
+//						muXentrypoint = primarystartvertex.X() + 
+//							(muZentrypoint-primarystartvertex.Z())*TMath::Tan(avgtrackanglex);
+//#ifdef MUTRACKLENGTHDEBUG
+//						cout<<"ytoentry="<<ytoentry<<endl;
+//#endif
+//					}
+//					
+//					// MRD Travel distance
+//					mrdpenetrationcm=trackZlengthbeforeMRDexit-(muZentrypoint-primarystartvertex.Z());
+//					mrdpenetrationlayers=0;
+//					for(auto layerzval : mrdscintlayers){
+//						if(mrdexitpoint<layerzval) break;
+//						mrdpenetrationlayers++;
+//					}
+//					if(mrdexitpoint>mrdscintlayers.back()){ // includes side exits as mrdexitpoint is earliest side exit.
+//						muonrangesoutMRD=true;
+//						muonstopsinMRD=false;
+//					} else {
+//						muonrangesoutMRD=false;
+//						if((TMath::Abs(primarystopvertex.X())<MRD_width)
+//							&&(TMath::Abs(primarystopvertex.Y())<MRD_height)) muonstopsinMRD=true;
+//						else muonstopsinMRD=false;
+//					}
+//					
+//					// Exit point
+//					double muXexitpoint, muYexitpoint /*, mrdexitpoint*/;
+//					if(muonstopsinMRD){
+//						muXexitpoint=primarystopvertex.X();
+//						muYexitpoint=primarystopvertex.Y();
+//					} else {
+//						if(trackZlengthbeforeMRDexit==trackZlengthbeforeMRDXexit){
+//							// track exits the MRD through one of the sides
+//#ifdef MUTRACKLENGTHDEBUG
+//							cout<<"track exits an MRD side"<<endl;
+//#endif
+//							muXexitpoint= (primarystopvertex.X()>0) ? MRD_width : -MRD_width;
+//							muYexitpoint=
+//								primarystartvertex.Y()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackangley));
+//						} else {
+//							// track exits through the top or bottom of the MRD
+//#ifdef MUTRACKLENGTHDEBUG
+//							cout<<"track exits the MRD top or bottom"<<endl;
+//#endif
+//							(primarystopvertex.Y()>0) ? muYexitpoint=MRD_height : muYexitpoint=-MRD_height;
+//							muXexitpoint=
+//								primarystartvertex.X()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackanglex));
+//						}
+//					}
+//					
+//					double muXdistanceinMRD=muXexitpoint-muXentrypoint;
+//					double muYdistanceinMRD=muYexitpoint-muYentrypoint;
+//					mutracklengthinMRD=
+//						TMath::Sqrt(TMath::Power(muXdistanceinMRD,2)+TMath::Power(muYdistanceinMRD,2)
+//						+TMath::Power(mrdpenetrationcm,2));
+//#ifdef MUTRACKLENGTHDEBUG
+//					muxtracklength=muXdistanceinMRD;
+//					muytracklength=muYdistanceinMRD;
+//					muztracklength=mrdpenetrationcm;
+//#endif
+//					double maxtracklengthinMRD = TMath::Sqrt(TMath::Power(MRD_width*2,2)+TMath::Power(MRD_height*2,2)
+//						+TMath::Power(MRD_depth,2));
+//					if((mutracklengthinMRD>maxtracklengthinMRD)||
+//						(muXdistanceinMRD>((MRD_width*2)*1.01))||(muYdistanceinMRD>((MRD_height*2)*1.01))||
+//						(mrdpenetrationcm>(MRD_depth*1.01))){ // stupid float inaccuracies...
+//						cerr<<"MRD track length is impossibly long!"<<endl
+//							<<"Max track length is "<<maxtracklengthinMRD<<"cm"
+//							<<", this track is "<<mutracklengthinMRD<<"cm, "
+//							<<"distances are ("<<muXdistanceinMRD<<", "
+//							<<muYdistanceinMRD<<", "<<mrdpenetrationcm<<")"<<endl
+//							<<"compare to maximum extents ("<<(2*MRD_width)
+//							<<", "<<(2*MRD_height)<<", "<<MRD_depth<<")"<<endl
+//							<<"Track goes = ("<<muXentrypoint<<", "<<muYentrypoint<<", "
+//							<<muZentrypoint<<") -> ("<<muXexitpoint<<", "<<muYexitpoint<<", "
+//							<<mrdexitpoint<<") and ";
+//							if(muonstopsinMRD) cerr<<"stops in the MRD"<<endl;
+//							else if(muonrangesoutMRD) cerr<<"penetrates the MRD"<<endl;
+//							else cerr<<"exits the side of the MRD"<<endl;
+//						cerr<<"MRD width is "<<MRD_width<<", MRD height is "<<MRD_height
+//							<<", MRD start is "<<MRD_start<<", MRD end is "<<(MRD_start+MRD_depth)<<endl
+//							<<"particle goes "<<trackZlengthbeforeMRDexit<<" before exiting the MRD bounds"<<endl
+//							<<"total path is from ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()
+//							<<", "<<primarystartvertex.Z()<<") -> ("<<primarystopvertex.X()<<", "
+//							<<primarystopvertex.Y()<<", "<<primarystopvertex.Z()<<")"<<endl
+//							<<"avgtrackangley="<<avgtrackangley<<", avgtrackanglex="<<avgtrackanglex<<endl;
+//						
+//						assert(false);
+//					}
+//				}
+//			}
 			
 			// ----------------------------------------------------------------------------------------------
 			// retrieve any remaining information and record the event
@@ -1662,7 +1814,7 @@ void truthtracks(){
 #ifndef NOGENIE
 			//Double_t scatteringangle = thegenieinfo.k1->Angle(primarymomentumdir);    // same as fslanglegenie, by def
 			//Double_t scatteringangle = thegenieinfo.k1->Angle(differencevector);
-			Double_t scatteringangle = fslanglegenie;
+			Double_t scatteringangle = muonangle;
 			Double_t neutrinoenergyguess = thegenieinfo.probeenergy;
 			TVector3 momtrans = (primarymomentummag*primarymomentumdir)-TVector3(0.,0.,neutrinoenergyguess);
 			Double_t calculatedq2 = thegenieinfo.Q2;
@@ -2214,16 +2366,26 @@ void truthtracks(){
 					filedigitvertices.push_back(adigitvector);
 					filedigitQs.push_back(digitsq);
 					filedigitsensortypes.push_back("lappd_v0"); // bad timing resolution used for pulses
-					double timingConstant = 0.04;
-					double timingResConstant=0.001;
+					double timingConstant = 0.12; // 0.04
+					double timingResConstant=0.00; // 0.001
 					double timingResMinimum=0.005;              // TTS: 50ps;
-					double timingResPower=-0.7;
+					double timingResPower=-0.9; // -0.7
 					double digitqforsmearing = (digitsq > 0.5) ? digitsq : 0.5;
 					// based on a roughly similar form that gives ~60ps for Q~1 and ~5ps for Q~30
 					double filedigittsmeared = // XXX if changing this ensure it is mirrored above.
 						timingResConstant + timingConstant*pow(digitqforsmearing,timingResPower);
 					// saturates @ 0.065 with majority of entries.
 					if (filedigittsmeared < timingResMinimum) filedigittsmeared=timingResMinimum;
+					// increasing power makes dropoff flatter, but also raises tail.
+					// increasing prescale pulls distribution closer to y axis, 
+					// making dropoff less right-angled...?
+					// use wolfram alpha: 
+					// to view overview
+					// plot(y=max(0.00 + 0.12*(x^-0.9),0.005)) from x=0 to 30, y=0 to 0.065
+					// to view Q~1
+					// plot(y=max(0.00 + 0.12*(x^-0.9),0.005)) from x=0 to 3, y=0 to 0.12
+					// to view tail
+					// plot(y=max(0.00 + 0.12*(x^-0.9),0.005)) from x=25 to 30, y=0 to 0.01
 					filedigittsmears.push_back(filedigittsmeared);
 					digitsqlappdhist->Fill(digitsq);
 					digitstlappdhist->Fill(absolutedigitst);
@@ -2348,16 +2510,19 @@ void truthtracks(){
 //			cout<<"fractionalchargeincone="<<fractionalchargeincone<<endl;
 			
 			treeout->Fill();
+			//fileout->cd();
+			//treeout->Write("",TObject::kOverwrite);
 			
 			// if we've got as far as this (i.e. haven't triggered a 'continue' above)
 			// then we've had a muon track. Let's just consider one muon for now
 			// otherwise we need to add _ALL_ this stuff to vectors and scan through that. 
 			// break; // or maybe not... mayb it'll work just as is. 
 			
-		}  // end of loop over tracks
+		}  // end of loop over muon tracks <<< end of EventDistributions.root (treeout) fill.
 		
 		// ==============================================================================================
-		// check if we found any suitable muon tracks
+		// check if we found any suitable muon tracks.
+		// fill histograms and increment track counters, and fill vertextreefiducialmrd if applicable
 		// ==============================================================================================
 		
 		Int_t indextouse=0;
@@ -2449,8 +2614,28 @@ void truthtracks(){
 			}
 		}
 		
-		flateventfileout->Write("",TObject::kOverwrite);
+		timer->Stop();
+		cout<<"This event took "<<timer->RealTime()<<"ms, or "<<timer->CpuTime()<<"ms CPU equivalent time"<<endl; 
+		
+		//flateventfileout->cd();
+		//vertextreenocuts->Write("",TObject::kOverwrite);
+		//vertextreefiducialcut->Write("",TObject::kOverwrite);
+		//vertextreefiducialmrd->Write("",TObject::kOverwrite);
 	}  // end of loop over events
+	
+	fileout->cd();
+//	treeout->Write();
+	treeout->Write("",TObject::kOverwrite);
+	
+	flateventfileout->cd();
+//	vertextreenocuts->Write();
+//	vertextreefiducialcut->Write();
+//	vertextreefiducialmrd->Write();
+	vertextreenocuts->Write("",TObject::kOverwrite);
+	vertextreefiducialcut->Write("",TObject::kOverwrite);
+	vertextreefiducialmrd->Write("",TObject::kOverwrite);
+	
+	gROOT->cd();
 	
 	//======================================================================================================
 	//======================================================================================================
@@ -2792,8 +2977,6 @@ void truthtracks(){
 	aleg->Draw();
 	debug1->SaveAs("muon_track_lengths.png");
 #endif
-	if(fsltruetracklength) delete fsltruetracklength; fsltruetracklength=0;
-	if(fsltruetracklengthintank) delete fsltruetracklengthintank; fsltruetracklengthintank=0;
 	
 #ifdef DRAW_HISTOS
 	debug1->Clear();
@@ -2806,8 +2989,6 @@ void truthtracks(){
 	muedepositionsacceptedwcsim->Draw("same");
 	aleg->Draw();
 	debug1->SaveAs("muon_tank_energy_depositions.png");
-	if(muedepositionswcsim) delete muedepositionswcsim; muedepositionswcsim=0;
-	if(muedepositionsacceptedwcsim) delete muedepositionsacceptedwcsim; muedepositionsacceptedwcsim=0;
 	
 	if(debug1) delete debug1; debug1=0;
 	if(aleg) delete aleg; aleg=0;
@@ -2831,9 +3012,6 @@ void truthtracks(){
 	mrdstartvertices->SetMarkerSize(1);
 	mrdstartvertices->Draw("same");
 	debug2->SaveAs("start vertex distributions.png");
-	delete tankstartvertices;
-	delete vetostartvertices;
-	delete mrdstartvertices;
 	delete debug2;
 	
 	TCanvas* debug3 = new TCanvas("debug3","debug3");
@@ -2851,13 +3029,11 @@ void truthtracks(){
 	mrdstopvertices->SetMarkerSize(1);
 	mrdstopvertices->Draw("same");
 	debug3->SaveAs("stop vertex distributions.png");
-	delete tankstopvertices;
-	delete vetostopvertices;
-	delete mrdstopvertices;
 	delete debug3;
 #endif  // WCSIMDEBUG
 #endif  // DRAW_HISTOS
 
+	cout<<"writing flat event file"<<endl;
 	if(flateventfileout){
 		flateventfileout->cd();
 		digitsqpmthist->Write();
@@ -2870,42 +3046,8 @@ void truthtracks(){
 		pmttimesmearvsqhist->Write();
 	}
 	
-	// cleanup
-	// =======
-	cout<<"cleanup"<<endl;
-	if(c) c->ResetBranchAddresses();
-	if(c) delete c; c=0;					// ??
-#ifndef PARTICLEGUNEVENTS
-	//cout<<"resetting tankflux branches"<<endl;
-	if(tankflux) tankflux->ResetBranchAddresses();
-	//cout<<"resetting tankmeta branches"<<endl;
-	if(tankmeta) tankmeta->ResetBranchAddresses();
-	cout<<"closing dirtfile"<<endl;
-	if(dirtfile) dirtfile->Close(); // do we need to do this with a TChain?
-	//cout<<"deleting dirtfile"<<endl;
-	
-#ifndef NOGENIE
-	//cout<<"resetting gtree branches"<<endl;
-	if(gtree) gtree->ResetBranchAddresses();
-	cout<<"closing geniefile"<<endl;
-	if(geniefile) geniefile->Close();
-	// should clean up gtree
-	//cout<<"deleting genierecordval"<<endl;
-	if(genierecordval) delete genierecordval; genierecordval=0;
-	//cout<<"deleting nuprimarybranchval array"<<endl;
-	if(nuprimarybranchval) delete[] nuprimarybranchval; nuprimarybranchval=0; // ? branch array
-#endif
-	
-	//cout<<"resetting wcsimT branches"<<endl;
-	if(wcsimT) wcsimT->ResetBranchAddresses();
-	cout<<"closing wcsimfile"<<endl;
-	if(wcsimfile) wcsimfile->Close();
-	// should clean up wcsimT
-#endif
-	
 	// save, then delete canvases and legends
-	cout<<"saving histograms to "<<outpath<<endl;
-	//cout<<"deleting canvases and legends"<<endl;
+	cout<<"saving histogram images to "<<outpath<<endl<<" then deleting canvases and legends"<<endl;
 	for(int i=0; i<canvaspointers.size(); i++){
 		TCanvas* canv = canvaspointers.at(i);
 		if(canv) canv->SaveAs(TString::Format("%s/histograms_%d.png",outpath,i));
@@ -2915,7 +3057,7 @@ void truthtracks(){
 	}
 	
 	// save, then delete scaled canvases and legends
-	//cout<<"deleting scaled canvases and legends"<<endl;
+	cout<<"saving scaled histogram images then deleting canvases and legends"<<endl;
 	for(int i=0; i<scaledcanvaspointers.size(); i++){
 		TCanvas* canv = scaledcanvaspointers.at(i);
 		if(canv) canv->SaveAs(TString::Format("%s/scaled_histograms_%d.png",outpath,i));
@@ -2924,8 +3066,11 @@ void truthtracks(){
 		if(leg) delete leg; leg=0;
 	}
 	
+	// XXX Histogram deletion: since histograms are duplicated and pointers copied around, make sure to keep this updated!!! XXX
+	// As of 27-09-17 this is correct: all points are stored either in histopointers, scaledhistopointers, or otherhistos
+	// and each of those lists are unique
 	// delete histograms - do this after the canvas version, which saves them before deleting them
-	//cout<<"deleting histograms"<<endl;
+	cout<<"writing histograms to histo file then deleting"<<endl;
 	histofileout->cd();
 	for(int i=0; i<histopointers.size(); i++){
 		TH1D* temp = histopointers.at(i);
@@ -2935,15 +3080,15 @@ void truthtracks(){
 	}
 	
 	// delete scaled histograms
-	//cout<<"deleting scaled histograms"<<endl;
+	cout<<"writing scaled histograms to histo file then deleting"<<endl;
 	for(int i=0; i<scaledhistopointers.size(); i++){
 		TH1D* temp = scaledhistopointers.at(i);
 		if(temp) temp->Write("",TObject::kOverwrite);
 		// some histograms are in the vector twice, so only delete it if it doesn't appear again
 		if(std::count((scaledhistopointers.begin()+i), scaledhistopointers.end(), scaledhistopointers.at(i))==0) delete temp;
 	}
-	cout<<"end"<<endl;
 	
+	cout<<"writing otherhistos to histo fiel then deleting"<<endl;
 	// Save all the remaining histograms
 	std::vector<TH1*> otherhistos{
 	(TH1*)neutrinovertex,
@@ -2974,21 +3119,72 @@ void truthtracks(){
 	for(auto thehist : otherhistos){
 		if(thehist) { thehist->Write(); delete thehist; }
 	}
-	if(histofileout) histofileout->Close(); delete histofileout; histofileout=0;
+	cout<<"end writing"<<endl;
+	
+	// cleanup
+	// =======
+	cout<<"cleanup"<<endl;
+#ifndef PARTICLEGUNEVENTS
+	// dirtfile trees:
+	cout<<"resetting tankflux branches"<<endl;
+	if(tankflux) tankflux->ResetBranchAddresses();
+	cout<<"resetting tankmeta branches"<<endl;
+	if(tankmeta) tankmeta->ResetBranchAddresses();
+	cout<<"closing dirtfile"<<endl;
+	if(dirtfile) dirtfile->Close(); // do we need to do this with a TChain?
+	
+#ifndef NOGENIE
+	// geniefile tree:
+	cout<<"resetting gtree branches"<<endl;
+	if(gtree) gtree->ResetBranchAddresses();
+	cout<<"closing geniefile"<<endl;
+	if(geniefile) geniefile->Close();
+	
+	// associated genie objects declared with 'new'
+	cout<<"deleting genierecordval"<<endl;
+	if(genierecordval) delete genierecordval; genierecordval=0;
+	cout<<"deleting nuprimarybranchval array"<<endl;
+	if(nuprimarybranchval) delete[] nuprimarybranchval; nuprimarybranchval=0; // ? branch array
+#endif // NOGENIE
+#endif // PARTICLEGUNEVENTS
+	
+	// wcsim tree:
+	cout<<"resetting wcsimT branches"<<endl;
+	if(wcsimT) wcsimT->ResetBranchAddresses();
+	cout<<"closing wcsimfile"<<endl;
+	if(wcsimfile) wcsimfile->Close();
+	
+	// lappd tree:
+	cout<<"resetting lappdtree branches"<<endl;
+	if(lappdtree) lappdtree->ResetBranchAddresses();
+	cout<<"closing lappdfile"<<endl;
+	if(lappdfile) lappdfile->Close();
+	
+	// The chain... this could either be tankflux (normal) or wcsimT (particle gun).
+	// I think having reset both, this does not need to be dealt with?
+	cout<<"resettng chain branches and deleting chain"<<endl;
+	if(c) c->ResetBranchAddresses();
+	//if(c) delete c; c=0;   // .... does it need to be deleted? ... leave it for application cleanup.
 	
 	// delete flat file output
-	//cout<<"deleting flat file output "<<flateventfileout<<endl;
+	cout<<"deleting flat file output "<<flateventfileout->GetName()<<endl;
 	if(flateventfileout){
-		flateventfileout->Close(); delete flateventfileout;
+		flateventfileout->Close(); delete flateventfileout; flateventfileout=0;
+	}
+	
+	// delete histogram file out
+	cout<<"deleting histofileout"<<endl;
+	if(histofileout){ 
+		histofileout->Close(); delete histofileout; histofileout=0;
 	}
 	
 	// write and close file of event information
-	fileout->cd();
-	treeout->SetEntries(bInTank->GetEntries());
-	treeout->Write();
-	fileout->Close();
-	delete fileout;
-	fileout=0;
+	cout<<"deleting EventDistributions fileout"<<endl;
+	if(fileout){
+		fileout->Close(); delete fileout; fileout=0;
+	}
+	
+	cout<<"end of application. Goodbye."<<endl;
 }
 
 
@@ -3393,4 +3589,103 @@ void SKIDigitizerThreshold(double& pe,int& iflag){
 	  /////      call rngaus(0.0, 0.03, err);
 	  pe = pe+err;
 	}
+}
+
+//============================================================================
+
+// a test to see if a projected point in a plane is within a box in that plane
+int inline InBox( TVector3 Hit, TVector3 B1, TVector3 B2, const int Axis) {
+if ( Axis==1 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
+if ( Axis==2 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.X() > B1.X() && Hit.X() < B2.X()) return 1;
+if ( Axis==3 && Hit.X() > B1.X() && Hit.X() < B2.X() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
+return 0;
+}
+
+// projects the hitpoint by adding a scaled vector to the start point
+int inline GetIntersection( float fDst1, float fDst2, TVector3 P1, TVector3 P2, TVector3 &Hit) {
+if ( (fDst1 * fDst2) >= 0.0f) return 0;
+if ( fDst1 == fDst2) return 0; 
+Hit = P1 + (P2-P1) * ( -fDst1/(fDst2-fDst1) );
+return 1;
+}
+
+// returns true if line (L1, L2) intersects with the box (B1, B2)
+// returns intersection point in Hit
+bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, TVector3 &Hit, TVector3 &Hit2, bool &error)
+{
+error=false;
+// check if it misses the box entirely by being on one side of a plane over entire track
+if (L2.X() < B1.X() && L1.X() < B1.X()) return false;
+if (L2.X() > B2.X() && L1.X() > B2.X()) return false;
+if (L2.Y() < B1.Y() && L1.Y() < B1.Y()) return false;
+if (L2.Y() > B2.Y() && L1.Y() > B2.Y()) return false;
+if (L2.Z() < B1.Z() && L1.Z() < B1.Z()) return false;
+if (L2.Z() > B2.Z() && L1.Z() > B2.Z()) return false;
+// check if it's inside the box to begin with (classed as an interception at start vtx)
+if (L1.X() > B1.X() && L1.X() < B2.X() &&
+    L1.Y() > B1.Y() && L1.Y() < B2.Y() &&
+    L1.Z() > B1.Z() && L1.Z() < B2.Z())
+    {Hit = L1; return true;}
+
+// check for an interception in X, Y then Z.
+//if ( (GetIntersection( L1.X()-B1.X(), L2.X()-B1.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 ))
+//  || (GetIntersection( L1.Y()-B1.Y(), L2.Y()-B1.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 ))
+//  || (GetIntersection( L1.Z()-B1.Z(), L2.Z()-B1.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 ))
+//  || (GetIntersection( L1.X()-B2.X(), L2.X()-B2.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 ))
+//  || (GetIntersection( L1.Y()-B2.Y(), L2.Y()-B2.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 ))
+//  || (GetIntersection( L1.Z()-B2.Z(), L2.Z()-B2.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 )))
+//	return true;
+
+// Above seems to assume there will only be one interception!!
+// e.g. if X has an interception, there are no checks for Z interception - if it enters
+// the front face and exits the side, only the side exit will be returned. 
+// Instead, note all interception points and return the first (and second if it exists)
+std::vector<TVector3> interceptions;
+bool anyinterception=false;
+bool thisinterception;
+
+thisinterception=
+GetIntersection( L1.X()-B1.X(), L2.X()-B1.X(), L1, L2, Hit) && InBox(Hit, B1, B2, 1);
+if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+thisinterception=
+GetIntersection( L1.Y()-B1.Y(), L2.Y()-B1.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 );
+if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+thisinterception=
+GetIntersection( L1.Z()-B1.Z(), L2.Z()-B1.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 );
+if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+thisinterception=
+GetIntersection( L1.X()-B2.X(), L2.X()-B2.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 );
+if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+thisinterception=
+GetIntersection( L1.Y()-B2.Y(), L2.Y()-B2.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 );
+if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+thisinterception=
+GetIntersection( L1.Z()-B2.Z(), L2.Z()-B2.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 );
+if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+
+if(interceptions.size()>2){
+	cerr<<"CheckLineBox found more than two intercepts?! They are at:"<<endl;
+	for(auto&& avec : interceptions)
+		cerr<<"("<<avec.X()<<", "<<avec.Y()<<", "<<avec.Z()<<")"<<endl;
+	error=true;
+	//assert(false); // leave for later so we can print debug info.
+	return false;
+} else if(interceptions.size()==2){
+	auto vec1 = interceptions.at(0);
+	auto vec2 = interceptions.at(1);
+	if(vec1.Z()<vec2.Z()){
+		Hit=vec1;
+		Hit2=vec2;
+	} else {
+		Hit=vec2;
+		Hit2=vec1;
+	}
+	return true;
+} else if(interceptions.size()==1) {
+	Hit=interceptions.at(0);
+	Hit2=L2; // Hit2 is 'mrd exit' point - return track end. 
+	return true;
+} else {
+	return false;
+}
 }
