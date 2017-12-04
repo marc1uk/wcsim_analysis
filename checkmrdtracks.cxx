@@ -69,6 +69,7 @@ void checkmrdtracks(){
 	//c->Add("/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_ana/mrdtrackfile.1000.root");
 	TString pwd = gSystem->Getenv("PWD");
 	TString chainpattern = pwd+"/out/temp/mrdtrackfile.1146.root";
+	//TString chainpattern = pwd+"/out/temp/mrdtrackfile.*";
 	c->Add(chainpattern.Data());
 	int numents = c->GetEntries();
 	cout<<"loaded "<<numents<<" entries in the chain"<<endl;
@@ -399,19 +400,18 @@ void checkmrdtracks(){
 //	htrackpenvseloss->Draw();
 //	TCanvas c25;
 //	htracklenvseloss->Draw();
-	
-	// should put these on the same canvas
-	TCanvas c26;
-	htrackstart->SetMarkerStyle(20);
-	htrackstart->SetMarkerColor(kRed);
-	htrackstart->Draw();
-	TCanvas c27;
-	htrackstop->SetMarkerStyle(20);
-	htrackstop->SetMarkerColor(kBlue);
-	htrackstop->Draw();
-	TCanvas c28;
-	hpep->SetMarkerStyle(20);
-	hpep->Draw();
+//	// should put these on the same canvas V
+//	TCanvas c26;
+//	htrackstart->SetMarkerStyle(20);
+//	htrackstart->SetMarkerColor(kRed);
+//	htrackstart->Draw();
+//	TCanvas c27;
+//	htrackstop->SetMarkerStyle(20);
+//	htrackstop->SetMarkerColor(kBlue);
+//	htrackstop->Draw();
+//	TCanvas c28;
+//	hpep->SetMarkerStyle(20);
+//	hpep->Draw();
 	
 	gPad->WaitPrimitive();
 	

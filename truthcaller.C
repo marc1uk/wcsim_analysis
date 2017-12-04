@@ -13,6 +13,18 @@
 	gROOT->ProcessLine(".x loadlibs.C");
 	gSystem->cd(curr_dir.Data());
 #endif
+	// disable some prolific compilation warnings
+	// this _may_ not completely work as make command is a 2-part string: "make objects; make exe" so appending
+	// the extra flags to the end of the string will only affect the latter part. Maybe use splits on ';' and append
+	// to all...? or sed replace ';' with 'extraflags+;'?
+//	std::string compileflags=" -fdiagnostics-color=always -Wno-sign-compare -Wno-overloaded-virtual -Wno-literal-conversion";
+//	std::string makesharedlib = gSystem->GetMakeSharedLib();
+//	makesharedlib+=compileflags;
+//	gSystem->SetMakeSharedLib(makesharedlib.c_str());
+//	std::string makeexe = gSystem->GetMakeExe();
+//	makeexe+=compileflags;
+//	gSystem->SetMakeExe(makeexe.c_str());
+	
 	std::string linetoprocess = ".L " + std::string(curr_dir.Data()) + "/plottruthmrdtracks.C++g";
 	// seems you can combine strings with + only if one of them is a std::string.
 	gROOT->ProcessLine(linetoprocess.c_str());

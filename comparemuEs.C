@@ -39,7 +39,11 @@ double CalculateEventQ2(double recoMuonEnergy, double recoNeutrinoEnergy, double
 
 void comparemuEs(){
 	const char* pwd = gSystem->pwd();
+	//XXX SET BEFORE RUNNING  XXX
+	//XXX XXX XXX XXX XXX XXX XXX
 	std::string outstring = std::string(pwd)+"/out/q2comparison";
+	outstring+="/30ps_proper_split/pmts_only";
+	const char* outfilename="q2comparison.root";
 	const char* outdir=outstring.c_str();
 #ifdef VERBOSE
 	cout<<"setting output directory to "<<outdir<<endl;
@@ -48,11 +52,25 @@ void comparemuEs(){
 #ifdef VERBOSE
 	cout<<"loading muon reco file"<<endl;
 #endif
-	// muon:
+	// muon file:
 	//TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonE.root");
 	//TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEW.root");
 	//TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEWB.root");
-	TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEWC2.root");
+	//TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEWC2.root");
+	//TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEW2rndsplit.root");
+	//TFile *f1 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonENEW2rndsplit_PMTsonly.root");
+	TFile *f1 = TFile::Open("/pnfs/annie/scratch/users/edrakopo/NEWOUTRecoMuonMRD_PMTsonly.root");
+	//TFile *f1 = TFile::Open("/pnfs/annie/scratch/users/edrakopo/NEWOUTRecoMuonMRD.root");
+	// neutrino file:
+	//TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTreconeutrinoE.root");
+	//TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonEneuNEWB.root");
+	//TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTreconeutrinoENEWC2.root");
+	//TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTreconeutrinoENEW2rndsplit.root");
+	//TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTreconeutrinoENEW2rndsplit_PMTsonly.root");
+	TFile *f2 = TFile::Open("/pnfs/annie/scratch/users/edrakopo/NEWOUTRecoNeutrinoMRD_PMTsonly.root");
+	//TFile *f2 = TFile::Open("/pnfs/annie/scratch/users/edrakopo/NEWOUTRecoNeutrinoMRD.root");
+	
+	// retrieve trees from files
 	TTree* t1 = (TTree*)f1->Get("tuple");
 //	t1->SetBranchStatus("*",0);
 //	t1->SetBranchStatus("trueKE",1);
@@ -75,10 +93,6 @@ void comparemuEs(){
 #ifdef VERBOSE
 	cout<<"loading neutrino reco file"<<endl;
 #endif
-	// neutrino:
-	//TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTreconeutrinoE.root");
-	//TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTrecomuonEneuNEWB.root");
-	TFile *f2 = TFile::Open("/annie/data/users/edrakopo/OUTreconeutrinoENEWC2.root");
 	TTree* t2 = (TTree*)f2->Get("tuple");
 //	t2->SetBranchStatus("*",0);
 //	t2->SetBranchStatus("trueKE",1);
@@ -98,7 +112,7 @@ void comparemuEs(){
 #endif
 	// pull the true Q2 information for comparison. 
 	// We can only compare distributions for now, not event-by-event, as event # or true Q2 were not saved
-	TFile* f3 = TFile::Open("/annie/data/users/moflaher/trueQEvertexinfo_extv2.root");
+	TFile* f3 = TFile::Open("/pnfs/annie/scratch/users/moflaher/trueQEvertexinfo_extv2.root");
 	TTree* t3 = (TTree*)f3->Get("vertextreenocuts");
 	t3->SetBranchStatus("*",0);
 	t3->SetBranchStatus("NeutrinoEnergy",1);
@@ -119,7 +133,7 @@ void comparemuEs(){
 //	t3->SetBranchAddress("MuonStartVertex",&truevertexall);
 	
 	// output file
-	TFile* fileout = new TFile(TString::Format("%s/q2comparison.root",outdir),"RECREATE");
+	TFile* fileout = new TFile(TString::Format("%s/%s",outdir,outfilename),"RECREATE");
 #ifdef VERBOSE
 	cout<<"creating output file "<<fileout->GetName()<<endl;
 #endif
@@ -162,7 +176,7 @@ void comparemuEs(){
 	TH1D truemuKEhist("truemuKEhist","True Muon KE",50,0,2500);
 	t1->Draw("trueKE>>truemuKEhist");
 	Preliminary("Simulation"); CenterTitles(&truemuKEhist);
-	TH1D trueanglehist("trueanglehist","True Scattering Angle",50,0,TMath::Pi());
+	TH1D trueanglehist("trueanglehist","True Lepton Angle",50,0,TMath::Pi());
 	t1->Draw("TrueMuonAngle>>trueanglehist");
 	Preliminary("Simulation"); CenterTitles(&trueanglehist);
 	TH1D trueQ2hist("trueQ2hist","True Momentum Transfer",50,0,2);
@@ -185,7 +199,7 @@ void comparemuEs(){
 	TH1D recomuKEhist("recomuKEhist","Reco Muon KE",50,0,2500);
 	t1->Draw("recoKE>>recomuKEhist");
 	Preliminary("Simulation"); CenterTitles(&recomuKEhist);
-	TH1D recoanglehist("recoanglehist","Reco Scattering Angle",50,0,TMath::Pi());
+	TH1D recoanglehist("recoanglehist","Reco Lepton Angle",50,0,TMath::Pi());
 	// fill in loop
 	Preliminary("Simulation"); CenterTitles(&recoanglehist);
 	TH1D recoQ2hist("recoQ2hist","Reco Momentum Transfer",50,0,2);
@@ -208,7 +222,7 @@ void comparemuEs(){
 	TH1D truemuKEallhist("truemuKEallhist","True Muon KE (All)",50,0,2500);
 	t3->Draw("(MuonEnergy*1000.)>>truemuKEallhist");
 	Preliminary("Simulation"); CenterTitles(&truemuKEallhist);
-	TH1D trueangleallhist("trueangleallhist","True Scattering Angle (All)",50,0,TMath::Pi());
+	TH1D trueangleallhist("trueangleallhist","True Lepton Angle (All)",50,0,TMath::Pi());
 	t3->Draw("MuonAngle>>trueangleallhist");
 	Preliminary("Simulation"); CenterTitles(&trueangleallhist);
 	TH1D trueQ2allhist("trueQ2allhist","True Momentum Transfer (All)",50,0,2);
@@ -229,9 +243,9 @@ void comparemuEs(){
 	Preliminary("Simulation"); CenterTitles(&nuEfracerrhist);
 	TH1D muEfracerrhist("muEfracerrhist","Relative Muon Energy Error",50,-1.0,1.0);
 	Preliminary("Simulation"); CenterTitles(&muEfracerrhist);
-	TH1D angfracerrhist("angfracerrhist","Relative Scattering Angle Error",50,-1.0,1.0);
+	TH1D angfracerrhist("angfracerrhist","Relative Lepton Angle Error",50,-1.0,1.0);
 	Preliminary("Simulation"); CenterTitles(&angfracerrhist);
-	TH1D q2fracerrhist("q2fracerrhist","Relative Q^{2} Error",50,-1.0,1.0);
+	TH1D q2fracerrhist("q2fracerrhist","Relative Q^{2} Error",50,-2.0,2.0);
 	Preliminary("Simulation"); CenterTitles(&q2fracerrhist);
 	
 #ifdef VERBOSE
@@ -242,9 +256,9 @@ void comparemuEs(){
 	Preliminary("Simulation"); CenterTitles(&nuEtruevsreco);
 	TH2D muEtruevsreco("muEtruevsreco","True vs Reco Muon Energy",50,0,2500,50,0,2500);
 	Preliminary("Simulation"); CenterTitles(&muEtruevsreco);
-	TH2D angtruevsreco("angtruevsreco","True vs Reco Scattering Angle",50,0,TMath::Pi(),50,0,TMath::Pi());
+	TH2D angtruevsreco("angtruevsreco","True vs Reco Lepton Angle",50,0,TMath::Pi(),50,0,TMath::Pi());
 	Preliminary("Simulation"); CenterTitles(&angtruevsreco);
-	TH2D q2truevsreco("q2truevsreco","True vs Reco Q^{2}",50,0,2,50,0,2);
+	TH2D q2truevsreco("q2truevsreco","True vs Reco Q^{2}",50,0,1.0,50,0,1.0);
 	Preliminary("Simulation"); CenterTitles(&q2truevsreco);
 	
 	/* fractional errors vs value */
@@ -252,9 +266,9 @@ void comparemuEs(){
 	Preliminary("Simulation"); CenterTitles(&nuEfracerrhist2);
 	TH2D muEfracerrhist2("muEfracerrhist2","Relative Muon Energy Error vs True Muon Energy",50,0,2500,50,-1.0,1.0);
 	Preliminary("Simulation"); CenterTitles(&muEfracerrhist2);
-	TH2D angfracerrhist2("angfracerrhist2","Relative Scattering Angle Error vs True Angle",50,0,TMath::Pi(),50,-1.0,1.0);
+	TH2D angfracerrhist2("angfracerrhist2","Relative Lepton Angle Error vs True Angle",50,0,TMath::Pi(),50,-1.0,1.0);
 	Preliminary("Simulation"); CenterTitles(&angfracerrhist2);
-	TH2D q2fracerrhist2("q2fracerrhist2","Relative Q^{2} Error vs True Q^{2}",50,0,2,50,-1.0,1.0);
+	TH2D q2fracerrhist2("q2fracerrhist2","Relative Q^{2} Error vs True Q^{2}",50,0,2,50,-2.0,2.0);
 	Preliminary("Simulation"); CenterTitles(&q2fracerrhist2);
 	
 #ifdef VERBOSE
@@ -314,25 +328,25 @@ void comparemuEs(){
 	// Save true histos
 	truenuKEhist.SetLineColor(kRed);
 	truenuKEhist.GetXaxis()->SetTitle("Neutrino Energy [MeV]");
-	truenuKEhist.GetYaxis()->SetTitle("Num Events");
+	truenuKEhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&truenuKEhist);
 	truenuKEhist.Write();
 	
 	truemuKEhist.SetLineColor(kRed);
 	truemuKEhist.GetXaxis()->SetTitle("Muon Energy [MeV]");
-	truemuKEhist.GetYaxis()->SetTitle("Num Events");
+	truemuKEhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&truemuKEhist);
 	truemuKEhist.Write();
 	
 	trueanglehist.SetLineColor(kRed);
-	trueanglehist.GetXaxis()->SetTitle("Scattering Angle [rads]");
-	trueanglehist.GetYaxis()->SetTitle("Num Events");
+	trueanglehist.GetXaxis()->SetTitle("Lepton Angle [rads]");
+	trueanglehist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&trueanglehist);
 	trueanglehist.Write();
 	
 	trueQ2hist.SetLineColor(kRed);
-	trueQ2hist.GetXaxis()->SetTitle("Momentum Transfer [(MeV/c)^{2}]");
-	trueQ2hist.GetYaxis()->SetTitle("Num Events");
+	trueQ2hist.GetXaxis()->SetTitle("Q^{2} [(MeV/c)^{2}]");
+	trueQ2hist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&trueQ2hist);
 	trueQ2hist.Write();
 	
@@ -345,25 +359,25 @@ void comparemuEs(){
 	// Save reco histos
 	reconuKEhist.SetLineColor(kBlue);
 	reconuKEhist.GetXaxis()->SetTitle("Neutrino Energy [MeV]");
-	reconuKEhist.GetYaxis()->SetTitle("Num Events");
+	reconuKEhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&reconuKEhist);
 	reconuKEhist.Write();
 	
 	recomuKEhist.SetLineColor(kBlue);
 	recomuKEhist.GetXaxis()->SetTitle("Muon Energy [MeV]");
-	recomuKEhist.GetYaxis()->SetTitle("Num Events");
+	recomuKEhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&recomuKEhist);
 	recomuKEhist.Write();
 	
 	recoanglehist.SetLineColor(kBlue);
-	recoanglehist.GetXaxis()->SetTitle("Scattering Angle [rads]");
-	recoanglehist.GetYaxis()->SetTitle("Num Events");
+	recoanglehist.GetXaxis()->SetTitle("Lepton Angle [rads]");
+	recoanglehist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&recoanglehist);
 	recoanglehist.Write();
 	
 	recoQ2hist.SetLineColor(kBlue);
-	recoQ2hist.GetXaxis()->SetTitle("Momentum Transfer [(MeV/c)^{2}]");
-	recoQ2hist.GetYaxis()->SetTitle("Num Events");
+	recoQ2hist.GetXaxis()->SetTitle("Q^{2} [(MeV/c)^{2}]");
+	recoQ2hist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&recoQ2hist);
 	recoQ2hist.Write();
 	
@@ -376,25 +390,25 @@ void comparemuEs(){
 	// Save true histos without selection cuts
 	truenuKEallhist.SetLineColor(kRed);
 	truenuKEallhist.GetXaxis()->SetTitle("Neutrino Energy [MeV]");
-	truenuKEallhist.GetYaxis()->SetTitle("Num Events");
+	truenuKEallhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&truenuKEallhist);
 	truenuKEallhist.Write();
 	
 	truemuKEallhist.SetLineColor(kRed);
 	truemuKEallhist.GetXaxis()->SetTitle("Muon Energy [MeV]");
-	truemuKEallhist.GetYaxis()->SetTitle("Num Events");
+	truemuKEallhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&truemuKEallhist);
 	truemuKEallhist.Write();
 	
 	trueangleallhist.SetLineColor(kRed);
-	trueangleallhist.GetXaxis()->SetTitle("Scattering Angle [rads]");
-	trueangleallhist.GetYaxis()->SetTitle("Num Events");
+	trueangleallhist.GetXaxis()->SetTitle("Lepton Angle [rads]");
+	trueangleallhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&trueangleallhist);
 	trueangleallhist.Write();
 	
 	trueQ2allhist.SetLineColor(kRed);
-	trueQ2allhist.GetXaxis()->SetTitle("Momentum Transfer [(MeV/c)^{2}]");
-	trueQ2allhist.GetYaxis()->SetTitle("Num Events");
+	trueQ2allhist.GetXaxis()->SetTitle("Q^{2} [(MeV/c)^{2}]");
+	trueQ2allhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&trueQ2allhist);
 	trueQ2allhist.Write();
 	
@@ -406,22 +420,22 @@ void comparemuEs(){
 #endif
 	// Save fractional error histos
 	nuEfracerrhist.GetXaxis()->SetTitle("Fractional Neutrino Energy Error");
-	nuEfracerrhist.GetYaxis()->SetTitle("Num Events");
+	nuEfracerrhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&nuEfracerrhist);
 	nuEfracerrhist.Write();
 	
 	muEfracerrhist.GetXaxis()->SetTitle("Fractional Muon Energy Error");
-	muEfracerrhist.GetYaxis()->SetTitle("Num Events");
+	muEfracerrhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&muEfracerrhist);
 	muEfracerrhist.Write();
 	
-	angfracerrhist.GetXaxis()->SetTitle("Fractional Scattering Angle Error");
-	angfracerrhist.GetYaxis()->SetTitle("Num Events");
+	angfracerrhist.GetXaxis()->SetTitle("Fractional Lepton Angle Error");
+	angfracerrhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&angfracerrhist);
 	angfracerrhist.Write();
 	
 	q2fracerrhist.GetXaxis()->SetTitle("Fractional Q^{2} Error");
-	q2fracerrhist.GetYaxis()->SetTitle("Num Events");
+	q2fracerrhist.GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(&q2fracerrhist);
 	q2fracerrhist.Write();
 	
@@ -439,13 +453,13 @@ void comparemuEs(){
 	CenterTitles(&muEtruevsreco);
 	muEtruevsreco.Write();
 
-	angtruevsreco.GetXaxis()->SetTitle("True Scattering Angle [rads]");
-	angtruevsreco.GetYaxis()->SetTitle("Reconstructed Scattering Angle [rads]");
+	angtruevsreco.GetXaxis()->SetTitle("True Lepton Angle [rads]");
+	angtruevsreco.GetYaxis()->SetTitle("Reconstructed Lepton Angle [rads]");
 	CenterTitles(&angtruevsreco);
 	angtruevsreco.Write();
 
-	q2truevsreco.GetXaxis()->SetTitle("True Momentum Transfer [(GeV/c)^{2}]");
-	q2truevsreco.GetYaxis()->SetTitle("Reconstructed Momentum Transfer [(GeV/c)^{2}]");
+	q2truevsreco.GetXaxis()->SetTitle("True Q^{2} [(GeV/c)^{2}]");
+	q2truevsreco.GetYaxis()->SetTitle("Reconstructed Q^{2} [(GeV/c)^{2}]");
 	CenterTitles(&q2truevsreco);
 	q2truevsreco.Write();
 	
@@ -461,7 +475,7 @@ void comparemuEs(){
 	muEfracerrhist2.Write();
 	
 	angfracerrhist2.GetYaxis()->SetTitle("Fractional Scattering Error");
-	angfracerrhist2.GetXaxis()->SetTitle("True Scattering Angle");
+	angfracerrhist2.GetXaxis()->SetTitle("True Lepton Angle");
 	CenterTitles(&angfracerrhist2);
 	angfracerrhist2.Write();
 	
@@ -489,7 +503,7 @@ void comparemuEs(){
 	thestack->Add(&reconuKEhist);
 	thestack->Draw("nostack");
 	thestack->GetXaxis()->SetTitle("Neutrino Energy [MeV]");
-	thestack->GetYaxis()->SetTitle("Num Events");
+	thestack->GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(thestack);
 	//thestack->SetTitle("Neutrino Energy");
 	leg = c1.BuildLegend();
@@ -511,7 +525,7 @@ void comparemuEs(){
 	thestack->Draw("nostack");
 	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
 	thestack->GetXaxis()->SetTitle("Muon Energy [MeV]");
-	thestack->GetYaxis()->SetTitle("Num Events");
+	thestack->GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(thestack);
 	thestack->Draw("nostack");
 	leg = c1.BuildLegend();
@@ -535,8 +549,8 @@ void comparemuEs(){
 	thestack->Add(&recoanglehist);
 	thestack->Draw("nostack");
 	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
-	thestack->GetXaxis()->SetTitle("Scattering Angle [rads]");
-	thestack->GetYaxis()->SetTitle("Num Events");
+	thestack->GetXaxis()->SetTitle("Lepton Angle [rads]");
+	thestack->GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(thestack);
 	thestack->Draw("nostack");
 	leg = c1.BuildLegend();
@@ -560,8 +574,8 @@ void comparemuEs(){
 	thestack->Add(&recoQ2hist);
 	thestack->Draw("nostack");
 	gPad->Modified(); gPad->Update(); // make sure it's really (re)drawn
-	thestack->GetXaxis()->SetTitle("Momentum Transfer [(GeV/c)^{2}]");
-	thestack->GetYaxis()->SetTitle("Num Events");
+	thestack->GetXaxis()->SetTitle("Q^{2} [(GeV/c)^{2}]");
+	thestack->GetYaxis()->SetTitle("Fraction of Events");
 	CenterTitles(thestack);
 	thestack->Draw("nostack");
 	leg = c1.BuildLegend();

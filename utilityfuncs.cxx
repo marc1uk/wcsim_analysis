@@ -35,7 +35,7 @@ void WCSimAnalysis::LoadInputFiles(){
 	/*TChain* */ t = new TChain("wcsimT");
 	
 
-	bool isdir;
+	bool isdir, addsubfolders=true;
 	struct stat s;
 	if(stat(inputdir,&s)==0){
 		if(s.st_mode & S_IFDIR){        // mask to extract if it's a directory?? how does this work?
@@ -56,7 +56,7 @@ void WCSimAnalysis::LoadInputFiles(){
 		TString nextfilepattern;
 		TSystemDirectory dir(inputdir, inputdir);
 		TList *subfolders = dir.GetListOfFiles(); // despite name returns files and folders
-		if(subfolders&&(subfolders->GetEntries()>2)) { // always at least 2 subfolders: '.' and '..'
+		if(addsubfolders&&subfolders&&(subfolders->GetEntries()>2)) { // always 2 subfolders: '.' and '..'
 			cout<<"looping over subfolders"<<endl;
 			TSystemDirectory *subfolder;
 			TIter nextsf(subfolders);
@@ -76,7 +76,7 @@ void WCSimAnalysis::LoadInputFiles(){
 						if(fname.EndsWith(ext)) { int i=0; }
 					}
 					*/
-					nextfilepattern = inputdir + sfname + "/wcsim_*"; // XXX
+					nextfilepattern = TString::Format("%s/%s/%s",inputdir,sfname.Data(),"wcsim_*"); // XXX
 					cout<<"adding "<<nextfilepattern<<endl;
 					t->Add(nextfilepattern.Data());
 					// cf. t->Add("/home/marc/anniegpvm/stats10k/stats_1_79283/wcsim_*");
@@ -182,7 +182,7 @@ int WCSimAnalysis::LoadTchainEntry(Int_t &eventnum){
 			cout<<"extracted submatch is "<<submatch<<endl;
 			wcsimfilenum = atoi(submatch.c_str());
 			
-			if(wcsimfilenum<firstfile){
+			if(wcsimfilenum<firstfilenum){
 				cout<<"skipping file "<<wcsimfilenum<<endl;
 				eventnum+=bp->GetEntries(); 
 				continue; 

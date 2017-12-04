@@ -17,7 +17,13 @@ wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8in
 */
 
 #ifndef USE_GRID
-//#define USE_GRID
+#define USE_GRID
+#endif
+
+// For wcsim processing of vincent's genie files, each genie file of 10k events had to be split up into 10 WCSim files.
+// Since we have 10 wcsim files per dirt/genie file, we'll need to use a chain to load the wcsim files.
+#ifndef SPLITWCSIMFILES
+#define SPLITWCSIMFILES
 #endif
 
 #ifndef VERBOSE
@@ -97,7 +103,7 @@ wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8in
 #include "../wcsim/include/WCSimRootLinkDef.hh"
 #if FILE_VERSION>2
 #include "../wcsim/include/WCSimRootOptions.hh"
-#endif
+#endif // FILE_VERSION>2
 
 // genie headers
 #ifndef NOGENIE
@@ -115,7 +121,7 @@ wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8in
 // ensure in the evironment we have set
 //ROOT_INCLUDE_PATH=${ROOT_INCLUDE_PATH}:${GENIE}/../include/GENIE
 //ROOT_LIBRARY_PATH=${ROOT_LIBRARY_PATH}:${GENIE}/../lib
-#endif
+#endif //defined NOGENIE
 
 void MakePMTmap(WCSimRootGeom* geo, std::map<int, std::pair<int,int> > &topcappositionmap, std::map<int, std::pair<int,int> > &bottomcappositionmap, std::map<int, std::pair<int,int> > &wallpositionmap);
 #include "makepmtmaps_standalone.cxx"     // definition of this function
@@ -133,7 +139,7 @@ int inline GetIntersection( float fDst1, float fDst2, TVector3 P1, TVector3 P2, 
 #include "genieinfo_struct.cxx"           // definition of a struct to hold genie info
 // function to fill the into
 void GetGenieEntryInfo(genie::EventRecord* gevtRec, genie::Interaction* genieint, GenieInfo& thegenieinfo);
-#endif
+#endif // !defined NOGENIE
 
 const Float_t MRD_width = (305./2.);      // half width of steel in cm
 const Float_t MRD_height = (274./2.);     // half height of steel in cm
@@ -188,47 +194,68 @@ std::map<int, std::pair<int,int> > topcappositionmap;
 std::map<int, std::pair<int,int> > bottomcappositionmap;
 std::map<int, std::pair<int,int> > wallpositionmap;
 
-#if FILE_VERSION==0
-//const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim";  // first 1M sample, various issues
-// is the implementation of this the same as VERSION_1? not sure...
-#elif FILE_VERSION==1
-const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_wdirt_07-02-17_rhatcher";
-#elif FILE_VERSION==2 // lappd branch commit: 744169e224cc9d8573ea269132104c84b459466c
-const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_rhatcher";
-//const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_BNB_World_10k_29-06-17";
-#elif FILE_VERSION==3
-const char* wcsimpath="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_rhatcher";
-#else
-const char* wcsimpath="";
-#endif
-// generic paths not tied to a specific file version
-//const char* wcsimpath="/annie/app/users/moflaher/wcsim/build";
-//std::string wcsimpathstlstring = std::string(gSystem->pwd())+"/in/muongun_beamsim";
-//const char* wcsimpath=wcsimpathstlstring.c_str();
-
-const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt_rhatcher";
-const char* geniepath="/pnfs/annie/persistent/users/rhatcher/genie";
-//const char* dirtpath="/pnfs/annie/persistent/users/moflaher/g4dirt_vincentsgenie/world";
-//const char* geniepath="/pnfs/annie/persistent/users/vfischer/genie/BNB_World_10k_29-06-17";
-
-#ifdef USE_GRID
-const char* outpath=gSystem->pwd();
-#else
-//std::string outpathstlstring=std::string(gSystem->pwd())+"/out/muongun_beamsim";
-std::string outpathstlstring=std::string(gSystem->pwd())+"/temp";
-const char* outpath=outpathstlstring.c_str();
-//const char* outpath=gSystem->pwd();
-//const char* outpath="/annie/app/users/moflaher/wcsim/root_work";
-//const char* outpath="/annie/app/users/moflaher/wcsim/root_work/temp";
-#endif
-
 const Bool_t printneutrinoevent=false;
 
-void truthtracks(){
-	if(strcmp(wcsimpath,"")==0){
-		cerr<<"NO DEFAULT WCSIM FILE DIRECTORY FOR FILE_VERSION "<<FILE_VERSION<<" AND NO OVERRIDE USED"<<endl;
+void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const char* geniepathin="", const char* outpathin=""){
+	
+#if FILE_VERSION==0
+	//const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim";  // first 1M sample, various issues
+	// is the implementation of this the same as VERSION_1? not sure...
+#elif FILE_VERSION==1
+	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim_wdirt_07-02-17_rhatcher";
+#elif FILE_VERSION==2 // lappd branch commit: 744169e224cc9d8573ea269132104c84b459466c
+	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_rhatcher";
+	//const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_BNB_World_10k_29-06-17";
+#elif FILE_VERSION==3
+	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_rhatcher";
+#else // if FILE_VERSION >3
+	const char awcsimpath="";
+#endif // FILE_VERSION switch
+	// generic paths not tied to a specific file version
+	//const char awcsimpath[]="/annie/app/users/moflaher/wcsim/build";
+	//std::string wcsimpathstlstring = std::string(gSystem->pwd())+"/in/muongun_beamsim";
+	////const char awcsimpath[]=wcsimpathstlstring.c_str(); << doesn't work to create a char[].
+	//char awcsimpath[150]; snprintf(&awcsimpath[0],150,"%s",wcsimpathstlstring.c_str());
+	
+	const char adirtpath[]="/pnfs/annie/persistent/users/moflaher/g4dirt_rhatcher";
+	const char ageniepath[]="/pnfs/annie/persistent/users/rhatcher/genie";
+	//const char adirtpath[]="/pnfs/annie/persistent/users/moflaher/g4dirt_vincentsgenie/world";
+	//const char ageniepath[]="/pnfs/annie/persistent/users/vfischer/genie/BNB_World_10k_29-06-17";
+	
+	//std::string outpathstlstring=std::string(gSystem->pwd())+"/out/muongun_beamsim";
+	std::string outpathstlstring=std::string(gSystem->pwd())+"/temp";
+	char aoutpath[150]; snprintf(&aoutpath[0],150,"%s",outpathstlstring.c_str());
+	//const char aoutpath[]=outpathstlstring.c_str(); << doesn't work to create a char[]. 
+	//const char aoutpath[]=gSystem->pwd();
+	//const char aoutpath[]="/annie/app/users/moflaher/wcsim/root_work";
+	//const char aoutpath[]="/annie/app/users/moflaher/wcsim/root_work/temp";
+	
+	// ACTUAL PATHS SET HERE //
+	// ===================== //
+#ifndef USE_GRID
+	const char* wcsimpath = (strcmp(wcsimpathin,"")!=0) ? wcsimpathin : &awcsimpath[0];
+	const char* dirtpath = (strcmp(dirtpathin,"")!=0) ? dirtpathin : &adirtpath[0];
+	const char* geniepath = (strcmp(geniepathin,"")!=0) ? geniepathin : &ageniepath[0];
+	const char* outpath = (strcmp(outpathin,"")!=0) ? outpathin : &aoutpath[0];
+#else // if defined USE_GRID
+	// FIXME need to pass arguments from caller script to truthtracks.
+	// cannot mount root files from pnfs directly.
+//	const char* wcsimpath = gSystem->Getenv("WCSIMDIR");
+//	const char* dirtpath = gSystem->Getenv("DIRTDIR");
+//	const char* geniepath = gSystem->Getenv("GENIEDIR");
+	const char* PWD = gSystem->pwd();
+	const char* wcsimpath = PWD;
+	const char* dirtpath = PWD;
+	const char* geniepath = PWD;
+	const char* outpath = gSystem->Getenv("LOCALOUTDIR");
+#endif // defined USE_GRID
+	if(wcsimpath==nullptr||dirtpath==nullptr||geniepath==nullptr||outpath==nullptr||
+		strcmp(wcsimpath,"")==0||strcmp(dirtpath,"")==0||strcmp(geniepath,"")==0||strcmp(outpath,"")==0){
+		cerr<<"Path not set! wcsimpath="<<wcsimpath<<", dirtpath="<<dirtpath<<", geniepath="<<geniepath<<", outpath="<<outpath
+			<<"FILE_VERSION="<<FILE_VERSION<<endl;
 		assert(false);
 	}
+	
 	ColourPlotStyle();
 	
 	// load WCSim library for reading WCSim files
@@ -245,7 +272,7 @@ void truthtracks(){
 //	gROOT->ProcessLine(".x loadincs.C");
 //	gROOT->ProcessLine(".x loadlibs.C");
 //	gSystem->cd(curr_dir.Data());
-#endif
+#endif // !defined NOGENIE
 	
 	// ==============================================================================================
 	// ==============================================================================================
@@ -253,6 +280,7 @@ void truthtracks(){
 	TFile* wcsimfile=0;
 	TString wcsimfilepath="n/a";
 	TTree* wcsimT=0;
+	TChain* wcsimchain=0;
 	Int_t numwcsimentries=0;
 	
 	TFile* dirtfile=0;
@@ -263,6 +291,7 @@ void truthtracks(){
 	TFile* lappdfile=0;
 	TString lappdfilepath="n/a";
 	TTree* lappdtree=0;
+	TChain* lappdchain=0;
 	Int_t numlappdentries=0;
 	
 	TFile* geniefile=0;
@@ -273,30 +302,33 @@ void truthtracks(){
 #ifndef PARTICLEGUNEVENTS
 	// TChain for dirt files - this will be the main driver of the loop - all it's events will be processed.
 	TChain* c =  new TChain("tankflux");
-#ifdef USE_GRID
-	const char* fnumchars = gSystem->Getenv("FILENUM");
-	if(fnumchars==nullptr){cerr<<"FILENUM environmental variable not defined!!"<<endl; assert(false);}
-	TString chainpattern = TString::Format("%s/annie_tank_flux.%s.root",dirtpath,fnumchars);	//1000->*
-#else
+#ifndef USE_GRID
 	TString chainpattern = TString::Format("%s/annie_tank_flux.*.root",dirtpath);	//1000->*
-#endif
+#else // if defined USE_GRID
+// looks like you cannot mount root files from pnfs directly. 
+//	const char* fnumchars = gSystem->Getenv("FILENUM");
+//	if(fnumchars==nullptr||strcmp(fnumchars,"")==0)
+//		{cerr<<"FILENUM environmental variable not defined!!"<<endl; assert(false);}
+//	TString chainpattern = TString::Format("%s/annie_tank_flux.%s.root",dirtpath,fnumchars);
+	TString chainpattern = TString::Format("%s/annie_tank_flux.*.root",PWD);
+#endif // defined USE_GRID
 	cout<<"loading TChain entries from "<<chainpattern<<endl;
 	c->Add(chainpattern);
 	Int_t numents = c->GetEntries();
 	cout<<"loaded "<<numents<<" entries in the chain"<<endl;
 	if(numents<1){ return; }
-#else
+#else // if defined PARTICLEGUNEVENTS
 	// TChain for wcsim files - this will be the main driver of the loop - all it's events will be processed.
 	TChain* c =  new TChain("wcsimT");
 	//TString chainpattern = TString::Format("%s/wcsim_0.*.root",wcsimpath);        // for files "wcsim_0.####.root"
 	//TString chainpattern = TString::Format("%s/wcsim_*([0-9]).root",wcsimpath);   // matches below in bash but not root
-	TString chainpattern = TString::Format("%s/wcsim_[0-9]+.root",wcsimpath);     // for files "wcsim_####.root"
+	TString chainpattern = TString::Format("%s/wcsim_[0-9]+.root",wcsimpath);       // for files "wcsim_####.root"
 	cout<<"loading TChain entries from "<<chainpattern<<endl;
 	c->Add(chainpattern);
 	Int_t numents = c->GetEntries();
 	cout<<"loaded "<<numents<<" entries in the chain"<<endl;
 	if(numents<1){ return; }
-#endif
+#endif // defined PARTICLEGUNEVENTS
 	
 	// tankflux
 	Int_t genieentry=0;
@@ -322,7 +354,7 @@ void truthtracks(){
 	cout<<"creating new genie::NtpMCEventRecord"<<endl;
 	genie::NtpMCEventRecord* genierecordval = new genie::NtpMCEventRecord;
 	TBranch* genierecordBranch=0;
-#endif
+#endif // !defined NOGENIE
 	
 	// wcsimT
 	WCSimRootEvent* b=0, *m=0, *v=0;
@@ -358,7 +390,7 @@ void truthtracks(){
 	std::vector<double>* lappd_hitglobalposxp=&lappd_hitglobalposx;
 	std::vector<double>* lappd_hitglobalposyp=&lappd_hitglobalposy;
 	std::vector<double>* lappd_hitglobalposzp=&lappd_hitglobalposz;
-#endif
+#endif // FILE_VERSION>3
 	
 	// not retrieved:
 	//LAPPDtree->Branch("lappdhit_totalpes_perevt", &lappdhit_totalpes_perevt, "lappdhit_totalpes_perevt/I");
@@ -386,7 +418,7 @@ void truthtracks(){
 #ifndef NOGENIE
 	// information from genie:
 	GenieInfo thegenieinfo;
-#endif
+#endif // !defined NOGENIE
 	
 	// ==============================================================================================
 	// ==============================================================================================
@@ -623,7 +655,7 @@ void truthtracks(){
 	TBranch* TrackLengthInMrdXBranch = vertextreenocuts->Branch("TrackLengthInMrdX",&muxtracklength);
 	TBranch* TrackLengthInMrdYBranch = vertextreenocuts->Branch("TrackLengthInMrdY",&muytracklength);
 	TBranch* TrackLengthInMrdZBranch = vertextreenocuts->Branch("TrackLengthInMrdZ",&muztracklength);
-#endif
+#endif // defined MUTRACKLENGTHDEBUG
 	TBranch* EnergyLossInMrdBranch =  vertextreenocuts->Branch("EnergyLossInMrd",&fileenergylossinmrd);
 	TBranch* MuonStartBranch = vertextreenocuts->Branch("MuonStartVertex",&filemuonstartvertex);
 	TBranch* MuonStopBranch = vertextreenocuts->Branch("MuonStopVertex", &filemuonstopvertex);
@@ -648,7 +680,7 @@ void truthtracks(){
 	std::vector<double>* poserrxp=&poserrx;
 	std::vector<double>* poserryp=&poserry;
 	std::vector<double>* poserrzp=&poserrz;
-#endif
+#endif // FILE_VERSION>3
 	std::vector<int>* tileorientp=&tileorient;
 	std::vector<int>* octagonsidep=&octagonside;
 	TBranch* LAPPD_intileposx = vertextreenocuts->Branch("LAPPD_intileposx",&intileposxp);
@@ -657,10 +689,10 @@ void truthtracks(){
 	TBranch* LAPPD_poserrx = vertextreenocuts->Branch("LAPPD_poserrx",&poserrxp);
 	TBranch* LAPPD_poserry = vertextreenocuts->Branch("LAPPD_poserry",&poserryp);
 	TBranch* LAPPD_poserrz = vertextreenocuts->Branch("LAPPD_poserrz",&poserrzp);
-#endif
+#endif // FILE_VERSION>3
 	TBranch* LAPPD_tileorient = vertextreenocuts->Branch("LAPPD_tileorient",&tileorientp);
 	TBranch* LAPPD_octagonside = vertextreenocuts->Branch("LAPPD_octagonside",&octagonsidep);
-#endif
+#endif // defined LAPPD_DEBUG
 	
 	if(MuonStartBranch==0||MuonStopBranch==0||MuonDirectionBranch==0||DigitVertexBranch==0||DigitChargeBranch==0||DigitDetTypeBranch==0||DigitSmearBranch==0){ 
 		cerr<<"branches are zombies argh!"<<endl; 
@@ -800,7 +832,7 @@ void truthtracks(){
 	TH3D* tankstopvertices = new TH3D("tankstopvertices", "Distribution of Tank Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
 	TH3D* vetostopvertices = new TH3D("vetostopvertices", "Distribution of Veto Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
 	TH3D* mrdstopvertices = new TH3D("mrdstopvertices", "Distribution of MRD Stopping Vertices", 100, -150.,150., 100, -150., 150., 100, -100., 800.);
-#endif
+#endif // defined WCSIMDEBUG
 	
 	// test the hypothesis that track length in water can be estimated from total light in tank
 	TH2D* tracklengthvsmuonlight = new TH2D("tracklengthvsmuonlight", "Muon Track Length vs Total Light from Muon", 100, 0., 1500., 100, 0., 50.);
@@ -848,6 +880,8 @@ void truthtracks(){
 	c->LoadTree(0);
 	Int_t treeNumber = -1;
 	Int_t thistreesentries;
+	Int_t wcsimtreeNumber = -1;
+	Int_t numentswcsimchain;
 	
 	/*
 	1. Load next g4dirt entry
@@ -858,7 +892,9 @@ void truthtracks(){
 	6. Load tracks, look for primary mu track through the MRD, record interaction details. 
 	*/
 	
+#ifdef TIME_EVENTS
 	TStopwatch* timer = new TStopwatch();
+#endif // defined TIME_EVENTS
 	
 	cout<<"looping over tchain entries"<<endl;
 //	numents=100;
@@ -867,19 +903,34 @@ void truthtracks(){
 	// in dirt files and WCSim files. As long as the selection criterion for dirt events is the same here
 	// as in WCSim's PrimaryGeneratorAction, we can select the dirt files, and then just pull the next 
 	// wcsim entry
-	for(Int_t inputEntry=0; inputEntry<numents; inputEntry++){
+	Int_t inputEntry=0;
+#ifdef USE_GRID
+	const char* inputoffsetchars = gSystem->Getenv("INFILE_OFFSET");
+	if(inputoffsetchars==nullptr||strcmp(inputoffsetchars,"")==0){
+		cerr<<"INPUTOFFSET NOT DEFINED!!"<<endl; assert(false);
+	}
+	inputEntry = atoi(inputoffsetchars);
+	// we could set the num entries to process based on SPLITFACTOR, but this shouldn't be necessary
+	// as the loop will exit normally once we reach the end of the wcsimfile.
+#endif // defined USE_GRID
+	for(; inputEntry<numents; inputEntry++){
+#ifdef TIME_EVENTS
 		timer->Start();
+#endif // defined TIME_EVENTS
 		/* 	1. Load next g4dirt entry */ 
 		//==================================================================================================
 		//==================================================================================================
 #ifdef VERBOSE
 		cout<<"loading entry "<<inputEntry<<endl;
-#endif
+#endif // VERBOSE
 		Long64_t localEntry = c->LoadTree(inputEntry);
 		if( localEntry<0){ cout<<"end of tchain"<<endl; break; }
 		Int_t nextTreeNumber = c->GetTreeNumber();
 		if(treeNumber!=nextTreeNumber){
 			cout<<"new tree: "<<nextTreeNumber<<endl;
+			// =========================
+			// OPEN FILES AND LOAD TREES
+			// =========================
 #ifndef PARTICLEGUNEVENTS
 			// this means we've switched file - need to load the new meta tree and genie tree.
 			// first pull out the new file name
@@ -908,7 +959,7 @@ void truthtracks(){
 			numgenietentries = gtree->GetEntries();
 			cout<<"gtree has "<<numgenietentries<<" entries in this file"<<endl;
 			if(numgenietentries<1){cerr<<"gtree has no entries!"<<endl; break; }
-#endif // NOGENIE
+#endif // !defined NOGENIE
 			
 			// use regexp to pull out the file number needed for identifying the corresponding wcsim file
 			std::match_results<string::const_iterator> submatches;
@@ -924,6 +975,7 @@ void truthtracks(){
 			int filenum = atoi(submatch.c_str());
 			
 			// use filenum to open the corresponding wcsim file
+#ifndef SPLITWCSIMFILES
 			wcsimfilepath = TString::Format("%s/wcsim_0.%d.root",wcsimpath,filenum);
 			cout<<"corresponding wcsim file is "<<wcsimfilepath<<endl;
 			if(wcsimfile) wcsimfile->Close(); wcsimfile=0;
@@ -933,7 +985,34 @@ void truthtracks(){
 				inputEntry += thistreesentries;	// skip iterator forward by all the entries in this file
 				continue; 
 			}
-#else // PARTICLEGUNEVENTS
+			// load the next set of wcsim event info
+			wcsimT = (TTree*)wcsimfile->Get("wcsimT");
+			if(!wcsimT){cerr<<"wcsimT doesn't exist!"<<endl; break; }
+#else // if defined SPLITWCSIMFILES
+			wcsimfilepath = TString::Format("%s/wcsim_0.%d.*.root",wcsimpath,filenum);
+			cout<<"corresponding wcsim files are "<<wcsimfilepath<<endl;
+			if(wcsimchain) { wcsimchain->ResetBranchAddresses(); delete wcsimchain; }
+			wcsimchain =  new TChain("wcsimT");
+			wcsimchain->Add(wcsimfilepath);
+			numentswcsimchain = wcsimchain->GetEntries();
+			cout<<"loaded "<<numentswcsimchain<<" entries in wcsimchain"<<endl;
+			if(numentswcsimchain<1){ 
+				cerr<<"these wcsim files don't exist, or have no entries!"<<endl;
+				inputEntry += thistreesentries;
+				continue;
+			}
+			// need to load the first tree to get the geometry if we haven't already
+			wcsimchain->LoadTree(0);
+			wcsimtreeNumber=wcsimchain->GetTreeNumber();
+			wcsimT = wcsimchain->GetTree();
+			wcsimfile = wcsimT->GetCurrentFile();
+			wcsimfilepath=wcsimfile->GetName();
+#endif // defined SPLITWCSIMFILES
+			numwcsimentries = wcsimT->GetEntries();
+			cout<<"wcsimT has "<<numwcsimentries<<" entries in this file"<<endl;
+			if(numwcsimentries<1){cerr<<"wcsimT has no entries!"<<endl; break; }
+			wcsimTentry=-1;
+#else // if defined PARTICLEGUNEVENTS
 			wcsimT = c->GetTree();
 			wcsimfile = wcsimT->GetCurrentFile();
 			wcsimfilestring=wcsimfile->GetName();
@@ -955,7 +1034,8 @@ void truthtracks(){
 			submatch = (std::string)submatches[1];
 			cout<<"extracted submatch is "<<submatch<<endl;
 			int filenum = atoi(submatch.c_str());
-#endif // PARTICLEGUNEVENTS
+#endif // defined PARTICLEGUNEVENTS
+			
 			// load the geometry tree and grab the geometry if we haven't already
 			if(geo==0){
 				TTree* geotree = (TTree*)wcsimfile->Get("wcsimGeoT");
@@ -970,27 +1050,19 @@ void truthtracks(){
 				//TODO: save these
 				PMTNames = geo->GetPMTNames();
 				NumPMTsByType = geo->GetPmtCounts();
-#else
+#else // if FILE_VERSION<=2
 				PMTNames=std::vector<std::string>{"PMT8inch"};
 				NumPMTsByType = std::vector<int>{numpmts};
-#endif
+#endif // FILE_VERSION<=2
 			}
-#ifndef PARTICLEGUNEVENTS
-			// load the next set of wcsim event info
-			wcsimT = (TTree*)wcsimfile->Get("wcsimT");
-			if(!wcsimT){cerr<<"wcsimT doesn't exist!"<<endl; break; }
-			numwcsimentries = wcsimT->GetEntries();
-			cout<<"wcsimT has "<<numwcsimentries<<" entries in this file"<<endl;
-			if(numwcsimentries<1){cerr<<"wcsimT has no entries!"<<endl; break; }
-			wcsimTentry=-1;
-#endif // PARTICLEGUNEVENTS
 			
 			// use the filenum to open the corresponding lappd file
+#ifndef SPLITWCSIMFILES
 #ifndef PARTICLEGUNEVENTS
 			lappdfilepath = TString::Format("%s/wcsim_lappd_0.%d.root",wcsimpath,filenum);
-#else
+#else // if defined PARTICLEGUNEVENTS
 			lappdfilepath = TString::Format("%s/wcsim_lappd_%d.root",wcsimpath,filenum);       // for files "wcsim_lappd_####.root"
-#endif
+#endif // defined PARTICLEGUNEVENTS
 			cout<<"corresponding lappd file is "<<lappdfilepath<<endl;
 			if(lappdfile) lappdfile->Close(); lappdfile=0;
 			lappdfile = TFile::Open(lappdfilepath);
@@ -1002,6 +1074,26 @@ void truthtracks(){
 			//load the next set of lappd event info
 			lappdtree = (TTree*)lappdfile->Get("LAPPDTree");
 			if(!lappdtree){cerr<<"lappdtree doesn't exist!"<<endl; break; }
+#else  // if defined SPLITWCSIMFILES
+			lappdfilepath = TString::Format("%s/wcsim_lappd_0.%d.*.root",wcsimpath,filenum);
+			cout<<"corresponding lappd files are "<<lappdfilepath<<endl;
+			if(lappdchain) { lappdchain->ResetBranchAddresses(); delete lappdchain; }
+			lappdchain =  new TChain("LAPPDTree");
+			// for files "wcsim_lappd_0.YYYY.###.root"
+			lappdchain->Add(lappdfilepath);
+			Int_t numentslappdchain = lappdchain->GetEntries();
+			cout<<"loaded "<<numentslappdchain<<" entries in lappdchain"<<endl;
+			if(numentslappdchain<1){ 
+				cerr<<"these lappd files don't exist, or have no entries!"<<endl;
+				inputEntry += thistreesentries;
+				continue;
+			}
+			// need to load the first tree to compare number of events
+			lappdchain->LoadTree(0);
+			lappdtree = lappdchain->GetTree();
+			lappdfile = lappdtree->GetCurrentFile();
+			lappdfilepath=lappdfile->GetName();
+#endif // defined SPLITWCSIMFILES
 			numlappdentries = lappdtree->GetEntries();
 			cout<<"lappdtree has "<<numlappdentries<<" entries in this file"<<endl;
 			if(numlappdentries!=numwcsimentries){
@@ -1011,7 +1103,9 @@ void truthtracks(){
 			if(numlappdentries<1){cerr<<"lappdtree has no entries!"<<endl; break;}
 			
 #ifndef PARTICLEGUNEVENTS
-			/* Set the branch addresses for the new trees */
+			// =========================
+			// SET NEW BRANCH ADDRESSES
+			// =========================
 			// tankflux:
 			// genie file entry number for each entry, to get the genie intx info
 			c->SetBranchAddress("entry",&genieentry,&genieentrybranch);
@@ -1036,8 +1130,8 @@ void truthtracks(){
 			
 			// gtree:
 			gtree->SetBranchAddress("gmcrec",&genierecordval,&genierecordBranch);
-#endif // NOGENIE
-#endif // PARTICLEGUNEVENTS
+#endif // !defined NOGENIE
+#endif // !defined PARTICLEGUNEVENTS
 			
 			// wcsimT:
 			// wcsim trigger classes
@@ -1095,8 +1189,11 @@ void truthtracks(){
 		wcsimfilestring=wcsimfilepath;
 		lappdfilestring=lappdfilepath;
 #ifndef PARTICLEGUNEVENTS
+#ifdef VERBOSE
+		//cout<<"SETTING DIRT EVENT NUM TO "<<localEntry<<endl;
+#endif // VERBOSE
 		dirteventnum=localEntry;
-#endif // PARTICLEGUNEVENTS
+#endif // !defined PARTICLEGUNEVENTS
 		
 		/* 2. Check if genie primary, and volume is in tank - if not, continue */
 		//====================================================================================================
@@ -1111,7 +1208,7 @@ void truthtracks(){
 		if(strcmp(vertexmaterial,"TankWater")!=0){
 #ifdef VERBOSE
 			cout<<"neutrino vtx not in tank"<<endl;
-#endif
+#endif // VERBOSE
 			continue;
 		}
 		if(nuprimarybranchval){delete[] nuprimarybranchval;}
@@ -1127,6 +1224,9 @@ void truthtracks(){
 		// These selection criteria are the WCSim PrimaryGeneratorAction ones. Any event that passes here
 		// will have created a WCSimT entry:
 		wcsimTentry++;   // do this now in case we introduce any 'continue' statements later
+#ifdef VERBOSE
+		//cout<<"INCREMENTED WCSIMTENTRYNUM TO "<<wcsimTentry<<endl;
+#endif // VERBOSE
 		numneutrinoeventsintank++;
 		isintank=true;
 		
@@ -1173,12 +1273,6 @@ void truthtracks(){
 		else if(eventtypes.at("IsWeakNC")) numNCneutrinoeventsintank++;
 		if(eventtypes.at("IsWeakCC")&&eventtypes.at("IsQuasiElastic")){ numCCQEneutrinoeventsintank++; }
 		
-		/* 4. Check if interaction is QE - if not, continue */
-		//====================================================================================================
-		//====================================================================================================
-		//if(!(eventtypes.at("IsWeakCC")&&eventtypes.at("IsQuasiElastic"))) continue; 
-		// disable for now: we'll check how many NC and CC-Other events have muons<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-		
 #ifdef VERBOSE
 		cout<<"filling incident neutrino histograms"<<endl;
 #endif // VERBOSE
@@ -1190,7 +1284,6 @@ void truthtracks(){
 		neutrinovertex->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
 		if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic"))
 			neutrinovertexQE->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
-#endif // GENIE
 		
 		/* 4.5 Do fiducial volume cut: */
 		//====================================================================================================
@@ -1207,9 +1300,10 @@ void truthtracks(){
 			eventq2allfidcut->Fill(thegenieinfo.Q2);
 			if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic")) numCCQEneutrinoeventsinfidvol++;
 		}
-#else  // PARTICLEGUNEVENTS
+#endif // !defined NOGENIE
+#else  // if defined PARTICLEGUNEVENTS
 		wcsimTentry=localEntry;
-#endif // PARTICLEGUNEVENTS
+#endif // defined PARTICLEGUNEVENTS
 		
 		/*5. primary neutrino true QE vertex in the tank: load wcsim detector response. */
 		//====================================================================================================
@@ -1217,25 +1311,112 @@ void truthtracks(){
 		// read only first subtrigger; delayed decay detector response is not interesting for primary FSL tracks
 #ifdef VERBOSE
 		cout<<"getting wcsim entry "<<wcsimTentry<<endl;
-#endif
+#endif // VERBOSE
+		// For split wcsim files, we may need to reset branches if this wcsimTentry goes beyond the current wcsim file
+#ifdef SPLITWCSIMFILES
+		Long64_t localwcsimTentry = wcsimchain->LoadTree(wcsimTentry);
+		lappdchain->LoadTree(wcsimTentry);
+		if( localwcsimTentry<0){
+			cerr<<"end of wcsimchain!! should have reloaded before this"<<endl;
+			inputEntry += (numentswcsimchain-thistreesentries);
+			continue;
+		}
+		Int_t nextwcsimTreeNumber = wcsimchain->GetTreeNumber();
+		if(wcsimtreeNumber!=nextwcsimTreeNumber){
+			cout<<"new wcsim tree: "<<nextwcsimTreeNumber<<endl;
+			// LOAD NEW TREES
+			wcsimT = wcsimchain->GetTree();
+			wcsimfile = wcsimT->GetCurrentFile();
+			wcsimfilepath = wcsimfile->GetName();
+			numwcsimentries = wcsimT->GetEntries();
+			cout<<"wcsimT has "<<numwcsimentries<<" entries in this file"<<endl;
+			if(numwcsimentries<1){cerr<<"wcsimT has no entries!"<<endl; break; }
+			
+			lappdtree = lappdchain->GetTree();
+			lappdfile = lappdtree->GetCurrentFile();
+			lappdfilepath = lappdfile->GetName();
+			numlappdentries = lappdtree->GetEntries();
+			cout<<"lappdtree has "<<numlappdentries<<" entries in this file"<<endl;
+			if(numlappdentries<1){cerr<<"lappdtree has no entries!"<<endl; break; }
+			
+			// SET NEW BRANCH ADDRESSES
+			// wcsimT:
+			wcsimT->SetBranchAddress("wcsimrootevent",&b, &bp);
+			wcsimT->SetBranchAddress("wcsimrootevent_mrd",&m, &mp);
+			wcsimT->SetBranchAddress("wcsimrootevent_facc",&v, &vp);
+			bp->SetAutoDelete(kTRUE);
+			mp->SetAutoDelete(kTRUE);
+			vp->SetAutoDelete(kTRUE);
+			if(bp==0||mp==0||vp==0){ cerr<<"branches are zombies!"<<endl; break; }
+			
+			// lappdtree:
+			int branchesok=0;
+			branchesok =lappdtree->SetBranchAddress("lappdevt",                    &lappd_evtnum);
+			if(branchesok<0) cerr<<"lappdevt branch error "<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappd_numhits",               &lappd_numhitsthisevt);
+			if(branchesok<0) cerr<<"lappd_numhits="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoorx",         &lappd_hitpeposxp);
+			if(branchesok<0) cerr<<"lappd_stripcoorx="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoory",         &lappd_hitpeposyp);
+			if(branchesok<0) cerr<<"lappd_stripcoory="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoorz",         &lappd_hitpeposzp);
+			if(branchesok<0) cerr<<"lappd_stripcoorz="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoort",         &lappd_hittruetimep);
+			if(branchesok<0) cerr<<"lappd_stripcoort="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_objnum",             &lappd_hittile);
+			if(branchesok<0) cerr<<"lappd_objnum="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_x",                  &lappd_hittilesposx);
+			if(branchesok<0) cerr<<"lappd_z="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_y",                  &lappd_hittilesposy);
+			if(branchesok<0) cerr<<"lappd_y="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_z",                  &lappd_hittilesposz);
+			if(branchesok<0) cerr<<"lappd_z="<<branchesok<<endl;
+#if FILE_VERSION>3
+			branchesok =lappdtree->SetBranchAddress("lappdhit_globalcoorx",        &lappd_hitglobalposxp);
+			if(branchesok<0) cerr<<"lappd_hitglobalx="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_globalcoory",        &lappd_hitglobalposyp);
+			if(branchesok<0) cerr<<"lappd_hitglobaly="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_globalcoorz",        &lappd_hitglobalposzp);
+			if(branchesok<0) cerr<<"lappd_hitglobalz="<<branchesok<<endl;
+#endif // FILE_VERSION>3
+			branchesok =lappdtree->SetBranchAddress("lappdhit_edep",               &lappd_numphots);
+			if(branchesok<0) cerr<<"lappd_edep="<<branchesok<<endl;
+			branchesok =lappdtree->SetBranchAddress("lappdhit_totalpes_perlappd2", &lappd_hitchargep);
+			if(branchesok<0) cerr<<"lappd_hitcharge="<<branchesok<<endl;
+			
+			wcsimtreeNumber=nextwcsimTreeNumber;
+			// when loading a new file, we need to re-synchronize dirt/genie event num = wcsim event num
+			// we should always have wcsimTentry<localEntry, as wcsimTentry only skips some outside tank
+			// localEntries. We now skip wcsimTentry back up to localEntry.
+			wcsimTentry=localEntry;
+			localwcsimTentry = wcsimchain->LoadTree(wcsimTentry); // this shouldn't result in a new tree.
+		}
+		wcsimeventnum=localwcsimTentry;
+		wcsimT->GetEntry(localwcsimTentry);
+#else  // if !defined SPLITWCSIMFILES
+		wcsimeventnum=wcsimTentry;
 		if(wcsimTentry>(numwcsimentries-1)){ cout<<"can't load wcsimT entry "<<wcsimTentry
 				<<" from "<<wcsimfilepath<<" wcsimT - not enough entries!"<<endl; break; }
 		wcsimT->GetEntry(wcsimTentry);
+#endif // !defined SPLITWCSIMFILES
 		atrigt = b->GetTrigger(0);
 		atrigm = m->GetTrigger(0);
 		atrigv = v->GetTrigger(0);
 		
-		wcsimeventnum=wcsimTentry;
 		int eventnumcheck=atrigt->GetHeader()->GetEvtNum();
 		
 		// Get LAPPD entries as well:
 		// first we need to allocate necessary dynamic arrays
 #ifdef VERBOSE
 		cout<<"getting lappd entry "<<wcsimTentry<<endl;
-#endif
+#endif // VERBOSE
+#ifndef SPLITWCSIMFILES
 		if(wcsimTentry>(numlappdentries-1)){ cerr<<"can't load lappdtree entry "<<wcsimTentry
 				<<" from "<<lappdfilepath<<" lappdtree - not enough entries!"<<endl; continue; }
 		lappdtree->GetEntry(wcsimTentry);
+#else // if defined SPLITWCSIMFILES
+		lappdtree->GetEntry(localwcsimTentry);
+#endif // defined SPLITWCSIMFILES
 		if(lappd_evtnum!=eventnumcheck){
 			cerr<<"mismatch between lappd_evtnum="<<lappd_evtnum<<", and wcsim header event num, "
 			<<"eventnumcheck="<<eventnumcheck<<". For ref: wcsimTentry="<<wcsimTentry<<endl;
@@ -1245,7 +1426,7 @@ void truthtracks(){
 		Int_t numtracks = atrigt->GetNtrack();
 #ifdef VERBOSE
 		cout<<"wcsim event had "<<numtracks<<" truth tracks"<<endl;
-#endif
+#endif // VERBOSE
 		
 		std::vector<Float_t> neutrinoenergiesvector;
 		std::vector<Float_t> primaryenergiesvector;
@@ -1281,6 +1462,7 @@ void truthtracks(){
 		trackstoptime.clear();
 		for(int track=0; track<numtracks; track++){
 			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(track);
+			if(nextrack->GetFlag()!=0) continue; // flag s -1 and -2 are neutrino and target, or other special. don't double count.
 			Int_t primarypdg = nextrack->GetIpnu();
 			switch (primarypdg){
 				case 111: numpizerotracks++; break;
@@ -1313,7 +1495,12 @@ void truthtracks(){
 				primarystartvol = 20;                               // start depth is facc or hall
 			} else if(nextrack->GetStart(2)>(tank_start+(2.*tank_radius))){
 				primarystartvol = 30;                               // start depth is mrd or hall
+//			} else if((TMath::Sqrt(TMath::Power(nextrack->GetStart(0),2)+
+//								  TMath::Power(nextrack->GetStart(2)-tank_start-tank_radius,2))<tank_radius) &&
+//					  (TMath::Abs(nextrack->GetStart(1))<tank_halfheight)){
+//				primarystartvol = 10;                               // start is tank
 			} else {
+//				primarystartvol = 30;                               // start depth is about tank, but outside tank region - hall
 				primarystartvol = 10;                               // start depth is tank
 			}
 			if(primarystartvol!=10){
@@ -1330,14 +1517,14 @@ void truthtracks(){
 			} else {
 #ifdef VERBOSE
 				cout<<"track "<<track<<"/"<<numtracks<<" is not the highest energy muon"<<endl;
-#endif
+#endif // VERBOSE
 				continue;
 			}
 		}
 		if(mutrackindex<0){
 #ifdef VERBOSE
 			cout<<"no muons in this event"<<endl;
-#endif
+#endif // VERBOSE
 			continue;                                  // there was no primary muon
 		}
 		//for(int track=0; track<numtracks; track++){                 // disable loop over tracks
@@ -1375,22 +1562,22 @@ void truthtracks(){
 			Int_t primarypdg = nextrack->GetIpnu();
 #ifdef VERBOSE
 			cout<<"primarypdg is "<<primarypdg<<endl;
-#endif
+#endif // VERBOSE
 			if(TMath::Abs(primarypdg)!=13) continue;       // not a muon
 			
 			// for now we use truth information
 			// is it a primary?
 			Int_t primaryparentpdg = nextrack->GetParenttype();
 #ifdef VERBOSE
-			(primaryparentpdg!=0) ? cout<<"a primary"<<endl : cout<<"not a primary"<<endl;
-#endif
+			(primaryparentpdg==0) ? cout<<"a primary"<<endl : cout<<"not a primary"<<endl;
+#endif // VERBOSE
 			if(primaryparentpdg!=0) continue;
 			
 			// does it start in the tank?
 			Int_t primarystartvol;
 #if FILE_VERSION>1
 			primarystartvol = nextrack->GetStartvol();
-#else
+#else // if FILE_VERSION<=1
 			if(nextrack->GetStart(2)<tank_start){
 				primarystartvol = 20;						// start depth is facc or hall
 			} else if(nextrack->GetStart(2)>(tank_start+(2.*tank_radius))){
@@ -1398,18 +1585,18 @@ void truthtracks(){
 			} else {
 				primarystartvol = 10;						// start depth is tank
 			}
-#endif
+#endif // FILE_VERSION<=1
 			
 #ifdef VERBOSE
 			cout<<"primarystartvol is "<<primarystartvol<<endl;
-#endif
+#endif // VERBOSE
 			if(primarystartvol!=10) continue;				// start volume is not the tank
 			
 			// where does it stop?
 			Int_t primarystopvol;
 #if FILE_VERSION>1
 			primarystopvol = nextrack->GetStopvol();
-#else
+#else // if FILE_VERSION<=1
 			// Do we need to think about 'range-out' mrd events? Maybe this is preferable to using GetStopVol()?
 			if(nextrack->GetStop(2)<tank_start){
 				primarystopvol = 20;						// start depth is facc or hall
@@ -1418,11 +1605,11 @@ void truthtracks(){
 			} else {
 				primarystopvol = 10;						// start depth is tank
 			}
-#endif
+#endif // FILE_VERSION<=1
 			
 #ifdef VERBOSE
 			cout<<"primarystopvol is "<<primarystopvol<<endl;
-#endif
+#endif // VERBOSE
 			
 			TLorentzVector primarystartvertex(  nextrack->GetStart(0),
 												nextrack->GetStart(1),
@@ -1433,22 +1620,37 @@ void truthtracks(){
 												nextrack->GetStop(1),
 												nextrack->GetStop(2),
 												nextrack->GetStopTime());
-#else
+#else // if FILE_VERSION<=2
 			TLorentzVector primarystopvertex(   nextrack->GetStop(0),
 												nextrack->GetStop(1),
 												nextrack->GetStop(2),
 												-1); // not stored prior to this
-#endif
-#ifdef NOGENIE
+#endif // FILE_VERSION<=2
+#if defined NOGENIE || defined PARTICLEGUNEVENTS
 			isinfiducialvol=false;
 			if( (TMath::Sqrt(TMath::Power(primarystartvertex.X(), 2) 
 				+ TMath::Power(primarystartvertex.Z()-tank_start-tank_radius,2)) < fidcutradius) && 
 				(TMath::Abs(primarystartvertex.Y()-tank_yoffset) < fidcuty) && 
 				((primarystartvertex.Z()-tank_start-tank_radius) < fidcutz) ){
 				isinfiducialvol=true;
-				numCCQEneutrinoeventsinfidvol++;
+				numCCQEneutrinoeventsinfidvol++; // can't strictly say it's CCQE without genie.
 			}
+#endif // defined NOGENIE || defined PARTICLEGUNEVENTS
+			// sanity check for correct synchronization between dirt and wcsim files.
+			if(!(abs(primarystartvertex.X()-thegenieinfo.genie_x)<1 &&
+				 abs(primarystartvertex.Y()-thegenieinfo.genie_y)<1 &&
+				 abs(primarystartvertex.Z()-thegenieinfo.genie_z)<1) ){
+				cerr<<"GENIE VERTEX IS IN FIDUCIAL VOLUME BUT PRIMARY MUON VERTEX ISN'T?!"<<endl
+					<<"Genie vertex: ("<<thegenieinfo.genie_x<<", "<<thegenieinfo.genie_y<<", "<<thegenieinfo.genie_z<<")"<<endl
+					<<"Muon vertex: ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()<<", "<<primarystartvertex.Z()<<")"<<endl
+					<<"Trigger vertex: ("<<atrigt->GetVtx(0)<<", "<<atrigt->GetVtx(1)<<", "<<atrigt->GetVtx(2)<<")"<<endl
+					<<"dirt file is "<<dirtfilestring<<", genie file is "<<geniefilestring<<", wcsim file is "<<wcsimfilepath<<endl
+					<<"dirt event num is "<<dirteventnum<<", wcsim event num is "<<wcsimTentry<<endl;
+#ifdef SPLITWCSIMFILES
+				cerr<<", wcsim chain local entry is "<<localwcsimTentry<<endl;
 #endif
+					assert(false);
+			}
 #ifdef WCSIMDEBUG
 			switch (primarystartvol){
 			case 10:
@@ -1472,7 +1674,7 @@ void truthtracks(){
 				mrdstopvertices->Fill(primarystopvertex.X(), primarystopvertex.Y(), primarystopvertex.Z());
 				break;
 			}
-#endif
+#endif // defined WCSIMDEBUG
 			
 			mustartvtx=primarystartvertex.Vect();
 			mustopvtx=primarystopvertex.Vect();
@@ -1522,7 +1724,7 @@ void truthtracks(){
 			cout<<"projected x at z="<<MRD_layer2<<" is "<<xatmrd<<endl;
 			cout<<"xatmrd="<<xatmrd<<", MRD_width="<<MRD_width<<endl;
 			cout<<"yatmrd="<<yatmrd<<", MRD_height="<<MRD_height<<endl;
-#endif
+#endif // defined WCSIMDEBUG
 			//if((TMath::Abs(xatmrd)>MRD_width)||(TMath::Abs(yatmrd)>MRD_height)) 
 			//	continue;	// track does not meet MRD penetration requirement
 			// if we got to here, we have a muon that stops in, or penetrates at least 2 MRD layers!
@@ -1561,7 +1763,6 @@ void truthtracks(){
 					mrdpenetrationlayers++;
 				}
 			} else {
-				muonstopsinMRD=false;
 				muonrangesoutMRD=false;
 				mrdpenetrationcm=0.;
 				mrdpenetrationlayers=0;
@@ -1571,14 +1772,14 @@ void truthtracks(){
 			double muxtracklength=MuTrackInMRD.X();
 			double muytracklength=MuTrackInMRD.Y();
 			double muztracklength=MuTrackInMRD.Z();
-#else
+#else // if defined MUTRACKLENGTHDEBUG
 			muxtracklength=MuTrackInMRD.X();
 			muytracklength=MuTrackInMRD.Y();
 			muztracklength=MuTrackInMRD.Z();
 			cout<<"particle travels "<<mutracklengthinMRD<<"cm before exiting MRD bounds"<<endl
 				<<"particle travels "<<muxtracklength<<"cm before leaving X bounds"<<endl
 				<<"particle travles "<<muxtracklength<<"cm before leaving Y bounds"<<endl;
-#endif
+#endif // defined MUTRACKLENGTHDEBUG
 			double maxtracklengthinMRD = TMath::Sqrt(
 					TMath::Power(MRD_width*2,2) +
 					TMath::Power(MRD_height*2,2) +
@@ -1609,197 +1810,6 @@ void truthtracks(){
 				
 				assert(false);
 			}
-					
-//			// Alternatively, calculate the MRD penetration & place the cuts afterwards
-//			////////////////////////////////////////////////////////////////////////////
-//			
-//			if(primarystopvertex.Z()<MRD_start){
-//				// the track stops before reaching the MRD
-//				muonentersMRD=false;
-//				muonstopsinMRD=false;
-//				muonrangesoutMRD=false;
-//				mrdpenetrationcm=0.;
-//				mrdpenetrationlayers=0;
-//				mutracklengthinMRD=0.;
-//			} else {
-//				// the track travels a depth past the MRD start, but may do so outside its angular acceptance
-//				Float_t trackZlengthbeforeMRDXexit;
-//				if(TMath::Abs(primarystopvertex.X())<MRD_width){
-//					trackZlengthbeforeMRDXexit=primarystopvertex.Z()-primarystartvertex.Z();
-//				} else {
-//					double trackXdistanceinMRD=0.; // badly named: X distance before MRD X bound exit
-//					if(primarystopvertex.X()>0){
-//						trackXdistanceinMRD=MRD_width-primarystartvertex.X();
-//					} else {
-//						trackXdistanceinMRD=-MRD_width-primarystartvertex.X();
-//					}
-//					trackZlengthbeforeMRDXexit= trackXdistanceinMRD/TMath::Tan(avgtrackanglex);
-//				}
-//				Float_t trackZlengthbeforeMRDYexit;
-//				// additional check that the track enters the MRD Y bound before both the track and MRD end.
-//				// (unlike X, it is possible the particle enters MRD Y bound after the MRD end)
-//				/* 3 cases:
-//				a) starts inside Y bounds, ends inside Y bounds: trackZlengthbeforeMRDYexit = track z length
-//				b) starts inside Y bounds, ends outside Y bounds: trackZlengthbeforeMRDYexit = calculate as above.
-//				c) starts outside Y bounds, ends outside Y bounds: trackZlengthbeforeMRDYexit = 0
-//				d) starts outside Y bounds, ends inside Y bounds: trackZlengthbeforeMRDYexit <<< check
-//				*/
-//				double endpointz = TMath::Min((double)(MRD_start+MRD_depth),primarystopvertex.Z());
-//				double yatEnd = primarystartvertex.Y() 
-//									+ (endpointz-primarystartvertex.Z())*TMath::Tan(avgtrackangley);
-//				if(TMath::Abs(primarystartvertex.Y())>MRD_height&&TMath::Abs(yatEnd)>MRD_height
-//					&&((primarystartvertex.Y()*primarystopvertex.Y())>0)){
-//					trackZlengthbeforeMRDYexit=0;
-//				} else if(TMath::Abs(primarystopvertex.Y())<MRD_height){
-//					trackZlengthbeforeMRDYexit=primarystopvertex.Z()-primarystartvertex.Z();
-//				} else {
-//					if(TMath::Abs(primarystartvertex.Y())>MRD_height){
-//						trackZlengthbeforeMRDYexit=0;  // Y start may be outside the Y bounds of the MRD!
-//					} else {
-//						double trackYdistanceinMRD=0.; // badly named: Y distance before MRD Y bound exit
-//						if(primarystopvertex.Y()>0){
-//							trackYdistanceinMRD=MRD_height-primarystartvertex.Y();
-//						} else {
-//							trackYdistanceinMRD=-MRD_height-primarystartvertex.Y();
-//						}
-//						trackZlengthbeforeMRDYexit= trackYdistanceinMRD/TMath::Tan(avgtrackangley);
-//					}
-//				}
-//				Double_t trackZlengthbeforeMRDexit=
-//					TMath::Min(trackZlengthbeforeMRDXexit,trackZlengthbeforeMRDYexit);
-//				// above is the travel distance in Z before exiting the X or Y bounds of the MRD. 
-//				// if a bound is not exceeded, the total track length in Z is used.
-//				// but we also need to account for exiting the MRD by exceeding Z extent:
-//				trackZlengthbeforeMRDexit=TMath::Min(trackZlengthbeforeMRDexit,MRD_start+MRD_depth-primarystartvertex.Z());
-//#ifdef MUTRACKLENGTHDEBUG
-//				cout<<"particle travels "<<trackZlengthbeforeMRDexit<<"cm before exiting MRD bounds"<<endl
-//					<<"particle travels "<<trackZlengthbeforeMRDXexit<<"cm before leaving X bounds"<<endl
-//					<<"particle travles "<<trackZlengthbeforeMRDYexit<<"cm before leaving Y bounds"<<endl;
-//#endif
-//				double mrdexitpoint=primarystartvertex.Z()+trackZlengthbeforeMRDexit;
-//				if(mrdexitpoint<MRD_start){
-//					// track has such a steep angle it exits MRD acceptance before reaching its start
-//					muonentersMRD=false;
-//					muonstopsinMRD=false;
-//					muonrangesoutMRD=false;
-//					mrdpenetrationcm=0.;
-//					mrdpenetrationlayers=0;
-//					mutracklengthinMRD=0.;
-//				} else {
-//					muonentersMRD=true;
-//					
-//					// calculate total distance travelled in MRD
-//					////////////////////////////////////////////
-//					// to calculate the penetration / track length in MRD 
-//					// we need to know the entry and exit points.
-//					
-//					// Entry point
-//					double muXentrypoint, muYentrypoint, muZentrypoint;
-//					// use projection to MRD_start as a first point
-//					muXentrypoint = primarystartvertex.X() + 
-//						(MRD_start-primarystartvertex.Z())*TMath::Tan(avgtrackanglex);
-//					muYentrypoint = primarystartvertex.Y() + 
-//						(MRD_start-primarystartvertex.Z())*TMath::Tan(avgtrackangley);
-//					muZentrypoint=MRD_start;
-//					// but the MRD is shorter than the tank (height 137 vs 198cm) so it is possible
-//					// that the Y projection to the MRD_start is outside the MRD bounds!
-//					if(abs(muYentrypoint)>MRD_height){
-//#ifdef MUTRACKLENGTHDEBUG
-//						cout<<"overriding entry point"<<endl;
-//#endif
-//						// project forward until the y value is inside MRD bounds:
-//						muYentrypoint = (primarystartvertex.Y()>0) ? MRD_height : -MRD_height;
-//						double ytoentry = muYentrypoint-primarystartvertex.Y();
-//						muZentrypoint = primarystartvertex.Z() + ytoentry/TMath::Tan(avgtrackangley);
-//						muXentrypoint = primarystartvertex.X() + 
-//							(muZentrypoint-primarystartvertex.Z())*TMath::Tan(avgtrackanglex);
-//#ifdef MUTRACKLENGTHDEBUG
-//						cout<<"ytoentry="<<ytoentry<<endl;
-//#endif
-//					}
-//					
-//					// MRD Travel distance
-//					mrdpenetrationcm=trackZlengthbeforeMRDexit-(muZentrypoint-primarystartvertex.Z());
-//					mrdpenetrationlayers=0;
-//					for(auto layerzval : mrdscintlayers){
-//						if(mrdexitpoint<layerzval) break;
-//						mrdpenetrationlayers++;
-//					}
-//					if(mrdexitpoint>mrdscintlayers.back()){ // includes side exits as mrdexitpoint is earliest side exit.
-//						muonrangesoutMRD=true;
-//						muonstopsinMRD=false;
-//					} else {
-//						muonrangesoutMRD=false;
-//						if((TMath::Abs(primarystopvertex.X())<MRD_width)
-//							&&(TMath::Abs(primarystopvertex.Y())<MRD_height)) muonstopsinMRD=true;
-//						else muonstopsinMRD=false;
-//					}
-//					
-//					// Exit point
-//					double muXexitpoint, muYexitpoint /*, mrdexitpoint*/;
-//					if(muonstopsinMRD){
-//						muXexitpoint=primarystopvertex.X();
-//						muYexitpoint=primarystopvertex.Y();
-//					} else {
-//						if(trackZlengthbeforeMRDexit==trackZlengthbeforeMRDXexit){
-//							// track exits the MRD through one of the sides
-//#ifdef MUTRACKLENGTHDEBUG
-//							cout<<"track exits an MRD side"<<endl;
-//#endif
-//							muXexitpoint= (primarystopvertex.X()>0) ? MRD_width : -MRD_width;
-//							muYexitpoint=
-//								primarystartvertex.Y()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackangley));
-//						} else {
-//							// track exits through the top or bottom of the MRD
-//#ifdef MUTRACKLENGTHDEBUG
-//							cout<<"track exits the MRD top or bottom"<<endl;
-//#endif
-//							(primarystopvertex.Y()>0) ? muYexitpoint=MRD_height : muYexitpoint=-MRD_height;
-//							muXexitpoint=
-//								primarystartvertex.X()+(trackZlengthbeforeMRDexit*TMath::Tan(avgtrackanglex));
-//						}
-//					}
-//					
-//					double muXdistanceinMRD=muXexitpoint-muXentrypoint;
-//					double muYdistanceinMRD=muYexitpoint-muYentrypoint;
-//					mutracklengthinMRD=
-//						TMath::Sqrt(TMath::Power(muXdistanceinMRD,2)+TMath::Power(muYdistanceinMRD,2)
-//						+TMath::Power(mrdpenetrationcm,2));
-//#ifdef MUTRACKLENGTHDEBUG
-//					muxtracklength=muXdistanceinMRD;
-//					muytracklength=muYdistanceinMRD;
-//					muztracklength=mrdpenetrationcm;
-//#endif
-//					double maxtracklengthinMRD = TMath::Sqrt(TMath::Power(MRD_width*2,2)+TMath::Power(MRD_height*2,2)
-//						+TMath::Power(MRD_depth,2));
-//					if((mutracklengthinMRD>maxtracklengthinMRD)||
-//						(muXdistanceinMRD>((MRD_width*2)*1.01))||(muYdistanceinMRD>((MRD_height*2)*1.01))||
-//						(mrdpenetrationcm>(MRD_depth*1.01))){ // stupid float inaccuracies...
-//						cerr<<"MRD track length is impossibly long!"<<endl
-//							<<"Max track length is "<<maxtracklengthinMRD<<"cm"
-//							<<", this track is "<<mutracklengthinMRD<<"cm, "
-//							<<"distances are ("<<muXdistanceinMRD<<", "
-//							<<muYdistanceinMRD<<", "<<mrdpenetrationcm<<")"<<endl
-//							<<"compare to maximum extents ("<<(2*MRD_width)
-//							<<", "<<(2*MRD_height)<<", "<<MRD_depth<<")"<<endl
-//							<<"Track goes = ("<<muXentrypoint<<", "<<muYentrypoint<<", "
-//							<<muZentrypoint<<") -> ("<<muXexitpoint<<", "<<muYexitpoint<<", "
-//							<<mrdexitpoint<<") and ";
-//							if(muonstopsinMRD) cerr<<"stops in the MRD"<<endl;
-//							else if(muonrangesoutMRD) cerr<<"penetrates the MRD"<<endl;
-//							else cerr<<"exits the side of the MRD"<<endl;
-//						cerr<<"MRD width is "<<MRD_width<<", MRD height is "<<MRD_height
-//							<<", MRD start is "<<MRD_start<<", MRD end is "<<(MRD_start+MRD_depth)<<endl
-//							<<"particle goes "<<trackZlengthbeforeMRDexit<<" before exiting the MRD bounds"<<endl
-//							<<"total path is from ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()
-//							<<", "<<primarystartvertex.Z()<<") -> ("<<primarystopvertex.X()<<", "
-//							<<primarystopvertex.Y()<<", "<<primarystopvertex.Z()<<")"<<endl
-//							<<"avgtrackangley="<<avgtrackangley<<", avgtrackanglex="<<avgtrackanglex<<endl;
-//						
-//						assert(false);
-//					}
-//				}
-//			}
 			
 			// ----------------------------------------------------------------------------------------------
 			// retrieve any remaining information and record the event
@@ -1819,12 +1829,12 @@ void truthtracks(){
 			TVector3 momtrans = (primarymomentummag*primarymomentumdir)-TVector3(0.,0.,neutrinoenergyguess);
 			Double_t calculatedq2 = thegenieinfo.Q2;
 			//Double_t calculatedq2 = -1 * momtrans.Mag2();                             //
-#else
+#else // if defined NOGENIE
 			Double_t scatteringangle = differencevector.Angle(TVector3(0,0,1));         // reco only, assume neutrino || z
 			Double_t neutrinoenergyguess = -1;                                          // can't estimate these without
 			TVector3 momtrans(-1,-1,-1);                                                // more comprehensive reconstruction
 			Double_t calculatedq2 = -1;
-#endif
+#endif // defined NOGENIE
 			
 			// Add this primary information to a vector. We _should_ only find one suitable primary
 			// and can break once it is found, but... let's just see. Keep wcsim trackID in case.
@@ -1832,7 +1842,7 @@ void truthtracks(){
 			
 #ifdef VERBOSE
 			cout<<"found a suitable primary track"<<endl;
-#endif
+#endif // VERBOSE
 			neutrinoenergiesvector.push_back(neutrinoenergyguess);
 			scatteringanglesvector.push_back(scatteringangle);
 			primaryenergiesvector.push_back(primaryenergy);
@@ -1857,7 +1867,7 @@ void truthtracks(){
 				// first find out the z value where the tank would leave the radius of the tank
 #ifdef MUTRACKDEBUG
 				cout<<"z0 = "<<primarystartvertex.Z()-tank_start-tank_radius<<", x0 = "<<primarystartvertex.X()<<endl;
-#endif
+#endif // defined MUTRACKDEBUG
 				Double_t xatziszero = 
 				(primarystartvertex.X() - (primarystartvertex.Z()-tank_start-tank_radius)*TMath::Tan(avgtrackanglex));
 				Double_t firstterm = -TMath::Tan(avgtrackanglex)*xatziszero;
@@ -1896,9 +1906,14 @@ void truthtracks(){
 				cout<<"tankendpointz="<<tankendpointz<<endl;
 				cout<<"tankendpointx="<<tankendpointx<<endl;
 				cout<<"tankendpointy="<<tankendpointy<<endl;
-#endif
+				cout<<"TMath::Abs(primarystartvertex.Y()-tank_yoffset)="
+					<<TMath::Abs(primarystartvertex.Y()-tank_yoffset)
+					<<"(tank_halfheight)="<<(tank_halfheight)<<endl;
+#endif // MUTRACKDEBUG
 				
-				if(TMath::Abs(tankendpointy-tank_yoffset)>(tank_halfheight)){
+				if( TMath::Abs(tankendpointy-tank_yoffset)>(tank_halfheight) && 
+					TMath::Abs(primarystartvertex.Y()-tank_yoffset)<(tank_halfheight)){
+					// ^ second condition due to slight (mm) differences in tank y height in WCSim.
 					// this trajectory exits through the cap. Need to recalculate x, z exiting points...!
 					if(primarystopvertex.Y()>primarystartvertex.Y()){
 						tankendpointy = tank_halfheight+tank_yoffset;	// by definition of leaving through cap
@@ -1920,7 +1935,7 @@ void truthtracks(){
 				cout<<"tankendpointx="<<tankendpointx<<endl;
 				cout<<"tankendpointy="<<tankendpointy<<endl;
 				cout<<"max tank track length is "<<maxtanktracklength<<endl;
-#endif
+#endif // defined MUTRACKDEBUG
 			
 				// we're now able to determine muon track length in the tank:
 				mutracklengthintank = TMath::Sqrt(
@@ -1932,9 +1947,11 @@ void truthtracks(){
 					<<", "<<(tankendpointy-primarystartvertex.Y())<<", "
 					<<(tankendpointz-primarystartvertex.Z())<<") = "<<mutracklengthintank<<"cm total"<<endl;
 				cout<<"muon tank exit point: ("<<tankendpointx<<", "<<tankendpointy<<", "<<tankendpointz<<") ";
-				cout<<"muon start point : ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()
-					<<", "<<primarystartvertex.Z()<<")"<<endl;
-#endif
+				cout<<"track start point : ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()
+					<<", "<<primarystartvertex.Z()<<")"<<endl
+					<<"track stop point : ("<<primarystopvertex.X()<<", "<<primarystopvertex.Y()
+					<<", "<<primarystopvertex.Z()<<")"<<endl;
+#endif // defined MUTRACKDEBUG
 				if(mutracklengthintank > maxtanktracklength){
 					cout<<"Track length is impossibly long!"<<endl;
 					assert(false);
@@ -1959,7 +1976,7 @@ void truthtracks(){
 			// ----------------------------------------------------------------------------------------------
 #ifdef VERBOSE
 			cout<<"Analysing tank digits"<<endl;
-#endif
+#endif // VERBOSE
 			Int_t numdigitsthisevent = atrigt->GetCherenkovDigiHits()->GetEntries();
 			//cout<<"this event has "<<numdigitsthisevent<<" digits"<<endl;
 			filedigitvertices.clear();
@@ -2005,7 +2022,7 @@ void truthtracks(){
 						break;
 					}
 				}
-#endif
+#endif // FILE_VERSION<2
 				std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
 				WCSimRootPMT pmt = geo->GetPMT(digitstubeid);
 				double digitsx = pmt.GetPosition(0);
@@ -2062,7 +2079,7 @@ void truthtracks(){
 					int thephotonsid = truephotonindices.at(truephoton);
 #if FILE_VERSION<2
 					thephotonsid+=timeArrayOffset;
-#endif
+#endif // FILE_VERSION<2
 					WCSimRootCherenkovHitTime *thehittimeobject = 
 						(WCSimRootCherenkovHitTime*)atrigt->GetCherenkovHitTimes()->At(thephotonsid);
 					Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
@@ -2100,10 +2117,10 @@ void truthtracks(){
 				std::string digitspst;
 #if FILE_VERSION<3
 				digitspst = "PMT8inch";
-#else
+#else // if FILE_VERSION>=3
 				int tubetypeindex = geo->GetTubeIndex(digitstubeid);
 				digitspst = geo->GetWCPMTNameAt(tubetypeindex);
-#endif
+#endif // FILE_VERSION>=3
 				filedigitsensortypes.push_back(digitspst);
 				double timingConstant;
 				double timingResConstant;
@@ -2170,14 +2187,14 @@ void truthtracks(){
 #ifdef LAPPD_DEBUG
 				intileposx.push_back(0);
 				intileposy.push_back(0);
-#ifdef FILE_VERSION>3
+#if FILE_VERSION>3
 				poserrx.push_back(0);
 				poserry.push_back(0);
 				poserrz.push_back(0);
-#endif
+#endif // FILE_VERSION<=3
 				tileorient.push_back(0);
 				octagonside.push_back(0);
-#endif
+#endif // defined LAPPD_DEBUG
 				
 			}  // end loop over digits
 			
@@ -2307,13 +2324,13 @@ void truthtracks(){
 						cout<<"pepos is: ("<<peposx<<", "<<peposy<<")"<<endl;
 						cout<<"derived position is: ("
 							<<digitsx<<", "<<digitsy<<", "<<digitsz<<")"<<endl
-#ifdef FILE_VERSION>3
+#if FILE_VERSION>3
 							<<"true global position is: ("<<lappd_hitglobalposx.at(runningcount)
 							<<", "<<lappd_hitglobalposy.at(runningcount)
 							<<", "<<lappd_hitglobalposz.at(runningcount)<<")"<<endl;
-#endif
+#endif // FILE_VERSION>3
 					}
-#endif
+#endif // defined LAPPD_DEBUG
 					double digitst  = lappd_hittruetime.at(runningcount);
 #if FILE_VERSION>10 // dont know what file version this will be fixed in (check, has been fixed?)
 					// but currently lappd digits store absolute digit time, NOT the time within a trigger....
@@ -2324,26 +2341,26 @@ void truthtracks(){
 					// so this time may be way out, this digit may even be part of a different trigger.
 					// some sort of loop over trigger times to sort it here....
 					// (we could check if abs time > trigger time for next trig...)
-#else 
+#else // if FILE_VERSION<=10
 					double absolutedigitst=digitst;
-#endif
+#endif // FILE_VERSION<=10
 					ROOT::Math::XYZTVector adigitvector =  // convert mm to cm 
 						ROOT::Math::XYZTVector(digitsx/10.,digitsy/10.,digitsz/10.,absolutedigitst);
 					
 #ifdef LAPPD_DEBUG
 					intileposx.push_back(peposx);
 					intileposy.push_back(peposy);
-#ifdef FILE_VERSION>3
+#if FILE_VERSION>3
 					poserrx.push_back(digitsx-lappd_hitglobalposx.at(runningcount));
 					poserry.push_back(digitsy-lappd_hitglobalposy.at(runningcount));
 					poserrz.push_back(digitsz-lappd_hitglobalposz.at(runningcount));
-#endif
+#endif // FILE_VERSION>3
 					tileorient.push_back(thepmtsloc);
 					octagonside.push_back(theoctagonside);
-#endif
+#endif // defined LAPPD_DEBUG
 #if FILE_VERSION>10 // don't know when this will be fixed
 					double digitsq = lappd_hitcharge.at(runningcount);
-#else
+#else // if FILE_VERSION<=10
 					// lappd hit charge is not stored - only a count of pes within the whole event is stored.
 					// for now we'll calculate the charge here using the formula WCSim would have used:
 					double random = mrand->Rndm();
@@ -2361,7 +2378,7 @@ void truthtracks(){
 //					// TODO need to move all vector push_back's after this if we want to 'continue' 
 //					// in order to keep all vectors the same size
 //					digitsq*0.985;         // efficiency in WCSimWCDigitizer
-#endif
+#endif // FILE_VERSION<=10
 					filedigitPMTIDs.push_back(LAPPDID+numpmts);
 					filedigitvertices.push_back(adigitvector);
 					filedigitQs.push_back(digitsq);
@@ -2406,7 +2423,7 @@ void truthtracks(){
 			// thegenieinfo.procinfostring gives format "<DIS - Weak[CC]>" for which symbols might not be ideal. Strip them.
 			fileinteractiontypestring=fileinteractiontypestring.substr(1,fileinteractiontypestring.length() - 2);
 			fileneutcode=thegenieinfo.neutinteractioncode;
-#endif
+#endif // !defined NOGENIE
 			filemomtrans=eventq2;
 			filemuonstartvertex=primarystartvertex;
 			filemuonstopvertex=primarystopvertex;
@@ -2457,7 +2474,7 @@ void truthtracks(){
 						break;
 					}
 				}
-#endif
+#endif // FILE_VERSION<2
 				// Calculate total charge from muon
 				////////////////////////////////////
 				std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
@@ -2466,7 +2483,7 @@ void truthtracks(){
 					int thephotonsid = truephotonindices.at(truephoton);
 #if FILE_VERSION<2
 					thephotonsid+=timeArrayOffset;
-#endif
+#endif // FILE_VERSION<2
 					WCSimRootCherenkovHitTime *thehittimeobject = 
 						(WCSimRootCherenkovHitTime*)atrigm->GetCherenkovHitTimes()->At(thephotonsid);
 					Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
@@ -2537,7 +2554,7 @@ void truthtracks(){
 			cout<<"compare to:"<<endl;
 			cout<<"genie lepton angle = "<<thegenieinfo.fslanglegenie<<endl;
 			cout<<"genie lepton energy = "<<thegenieinfo.fsleptonenergy<<endl;
-#endif
+#endif // !defined NOGENIE
 			
 			std::vector<Int_t>::iterator minit = std::min_element(acceptedtrackids.begin(), acceptedtrackids.end());
 			indextouse = std::distance(acceptedtrackids.begin(),minit);
@@ -2576,17 +2593,17 @@ void truthtracks(){
 			cout<<"compare to:"<<endl;
 			cout<<"genie lepton angle = "<<thegenieinfo.fslanglegenie<<endl;
 			cout<<"genie lepton energy = "<<thegenieinfo.fsleptonenergy<<endl;
-#endif
-#endif
+#endif // !defined NOGENIE
+#endif // VERBOSE
 		} else {
 #ifdef VERBOSE
 			cout<<"no accepted wcsim track"<<endl;
-#endif
+#endif // VERBOSE
 		}
 		if(scatteringanglesvector.size()!=0){
 #ifdef VERBOSE
 			cout<<"MATCHED A TRACK YEEEEAH"<<endl; /*return;*/
-#endif
+#endif // VERBOSE
 			// by getting this far we've found a primary muon that penetrated the MRD.
 #ifndef NOGENIE
 			// fill genie 'accepted' histograms.
@@ -2598,7 +2615,7 @@ void truthtracks(){
 			if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic"))
 				neutrinovertexQEaccepted->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
 			// if it passes the fiducial cut, we've also accepted it, fill.
-#endif
+#endif // !defined NOGENIE
 			if(isinfiducialvol){
 #ifndef NOGENIE
 				// genie values
@@ -2607,15 +2624,17 @@ void truthtracks(){
 				fslenergiesacceptedfidcut->Fill(thegenieinfo.fsleptonenergy);
 				eventq2acceptedfidcut->Fill(thegenieinfo.Q2);
 				if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic")) numCCQEneutrinoeventsinfidvolmrd++;
-#endif
+#endif // !defined NOGENIE
 				// fill flat tree for reconstruction dev
 				if(muonentersMRD) vertextreefiducialmrd->Fill();
 				nummuontracksinfidvolmrd+=scatteringanglesvector.size();
 			}
 		}
 		
+#ifdef TIME_EVENTS
 		timer->Stop();
 		cout<<"This event took "<<timer->RealTime()<<"ms, or "<<timer->CpuTime()<<"ms CPU equivalent time"<<endl; 
+#endif // defined TIME_EVENTS
 		
 		//flateventfileout->cd();
 		//vertextreenocuts->Write("",TObject::kOverwrite);
@@ -2918,7 +2937,7 @@ void truthtracks(){
 			leg->Draw();
 		}
 	}
-#endif
+#endif // defined DRAW_HISTOS
 	
 	// draw the scaled histograms
 	// ==========================
@@ -2976,7 +2995,7 @@ void truthtracks(){
 	fsltruetracklength->Draw("same");
 	aleg->Draw();
 	debug1->SaveAs("muon_track_lengths.png");
-#endif
+#endif // defined DRAW_HISTOS
 	
 #ifdef DRAW_HISTOS
 	debug1->Clear();
@@ -3030,8 +3049,8 @@ void truthtracks(){
 	mrdstopvertices->Draw("same");
 	debug3->SaveAs("stop vertex distributions.png");
 	delete debug3;
-#endif  // WCSIMDEBUG
-#endif  // DRAW_HISTOS
+#endif  // defined WCSIMDEBUG
+#endif  // defined DRAW_HISTOS
 
 	cout<<"writing flat event file"<<endl;
 	if(flateventfileout){
@@ -3106,7 +3125,7 @@ void truthtracks(){
 	(TH1*)tankstopvertices,
 	(TH1*)vetostopvertices,
 	(TH1*)mrdstopvertices,
-#endif
+#endif // defined WCSIMDEBUG
 	(TH1*)tracklengthvsmuonlight,
 	(TH1*)chargemap_nopions,
 	(TH1*)inconehistowall,
@@ -3145,20 +3164,30 @@ void truthtracks(){
 	if(genierecordval) delete genierecordval; genierecordval=0;
 	cout<<"deleting nuprimarybranchval array"<<endl;
 	if(nuprimarybranchval) delete[] nuprimarybranchval; nuprimarybranchval=0; // ? branch array
-#endif // NOGENIE
-#endif // PARTICLEGUNEVENTS
+#endif // !defined NOGENIE
+#endif // !defined PARTICLEGUNEVENTS
 	
 	// wcsim tree:
 	cout<<"resetting wcsimT branches"<<endl;
+#ifndef SPLITWCSIMFILES
 	if(wcsimT) wcsimT->ResetBranchAddresses();
 	cout<<"closing wcsimfile"<<endl;
 	if(wcsimfile) wcsimfile->Close();
+#else // if defined SPLITWCSIMFILES
+	wcsimchain->ResetBranchAddresses();
+	delete wcsimchain;
+#endif // defined SPLITWCSIMFILES
 	
 	// lappd tree:
 	cout<<"resetting lappdtree branches"<<endl;
+#ifndef SPLITWCSIMFILES
 	if(lappdtree) lappdtree->ResetBranchAddresses();
 	cout<<"closing lappdfile"<<endl;
 	if(lappdfile) lappdfile->Close();
+#else // if defined SPLITWCSIMFILES
+	lappdchain->ResetBranchAddresses();
+	delete lappdchain;
+#endif // defined SPLITWCSIMFILES
 	
 	// The chain... this could either be tankflux (normal) or wcsimT (particle gun).
 	// I think having reset both, this does not need to be dealt with?
@@ -3185,6 +3214,7 @@ void truthtracks(){
 	}
 	
 	cout<<"end of application. Goodbye."<<endl;
+	gApplication->Terminate(); // so that it ends the job on the grid.
 }
 
 
@@ -3595,97 +3625,96 @@ void SKIDigitizerThreshold(double& pe,int& iflag){
 
 // a test to see if a projected point in a plane is within a box in that plane
 int inline InBox( TVector3 Hit, TVector3 B1, TVector3 B2, const int Axis) {
-if ( Axis==1 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
-if ( Axis==2 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.X() > B1.X() && Hit.X() < B2.X()) return 1;
-if ( Axis==3 && Hit.X() > B1.X() && Hit.X() < B2.X() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
-return 0;
+	if ( Axis==1 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
+	if ( Axis==2 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.X() > B1.X() && Hit.X() < B2.X()) return 1;
+	if ( Axis==3 && Hit.X() > B1.X() && Hit.X() < B2.X() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
+	return 0;
 }
 
 // projects the hitpoint by adding a scaled vector to the start point
 int inline GetIntersection( float fDst1, float fDst2, TVector3 P1, TVector3 P2, TVector3 &Hit) {
-if ( (fDst1 * fDst2) >= 0.0f) return 0;
-if ( fDst1 == fDst2) return 0; 
-Hit = P1 + (P2-P1) * ( -fDst1/(fDst2-fDst1) );
-return 1;
+	if ( (fDst1 * fDst2) >= 0.0f) return 0;
+	if ( fDst1 == fDst2) return 0; 
+	Hit = P1 + (P2-P1) * ( -fDst1/(fDst2-fDst1) );
+	return 1;
 }
 
 // returns true if line (L1, L2) intersects with the box (B1, B2)
 // returns intersection point in Hit
-bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, TVector3 &Hit, TVector3 &Hit2, bool &error)
-{
-error=false;
-// check if it misses the box entirely by being on one side of a plane over entire track
-if (L2.X() < B1.X() && L1.X() < B1.X()) return false;
-if (L2.X() > B2.X() && L1.X() > B2.X()) return false;
-if (L2.Y() < B1.Y() && L1.Y() < B1.Y()) return false;
-if (L2.Y() > B2.Y() && L1.Y() > B2.Y()) return false;
-if (L2.Z() < B1.Z() && L1.Z() < B1.Z()) return false;
-if (L2.Z() > B2.Z() && L1.Z() > B2.Z()) return false;
-// check if it's inside the box to begin with (classed as an interception at start vtx)
-if (L1.X() > B1.X() && L1.X() < B2.X() &&
-    L1.Y() > B1.Y() && L1.Y() < B2.Y() &&
-    L1.Z() > B1.Z() && L1.Z() < B2.Z())
-    {Hit = L1; return true;}
+bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, TVector3 &Hit, TVector3 &Hit2, bool &error){
+	error=false;
+	// check if it misses the box entirely by being on one side of a plane over entire track
+	if (L2.X() < B1.X() && L1.X() < B1.X()) return false;
+	if (L2.X() > B2.X() && L1.X() > B2.X()) return false;
+	if (L2.Y() < B1.Y() && L1.Y() < B1.Y()) return false;
+	if (L2.Y() > B2.Y() && L1.Y() > B2.Y()) return false;
+	if (L2.Z() < B1.Z() && L1.Z() < B1.Z()) return false;
+	if (L2.Z() > B2.Z() && L1.Z() > B2.Z()) return false;
+	// check if it's inside the box to begin with (classed as an interception at start vtx)
+	if (L1.X() > B1.X() && L1.X() < B2.X() &&
+		L1.Y() > B1.Y() && L1.Y() < B2.Y() &&
+		L1.Z() > B1.Z() && L1.Z() < B2.Z())
+		{Hit = L1; return true;}
 
-// check for an interception in X, Y then Z.
-//if ( (GetIntersection( L1.X()-B1.X(), L2.X()-B1.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 ))
-//  || (GetIntersection( L1.Y()-B1.Y(), L2.Y()-B1.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 ))
-//  || (GetIntersection( L1.Z()-B1.Z(), L2.Z()-B1.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 ))
-//  || (GetIntersection( L1.X()-B2.X(), L2.X()-B2.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 ))
-//  || (GetIntersection( L1.Y()-B2.Y(), L2.Y()-B2.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 ))
-//  || (GetIntersection( L1.Z()-B2.Z(), L2.Z()-B2.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 )))
-//	return true;
+	// check for an interception in X, Y then Z.
+	//if ( (GetIntersection( L1.X()-B1.X(), L2.X()-B1.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 ))
+	//  || (GetIntersection( L1.Y()-B1.Y(), L2.Y()-B1.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 ))
+	//  || (GetIntersection( L1.Z()-B1.Z(), L2.Z()-B1.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 ))
+	//  || (GetIntersection( L1.X()-B2.X(), L2.X()-B2.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 ))
+	//  || (GetIntersection( L1.Y()-B2.Y(), L2.Y()-B2.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 ))
+	//  || (GetIntersection( L1.Z()-B2.Z(), L2.Z()-B2.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 )))
+	//	return true;
 
-// Above seems to assume there will only be one interception!!
-// e.g. if X has an interception, there are no checks for Z interception - if it enters
-// the front face and exits the side, only the side exit will be returned. 
-// Instead, note all interception points and return the first (and second if it exists)
-std::vector<TVector3> interceptions;
-bool anyinterception=false;
-bool thisinterception;
+	// Above seems to assume there will only be one interception!!
+	// e.g. if X has an interception, there are no checks for Z interception - if it enters
+	// the front face and exits the side, only the side exit will be returned. 
+	// Instead, note all interception points and return the first (and second if it exists)
+	std::vector<TVector3> interceptions;
+	bool anyinterception=false;
+	bool thisinterception;
 
-thisinterception=
-GetIntersection( L1.X()-B1.X(), L2.X()-B1.X(), L1, L2, Hit) && InBox(Hit, B1, B2, 1);
-if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
-thisinterception=
-GetIntersection( L1.Y()-B1.Y(), L2.Y()-B1.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 );
-if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
-thisinterception=
-GetIntersection( L1.Z()-B1.Z(), L2.Z()-B1.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 );
-if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
-thisinterception=
-GetIntersection( L1.X()-B2.X(), L2.X()-B2.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 );
-if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
-thisinterception=
-GetIntersection( L1.Y()-B2.Y(), L2.Y()-B2.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 );
-if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
-thisinterception=
-GetIntersection( L1.Z()-B2.Z(), L2.Z()-B2.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 );
-if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.X()-B1.X(), L2.X()-B1.X(), L1, L2, Hit) && InBox(Hit, B1, B2, 1);
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.Y()-B1.Y(), L2.Y()-B1.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.Z()-B1.Z(), L2.Z()-B1.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.X()-B2.X(), L2.X()-B2.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.Y()-B2.Y(), L2.Y()-B2.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.Z()-B2.Z(), L2.Z()-B2.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
 
-if(interceptions.size()>2){
-	cerr<<"CheckLineBox found more than two intercepts?! They are at:"<<endl;
-	for(auto&& avec : interceptions)
-		cerr<<"("<<avec.X()<<", "<<avec.Y()<<", "<<avec.Z()<<")"<<endl;
-	error=true;
-	//assert(false); // leave for later so we can print debug info.
-	return false;
-} else if(interceptions.size()==2){
-	auto vec1 = interceptions.at(0);
-	auto vec2 = interceptions.at(1);
-	if(vec1.Z()<vec2.Z()){
-		Hit=vec1;
-		Hit2=vec2;
+	if(interceptions.size()>2){
+		cerr<<"CheckLineBox found more than two intercepts?! They are at:"<<endl;
+		for(auto&& avec : interceptions)
+			cerr<<"("<<avec.X()<<", "<<avec.Y()<<", "<<avec.Z()<<")"<<endl;
+		error=true;
+		//assert(false); // leave for later so we can print debug info.
+		return false;
+	} else if(interceptions.size()==2){
+		auto vec1 = interceptions.at(0);
+		auto vec2 = interceptions.at(1);
+		if(vec1.Z()<vec2.Z()){
+			Hit=vec1;
+			Hit2=vec2;
+		} else {
+			Hit=vec2;
+			Hit2=vec1;
+		}
+		return true;
+	} else if(interceptions.size()==1) {
+		Hit=interceptions.at(0);
+		Hit2=L2; // Hit2 is 'mrd exit' point - return track end. 
+		return true;
 	} else {
-		Hit=vec2;
-		Hit2=vec1;
+		return false;
 	}
-	return true;
-} else if(interceptions.size()==1) {
-	Hit=interceptions.at(0);
-	Hit2=L2; // Hit2 is 'mrd exit' point - return track end. 
-	return true;
-} else {
-	return false;
-}
 }

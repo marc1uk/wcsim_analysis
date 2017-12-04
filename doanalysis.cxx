@@ -32,7 +32,7 @@ void WCSimAnalysis::DoAnalysis(){
 	eventnum=0;
 	sequence_id=0;
 	minibuffer_id=0;
-	firstfile=1000;
+	firstfilenum=0;
 	treeNumber=-1;
 	
 	// Perform Pre-Loop actions

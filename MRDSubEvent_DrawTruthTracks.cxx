@@ -1,9 +1,9 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 #ifndef DRAWTRUEVERBOSE
-//#define DRAWTRUEVERBOSE
+#define DRAWTRUEVERBOSE
 #endif
 
-bool CheckLineBox( TVector3 B1, TVector3 B2, TVector3 L1, TVector3 L2, TVector3 &Hit);
+bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, TVector3 &Hit, TVector3 &Hit2, bool &error);
 int inline InBox( TVector3 Hit, TVector3 B1, TVector3 B2, const int Axis);
 int inline GetIntersection( float fDst1, float fDst2, TVector3 P1, TVector3 P2, TVector3 &Hit);
 
@@ -15,9 +15,8 @@ void cMRDSubEvent::DrawTrueTracks(){
 	// we have std::vector<TArrow*> truetrackarrows; to add the arrows to
 		
 #ifdef DRAWTRUEVERBOSE
-		cout<<"MRD width is "<<MRD_width<<", maxwidth is "<<(maxwidth/2.)<<", MRD height is "<<MRD_height<<", maxheight is "<<(maxheight/2.)<<", MRD start is "<<MRD_start<<", MRD end is "<<(MRD_start+MRD_depth)<<", MRD depth is "<<(MRD_depth/2.)<<", mrdZlen is "<<(mrdZlen/2.)<<endl;
+	cout<<"MRD width is "<<MRD_width<<", maxwidth is "<<(maxwidth/2.)<<", MRD height is "<<MRD_height<<", maxheight is "<<(maxheight/2.)<<", MRD start is "<<MRD_start<<", MRD end is "<<(MRD_start+MRD_depth)<<", MRD depth is "<<(MRD_depth/2.)<<", mrdZlen is "<<(mrdZlen/2.)<<endl;
 #endif
-//TODO: could replace MRD_start with MRD_start. 
 	
 #ifdef DRAWTRUEVERBOSE
 	cout<<"Adding lines for "<<truetracks.size()<<" true tracks"<<endl;
@@ -77,126 +76,107 @@ void cMRDSubEvent::DrawTrueTracks(){
 //		Int_t colorindex = TMath::Floor((aspectrumv.size()-1)*(relatime/2));
 //		paddlecolour = aspectrumv.at(colorindex);
 		
-		// these are the true track starting & stopping vertices
-		double trackstartx=nextrack.GetStart(0);
-		double trackstarty=nextrack.GetStart(1);
-		double trackstartz=nextrack.GetStart(2);
-		double trackstopx=nextrack.GetStop(0);
-		double trackstopy=nextrack.GetStop(1);
-		double trackstopz=nextrack.GetStop(2);
-		
+////////////////////////////////////////////////////////////////////////////////////
+//// REAPLCEMENT STARTS HERE
+		TLorentzVector primarystartvertex(  nextrack.GetStart(0),
+											nextrack.GetStart(1),
+											nextrack.GetStart(2),
+											nextrack.GetTime());
+#if FILE_VERSION>2
+		TLorentzVector primarystopvertex(   nextrack.GetStop(0),
+											nextrack.GetStop(1),
+											nextrack.GetStop(2),
+											nextrack.GetStopTime());
+#else
+		TLorentzVector primarystopvertex(   nextrack.GetStop(0),
+											nextrack.GetStop(1),
+											nextrack.GetStop(2),
+											-1); // not stored prior to this
+#endif
 		// Draw vector indicating the true track's intial direction, for better idea of trajectory
 		double dirx = nextrack.GetDir(0);
 		double diry = nextrack.GetDir(1);
 		double dirz = nextrack.GetDir(2);
 		
-		// don't bother drawing short tracks?
-////		double tracklength=TMath::Sqrt(TMath::Power((trackstopx-trackstartx),2)+
-////			TMath::Power((trackstopy-trackstarty),2)+TMath::Power((trackstopz-trackstartz),2));
-////		if(tracklength<20) continue;
-		
-		// for testing:
-/////////////////////////////////////////////////////////////////
-//		double trackstartx=-MRD_width;
-//		double trackstarty=-MRD_height;
-//		double trackstartz=MRD_start-10.;
-//		double trackstopx=MRD_width;
-//		double trackstopy=MRD_height;
-//		double trackstopz=MRD_start+MRD_depth+10.;
-/////////////////////////////////////////////////////////////////
-		
-/////////////////////////////////////////////////////////////////
-//		double trackstartx, trackstarty, trackstartz, trackstopx, trackstopy, trackstopz;
-//		switch (trackit) {
-//		case 0:
-//			trackstartx=MRD_width*1.3;
-//			trackstarty=MRD_height*1.3;
-//			trackstartz=MRD_start+(MRD_depth/2.)-(MRD_depth*(1.3/2.));
-//			trackstopx=-MRD_width*1.3;
-//			trackstopy=-MRD_height*1.3;
-//			trackstopz=MRD_start+(MRD_depth/2.)+(MRD_depth*(1.3/2.));
-//			break;
-//		case 1:
-//			trackstartx=-MRD_width*0.8;
-//			trackstarty=-MRD_height*0.8;
-//			trackstartz=MRD_start+(MRD_depth/2.)-(MRD_depth*0.4);
-//			trackstopx=MRD_width*0.8;
-//			trackstopy=MRD_height*0.8;
-//			trackstopz=MRD_start+(MRD_depth/2.)+(MRD_depth*0.4);
-//			break;
-//		}
-/////////////////////////////////////////////////////////////////
-		
-/////////////////////////////////////////////////////////////////
-//		cout<<"origin is ("<<placeholderx.at(trackit)<<", "<<placeholdery.at(trackit)
-//			<<", "<<placeholderz.at(trackit)<<")"<<endl;
-//		
-//		double trackstartx, trackstarty, trackstartz, trackstopx, trackstopy, trackstopz;
-//		double scintfullylen = (placeholderorient.at(trackit)) ? scinthfullylen : scintvfullylen;
-//		if(placeholderorient.at(trackit)){   // horizontal paddle. these are rotated; need to swap x,y
-//			trackstartx=placeholderx.at(trackit);
-//			trackstarty=placeholdery.at(trackit);
-//		
-//			trackstopx=placeholderx2.at(trackit);
-//			trackstopy=placeholdery2.at(trackit);
-//		} else {
-//			trackstartx=placeholderx.at(trackit);
-//			trackstarty=placeholdery.at(trackit);
-//		
-//			trackstopx=placeholderx2.at(trackit);
-//			trackstopy=placeholdery2.at(trackit);
-//		}
-//		trackstartz=placeholderz.at(trackit) + MRD_start + (MRD_depth/2.);
-//		trackstopz= placeholderz2.at(trackit) + MRD_start + (MRD_depth/2.);
-/////////////////////////////////////////////////////////////////
-		
-/////////////////////////////////////////////////////////////////
-//		double trackstartx=0;
-//		double trackstarty=0;
-//		double trackstartz=MRD_start-10.;
-//		double trackstopx=0;
-//		double trackstopy=0;
-//		double trackstopz=MRD_start+MRD_depth+10.;
-/////////////////////////////////////////////////////////////////
-		
 		// skip the easy ones
-		if(trackstopz<MRD_start){
+		if(primarystopvertex.Z()<MRD_start){
 #ifdef DRAWTRUEVERBOSE
 			cout<<"skipping track "<<trackit<<" as it doesn't make it to mrd: trackstopz="
-				<<trackstopz<<", MRD_start="<<MRD_start<<endl;
+				<<primarystopvertex.Z()<<", MRD_start="<<MRD_start<<endl;
 #endif
 			continue;
 		}  // the track never makes it to the MRD
-		if(trackstartz>(MRD_start+MRD_depth)){
+		if(primarystopvertex.Z()>(MRD_start+MRD_depth)){
 #ifdef DRAWTRUEVERBOSE
 			cout<<"skipping track "<<trackit<<" as it starts after mrd: trackstartz="
-				<<trackstartz<<", MRD_start+MRD_depth="<<MRD_start+MRD_depth<<endl;
+				<<primarystopvertex.Z()<<", MRD_start+MRD_depth="<<MRD_start+MRD_depth<<endl;
 #endif
 			continue;
 		} // the track is somehow created after the MRD
 
 #ifdef DRAWTRUEVERBOSE
-		cout<<"Track start: ("<<trackstartx<<", "<<trackstarty<<", "<<trackstartz
-			<<"), track end: ("<<trackstopx<<", "<<trackstopy<<", "<<trackstopz<<")"<<endl;
+		cout<<"Track start: ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()
+			<<", "<<primarystartvertex.Z()<<"), track end: ("<<primarystopvertex.X()
+			<<", "<<primarystopvertex.Y()<<", "<<primarystopvertex.Z()<<")"<<endl;
 #endif
-		
-		// tracks may be forward or backward going: get the front and back, irrespective of direction
-		// while doing this, remove the MRD offset
-		double frontz=min(trackstartz,trackstopz);
-		double frontx,fronty,backz,backx,backy;
-		bool trackisbackwardgoing=false;
-		if(frontz==trackstartz){
-			frontx=trackstartx;
-			fronty=trackstarty;
-			backx=trackstopx;
-			backy=trackstopy;
-			backz=trackstopz;
+		//new MRD entry/exit point calculation based on external function calls
+		///////////////////////////////////////////////////////////////////////
+		// bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, 
+		//					  TVector3 &Hit, TVector3 &Hit2, bool &error)
+		// returns true if line (L1, L2) intersects with the box (B1, B2)
+		// returns intersection with smaller Z in Hit
+		// if 2 interceptions are found, returns interception with larger Z,
+		// if 1 interception is found, returns L2 (stopping point).
+		// error returns true if >2 intercepts are found, or other error.
+		TVector3 MRDentrypoint(0,0,0), MRDexitpoint(0,0,0), MuTrackInMRD(0,0,0);
+		double mutracklengthinMRD, mrdpenetrationcm;
+		int mrdpenetrationlayers;
+		// check for intercept and record entry point
+		bool checkboxlinerror=false, muonentersMRD=false, muonstopsinMRD, muonrangesoutMRD;
+		muonentersMRD  =  CheckLineBox( primarystartvertex.Vect(), primarystopvertex.Vect(), 
+										TVector3(-MRD_width,-MRD_height,MRD_start), 
+										TVector3(MRD_width,MRD_height,MRD_end),
+										MRDentrypoint, MRDexitpoint, checkboxlinerror );
+		// sanity check: XXX DISABLE TO ALLOW TRACKS STARTING IN THE MRD
+		//assert(MRDentrypoint!=primarystartvertex.Vect()&&"track starts in MRD!?");
+		// check if MRD stops in the MRD
+		muonstopsinMRD = ( abs(primarystopvertex.X())<MRD_width&&
+						   abs(primarystopvertex.Y())<MRD_height&&
+						   primarystopvertex.Z()>MRD_start&&
+						   primarystopvertex.Z()<(MRD_start+MRD_depth) );
+		if(muonentersMRD){
+			muonrangesoutMRD = ((MRDentrypoint.Z()==MRD_start)&&(MRDexitpoint.Z()==MRD_end));
+			MuTrackInMRD = (MRDexitpoint-MRDentrypoint);
+			mutracklengthinMRD = MuTrackInMRD.Mag();
+			mrdpenetrationcm = MuTrackInMRD.Z();
+			mrdpenetrationlayers=0;
+			for(auto layerzval : mrdscintlayers){
+				if(MRDexitpoint.Z()<layerzval) break;
+				mrdpenetrationlayers++;
+			}
 		} else {
-			frontx=trackstopx;
-			fronty=trackstopy;
-			backx=trackstartx;
-			backy=trackstarty;
-			backz=trackstartz;
+			muonrangesoutMRD=false;
+			mrdpenetrationcm=0.;
+			mrdpenetrationlayers=0;
+			mutracklengthinMRD=0.;
+		}
+		
+		// old stuff needed for backward compatibility with remainder of code
+		bool trackisbackwardgoing=false;
+		double frontx,fronty,backz,backx,backy;
+		double frontz=min(primarystartvertex.Z(),primarystopvertex.Z());
+		if(frontz==primarystartvertex.Z()){
+			frontx=primarystartvertex.X();
+			fronty=primarystartvertex.Y();
+			backx=primarystopvertex.X();
+			backy=primarystopvertex.Y();
+			backz=primarystopvertex.Z();
+		} else {
+			frontx=primarystopvertex.X();
+			fronty=primarystopvertex.Y();
+			backx=primarystartvertex.X();
+			backy=primarystartvertex.Y();
+			backz=primarystartvertex.Z();
 			trackisbackwardgoing=true;
 		}
 		//assert(frontx==trackstartx);
@@ -205,148 +185,292 @@ void cMRDSubEvent::DrawTrueTracks(){
 		
 		bool drawinitdir=false;
 		double mrdentryx,mrdentryy,mrdentryz, mrdexitx, mrdexity, mrdexitz;
-		// we have 2 cases: a track starts before the MRD or in the MRD
-		bool sidentry=false;
-		if(frontz<MRD_start){  // case 1: track starts before the MRD.
+		mrdentryx=MRDentrypoint.X();
+		mrdentryy=MRDentrypoint.Y();
+		mrdentryz=MRDentrypoint.Z();
+		mrdexitx=MRDexitpoint.X();
+		mrdexity=MRDexitpoint.Y();
+		mrdexitz=MRDexitpoint.Z();
 #ifdef DRAWTRUEVERBOSE
-			cout<<"track starts before the MRD";
-#endif
-			// project the track to the z plane of the MRD start
-			mrdentryx=frontx+(MRD_start-frontz)*/*TMath::Tan*/(avgtrackanglex);
-			mrdentryy=fronty+(MRD_start-frontz)*/*TMath::Tan*/(avgtrackangley);
-			if((abs(mrdentryx)<MRD_width)&&(abs(mrdentryy)<MRD_height)){
-				mrdentryz=MRD_start;
-#ifdef DRAWTRUEVERBOSE
-				cout<<" and projects within X and Y bounds - zstart is MRD_start"<<endl;
-#endif
-			} else {
-				sidentry=true;  // projecting to the front face doesn't put it within MRD bounds
-#ifdef DRAWTRUEVERBOSE
-				cout<<" but projects outside X and Y bounds - side entry"<<endl;
-#endif
-			}
-		}
-		if((!(frontz<MRD_start)) || sidentry){           // case 2: z entry is within MRD bounds. 
-			// first the simple case: the track start was within the MRD
-			if((abs(frontx)<MRD_width)&&(abs(fronty)<MRD_height)){
-#ifdef DRAWTRUEVERBOSE
-				cout<<"track starts within the MRD"<<endl;
-#endif
-				mrdentryx=frontx; mrdentryy=fronty; mrdentryz=frontz;
-				drawinitdir=true;
-			} else {
-#ifdef DRAWTRUEVERBOSE
-				cout<<"side entry"<<endl;
-#endif
-				// the track must have entered from a side.
-				// we need to find the z at which the projected track enters both x and y bounds
-				// this is the greater of projected z entry point for x or y.
-				double projectedentryzx, projectedentryzy;
-				if(abs(frontx)<MRD_width){
-#ifdef DRAWTRUEVERBOSE
-					cout<<"start x is within bounds"<<endl;
-#endif
-					projectedentryzx = -1.; // it's already within bounds
-				} else {
-					double traverselength = (frontx>0) ? (frontx-MRD_width) : (frontx+MRD_width);
-					projectedentryzx = frontz - traverselength/ /*TMath::Tan*/(avgtrackanglex);
-#ifdef DRAWTRUEVERBOSE
-					cout<<"using signed projectedentryzx="<<projectedentryzx
-						<<", using unsigned ="<<(frontz+((abs(frontx)-MRD_width)/abs(avgtrackanglex)))<<endl;
-					//TODO i forget what this is about but they aren't always the same.
-					cout<<"projected x entry point is at z="<<projectedentryzx<<endl;
-#endif
-				}
-				if(abs(fronty)<MRD_height){
-#ifdef DRAWTRUEVERBOSE
-					cout<<"start y is within bounds"<<endl;
-#endif
-					projectedentryzy = -1.;
-				} else {
-					double traverselength = (fronty>0) ? (fronty-MRD_height) : (fronty+MRD_height);
-					projectedentryzy = frontz - traverselength/ /*TMath::Tan*/(avgtrackangley);
-#ifdef DRAWTRUEVERBOSE
-					cout<<"using signed projectedentryzy="<<projectedentryzy
-						<<", using unsigned ="<<(frontz+((abs(fronty)-MRD_height)/abs(avgtrackangley)))<<endl;
-					cout<<"projected y entry point is at z="<<projectedentryzy<<endl;
-#endif
-				}
-				mrdentryz=max(projectedentryzy,projectedentryzx);
-				mrdentryx=frontx+(mrdentryz-frontz)*/*TMath::Tan*/(avgtrackanglex);
-				mrdentryy=fronty+(mrdentryz-frontz)*/*TMath::Tan*/(avgtrackangley);
-			}
-		}
-#ifdef DRAWTRUEVERBOSE
-		cout<<"mrd entry point is ("<<mrdentryx<<", "<<mrdentryy<<", "<<mrdentryz<<")"<<endl;
+		cout<<"MRD entry and exit points are:"<<endl
+			<<"("<<mrdentryx<<", "<<mrdentryy<<", "<<mrdentryz<<") to "
+			<<"("<<mrdexitx<<", "<<mrdexity<<", "<<mrdexitz<<")"<<endl;
 #endif
 		
-		// repeat the logic for the exit point
-		// we have 2 cases: a track ends after the MRD or in the MRD
-		bool sidexit=false;
-		if(backz>(MRD_start+MRD_depth)){  // case 1: track ends after the MRD.
-#ifdef DRAWTRUEVERBOSE
-			cout<<"track ends after the MRD";
-#endif
-			// project the track to the z plane of the MRD end
-			mrdexitx=frontx+(MRD_start+MRD_depth-frontz)*/*TMath::Tan*/(avgtrackanglex);
-			mrdexity=fronty+(MRD_start+MRD_depth-frontz)*/*TMath::Tan*/(avgtrackangley);
-			if((abs(mrdexitx)<MRD_width)&&(abs(mrdexity)<MRD_height)){
-#ifdef DRAWTRUEVERBOSE
-				cout<<" and within MRD bounds - mrdzexit = MRD_end"<<endl;
-#endif
-				mrdexitz=MRD_start+MRD_depth;
-			} else {
-				sidexit=true;  // projecting to the back face doesn't put it within MRD bounds
-#ifdef DRAWTRUEVERBOSE
-				cout<<" but projects outside X and Y bounds - side exit"<<endl;
-#endif
-			}
-		}
-		if((!(backz>(MRD_start+MRD_depth)))||sidexit){  // case 2: z exit is within MRD bounds. 
-			// first the simple case: the track end is within the MRD
-			if((abs(backx)<MRD_width)&&(abs(backy)<MRD_height)){
-#ifdef DRAWTRUEVERBOSE
-				cout<<"track ends within the MRD"<<endl;
-#endif
-				mrdexitx=backx; mrdexity=backy; mrdexitz=backz;
-			} else {
-#ifdef DRAWTRUEVERBOSE
-				cout<<"side exit"<<endl;
-#endif
-				// the track must have exited from a side.
-				// we need to find the z at which the projected track exits either x or y bounds
-				// this is the lesser of projected z exit point for x or y.
-				double projectedexitzx, projectedexitzy;
-				if(abs(backx)<MRD_width){
-					projectedexitzx = 999.; // it's already within bounds
-				} else {
-					double traverselength = (backx>0) ? (backx-MRD_width) : (backx+MRD_width);
-					projectedexitzx = backz - traverselength/ /*TMath::Tan*/(avgtrackanglex);
-#ifdef DRAWTRUEVERBOSE
-					cout<<"using signed projectedexitzx="<<projectedexitzx<<", unsigned ="
-						<<(backz-((abs(backx)-MRD_width)/abs(avgtrackanglex)))<<endl;
-#endif
-				}
-				if(abs(backy)<MRD_height){
-					projectedexitzy = 999.;
-				} else {
-					double traverselength = (backy>0) ? (backy-MRD_height) : (backy+MRD_height);
-					projectedexitzy = backz - traverselength/ /*TMath::Tan*/(avgtrackangley);
-#ifdef DRAWTRUEVERBOSE
-					cout<<"using signed projectedexitzy="<<projectedexitzy<<", unsigned ="
-						<<(backz-((abs(backy)-MRD_height)/abs(avgtrackangley)))<<endl;
-#endif
-				}
-				mrdexitz=min(projectedexitzy,projectedexitzx);
-				mrdexitx=frontx+(mrdexitz-frontz)*/*TMath::Tan*/(avgtrackanglex);
-				mrdexity=fronty+(mrdexitz-frontz)*/*TMath::Tan*/(avgtrackangley);
-			}
-		}
-#ifdef DRAWTRUEVERBOSE
-		cout<<"mrd exit point is ("<<mrdexitx<<", "<<mrdexity<<", "<<mrdexitz<<")"<<endl;
-#endif
+////////////////////////////////////////////////////////////////////////////////////
+//// REPLACED FROM HERE
+//		// these are the true track starting & stopping vertices
+//		double trackstartx=nextrack.GetStart(0);
+//		double trackstarty=nextrack.GetStart(1);
+//		double trackstartz=nextrack.GetStart(2);
+//		double trackstopx=nextrack.GetStop(0);
+//		double trackstopy=nextrack.GetStop(1);
+//		double trackstopz=nextrack.GetStop(2);
+//		
+//		// Draw vector indicating the true track's intial direction, for better idea of trajectory
+//		double dirx = nextrack.GetDir(0);
+//		double diry = nextrack.GetDir(1);
+//		double dirz = nextrack.GetDir(2);
+//		
+//		// don't bother drawing short tracks?
+//////		double tracklength=TMath::Sqrt(TMath::Power((trackstopx-trackstartx),2)+
+//////			TMath::Power((trackstopy-trackstarty),2)+TMath::Power((trackstopz-trackstartz),2));
+//////		if(tracklength<20) continue;
+//		
+//		// for testing:
+///////////////////////////////////////////////////////////////////
+////		double trackstartx=-MRD_width;
+////		double trackstarty=-MRD_height;
+////		double trackstartz=MRD_start-10.;
+////		double trackstopx=MRD_width;
+////		double trackstopy=MRD_height;
+////		double trackstopz=MRD_start+MRD_depth+10.;
+///////////////////////////////////////////////////////////////////
+//		
+///////////////////////////////////////////////////////////////////
+////		double trackstartx, trackstarty, trackstartz, trackstopx, trackstopy, trackstopz;
+////		switch (trackit) {
+////		case 0:
+////			trackstartx=MRD_width*1.3;
+////			trackstarty=MRD_height*1.3;
+////			trackstartz=MRD_start+(MRD_depth/2.)-(MRD_depth*(1.3/2.));
+////			trackstopx=-MRD_width*1.3;
+////			trackstopy=-MRD_height*1.3;
+////			trackstopz=MRD_start+(MRD_depth/2.)+(MRD_depth*(1.3/2.));
+////			break;
+////		case 1:
+////			trackstartx=-MRD_width*0.8;
+////			trackstarty=-MRD_height*0.8;
+////			trackstartz=MRD_start+(MRD_depth/2.)-(MRD_depth*0.4);
+////			trackstopx=MRD_width*0.8;
+////			trackstopy=MRD_height*0.8;
+////			trackstopz=MRD_start+(MRD_depth/2.)+(MRD_depth*0.4);
+////			break;
+////		}
+///////////////////////////////////////////////////////////////////
+//		
+///////////////////////////////////////////////////////////////////
+////		cout<<"origin is ("<<placeholderx.at(trackit)<<", "<<placeholdery.at(trackit)
+////			<<", "<<placeholderz.at(trackit)<<")"<<endl;
+////		
+////		double trackstartx, trackstarty, trackstartz, trackstopx, trackstopy, trackstopz;
+////		double scintfullylen = (placeholderorient.at(trackit)) ? scinthfullylen : scintvfullylen;
+////		if(placeholderorient.at(trackit)){   // horizontal paddle. these are rotated; need to swap x,y
+////			trackstartx=placeholderx.at(trackit);
+////			trackstarty=placeholdery.at(trackit);
+////		
+////			trackstopx=placeholderx2.at(trackit);
+////			trackstopy=placeholdery2.at(trackit);
+////		} else {
+////			trackstartx=placeholderx.at(trackit);
+////			trackstarty=placeholdery.at(trackit);
+////		
+////			trackstopx=placeholderx2.at(trackit);
+////			trackstopy=placeholdery2.at(trackit);
+////		}
+////		trackstartz=placeholderz.at(trackit) + MRD_start + (MRD_depth/2.);
+////		trackstopz= placeholderz2.at(trackit) + MRD_start + (MRD_depth/2.);
+///////////////////////////////////////////////////////////////////
+//		
+///////////////////////////////////////////////////////////////////
+////		double trackstartx=0;
+////		double trackstarty=0;
+////		double trackstartz=MRD_start-10.;
+////		double trackstopx=0;
+////		double trackstopy=0;
+////		double trackstopz=MRD_start+MRD_depth+10.;
+///////////////////////////////////////////////////////////////////
+//		
+//		// skip the easy ones
+//		if(trackstopz<MRD_start){
+//#ifdef DRAWTRUEVERBOSE
+//			cout<<"skipping track "<<trackit<<" as it doesn't make it to mrd: trackstopz="
+//				<<trackstopz<<", MRD_start="<<MRD_start<<endl;
+//#endif
+//			continue;
+//		}  // the track never makes it to the MRD
+//		if(trackstartz>(MRD_start+MRD_depth)){
+//#ifdef DRAWTRUEVERBOSE
+//			cout<<"skipping track "<<trackit<<" as it starts after mrd: trackstartz="
+//				<<trackstartz<<", MRD_start+MRD_depth="<<MRD_start+MRD_depth<<endl;
+//#endif
+//			continue;
+//		} // the track is somehow created after the MRD
+
+//#ifdef DRAWTRUEVERBOSE
+//		cout<<"Track start: ("<<trackstartx<<", "<<trackstarty<<", "<<trackstartz
+//			<<"), track end: ("<<trackstopx<<", "<<trackstopy<<", "<<trackstopz<<")"<<endl;
+//#endif
+//		
+//		// tracks may be forward or backward going: get the front and back, irrespective of direction
+//		// while doing this, remove the MRD offset
+//		double frontz=min(trackstartz,trackstopz);
+//		double frontx,fronty,backz,backx,backy;
+//		bool trackisbackwardgoing=false;
+//		if(frontz==trackstartz){
+//			frontx=trackstartx;
+//			fronty=trackstarty;
+//			backx=trackstopx;
+//			backy=trackstopy;
+//			backz=trackstopz;
+//		} else {
+//			frontx=trackstopx;
+//			fronty=trackstopy;
+//			backx=trackstartx;
+//			backy=trackstarty;
+//			backz=trackstartz;
+//			trackisbackwardgoing=true;
+//		}
+//		//assert(frontx==trackstartx);
+//		double avgtrackanglex=/*TMath::ATan*/((backx-frontx)/(backz-frontz));
+//		double avgtrackangley=/*TMath::ATan*/((backy-fronty)/(backz-frontz));
+//		
+//		bool drawinitdir=false;
+//		double mrdentryx,mrdentryy,mrdentryz, mrdexitx, mrdexity, mrdexitz;
+//		// we have 2 cases: a track starts before the MRD or in the MRD
+//		bool sidentry=false;
+//		if(frontz<MRD_start){  // case 1: track starts before the MRD.
+//#ifdef DRAWTRUEVERBOSE
+//			cout<<"track starts before the MRD";
+//#endif
+//			// project the track to the z plane of the MRD start
+//			mrdentryx=frontx+(MRD_start-frontz)*/*TMath::Tan*/(avgtrackanglex);
+//			mrdentryy=fronty+(MRD_start-frontz)*/*TMath::Tan*/(avgtrackangley);
+//			if((abs(mrdentryx)<MRD_width)&&(abs(mrdentryy)<MRD_height)){
+//				mrdentryz=MRD_start;
+//#ifdef DRAWTRUEVERBOSE
+//				cout<<" and projects within X and Y bounds - zstart is MRD_start"<<endl;
+//#endif
+//			} else {
+//				sidentry=true;  // projecting to the front face doesn't put it within MRD bounds
+//#ifdef DRAWTRUEVERBOSE
+//				cout<<" but projects outside X and Y bounds - side entry"<<endl;
+//#endif
+//			}
+//		}
+//		if((!(frontz<MRD_start)) || sidentry){           // case 2: z entry is within MRD bounds. 
+//			// first the simple case: the track start was within the MRD
+//			if((abs(frontx)<MRD_width)&&(abs(fronty)<MRD_height)){
+//#ifdef DRAWTRUEVERBOSE
+//				cout<<"track starts within the MRD"<<endl;
+//#endif
+//				mrdentryx=frontx; mrdentryy=fronty; mrdentryz=frontz;
+//				drawinitdir=true;
+//			} else {
+//#ifdef DRAWTRUEVERBOSE
+//				cout<<"side entry"<<endl;
+//#endif
+//				// the track must have entered from a side.
+//				// we need to find the z at which the projected track enters both x and y bounds
+//				// this is the greater of projected z entry point for x or y.
+//				double projectedentryzx, projectedentryzy;
+//				if(abs(frontx)<MRD_width){
+//#ifdef DRAWTRUEVERBOSE
+//					cout<<"start x is within bounds"<<endl;
+//#endif
+//					projectedentryzx = -1.; // it's already within bounds
+//				} else {
+//					double traverselength = (frontx>0) ? (frontx-MRD_width) : (frontx+MRD_width);
+//					projectedentryzx = frontz - traverselength/ /*TMath::Tan*/(avgtrackanglex);
+//#ifdef DRAWTRUEVERBOSE
+//					cout<<"using signed projectedentryzx="<<projectedentryzx
+//						<<", using unsigned ="<<(frontz+((abs(frontx)-MRD_width)/abs(avgtrackanglex)))<<endl;
+//					//TODO i forget what this is about but they aren't always the same.
+//					cout<<"projected x entry point is at z="<<projectedentryzx<<endl;
+//#endif
+//				}
+//				if(abs(fronty)<MRD_height){
+//#ifdef DRAWTRUEVERBOSE
+//					cout<<"start y is within bounds"<<endl;
+//#endif
+//					projectedentryzy = -1.;
+//				} else {
+//					double traverselength = (fronty>0) ? (fronty-MRD_height) : (fronty+MRD_height);
+//					projectedentryzy = frontz - traverselength/ /*TMath::Tan*/(avgtrackangley);
+//#ifdef DRAWTRUEVERBOSE
+//					cout<<"using signed projectedentryzy="<<projectedentryzy
+//						<<", using unsigned ="<<(frontz+((abs(fronty)-MRD_height)/abs(avgtrackangley)))<<endl;
+//					cout<<"projected y entry point is at z="<<projectedentryzy<<endl;
+//#endif
+//				}
+//				mrdentryz=max(projectedentryzy,projectedentryzx);
+//				mrdentryx=frontx+(mrdentryz-frontz)*/*TMath::Tan*/(avgtrackanglex);
+//				mrdentryy=fronty+(mrdentryz-frontz)*/*TMath::Tan*/(avgtrackangley);
+//			}
+//		}
+//#ifdef DRAWTRUEVERBOSE
+//		cout<<"mrd entry point is ("<<mrdentryx<<", "<<mrdentryy<<", "<<mrdentryz<<")"<<endl;
+//#endif
+//		
+//		// repeat the logic for the exit point
+//		// we have 2 cases: a track ends after the MRD or in the MRD
+//		bool sidexit=false;
+//		if(backz>(MRD_start+MRD_depth)){  // case 1: track ends after the MRD.
+//#ifdef DRAWTRUEVERBOSE
+//			cout<<"track ends after the MRD";
+//#endif
+//			// project the track to the z plane of the MRD end
+//			mrdexitx=frontx+(MRD_start+MRD_depth-frontz)*/*TMath::Tan*/(avgtrackanglex);
+//			mrdexity=fronty+(MRD_start+MRD_depth-frontz)*/*TMath::Tan*/(avgtrackangley);
+//			if((abs(mrdexitx)<MRD_width)&&(abs(mrdexity)<MRD_height)){
+//#ifdef DRAWTRUEVERBOSE
+//				cout<<" and within MRD bounds - mrdzexit = MRD_end"<<endl;
+//#endif
+//				mrdexitz=MRD_start+MRD_depth;
+//			} else {
+//				sidexit=true;  // projecting to the back face doesn't put it within MRD bounds
+//#ifdef DRAWTRUEVERBOSE
+//				cout<<" but projects outside X and Y bounds - side exit"<<endl;
+//#endif
+//			}
+//		}
+//		if((!(backz>(MRD_start+MRD_depth)))||sidexit){  // case 2: z exit is within MRD bounds. 
+//			// first the simple case: the track end is within the MRD
+//			if((abs(backx)<MRD_width)&&(abs(backy)<MRD_height)){
+//#ifdef DRAWTRUEVERBOSE
+//				cout<<"track ends within the MRD"<<endl;
+//#endif
+//				mrdexitx=backx; mrdexity=backy; mrdexitz=backz;
+//			} else {
+//#ifdef DRAWTRUEVERBOSE
+//				cout<<"side exit"<<endl;
+//#endif
+//				// the track must have exited from a side.
+//				// we need to find the z at which the projected track exits either x or y bounds
+//				// this is the lesser of projected z exit point for x or y.
+//				double projectedexitzx, projectedexitzy;
+//				if(abs(backx)<MRD_width){
+//					projectedexitzx = 999.; // it's already within bounds
+//				} else {
+//					double traverselength = (backx>0) ? (backx-MRD_width) : (backx+MRD_width);
+//					projectedexitzx = backz - traverselength/ /*TMath::Tan*/(avgtrackanglex);
+//#ifdef DRAWTRUEVERBOSE
+//					cout<<"using signed projectedexitzx="<<projectedexitzx<<", unsigned ="
+//						<<(backz-((abs(backx)-MRD_width)/abs(avgtrackanglex)))<<endl;
+//#endif
+//				}
+//				if(abs(backy)<MRD_height){
+//					projectedexitzy = 999.;
+//				} else {
+//					double traverselength = (backy>0) ? (backy-MRD_height) : (backy+MRD_height);
+//					projectedexitzy = backz - traverselength/ /*TMath::Tan*/(avgtrackangley);
+//#ifdef DRAWTRUEVERBOSE
+//					cout<<"using signed projectedexitzy="<<projectedexitzy<<", unsigned ="
+//						<<(backz-((abs(backy)-MRD_height)/abs(avgtrackangley)))<<endl;
+//#endif
+//				}
+//				mrdexitz=min(projectedexitzy,projectedexitzx);
+//				mrdexitx=frontx+(mrdexitz-frontz)*/*TMath::Tan*/(avgtrackanglex);
+//				mrdexity=fronty+(mrdexitz-frontz)*/*TMath::Tan*/(avgtrackangley);
+//			}
+//		}
+//#ifdef DRAWTRUEVERBOSE
+//		cout<<"mrd exit point is ("<<mrdexitx<<", "<<mrdexity<<", "<<mrdexitz<<")"<<endl;
+//#endif
+// END OF REPLACEMENT
+////////////////////////////////////////////////////////////////////////////////////
 		
-		if(frontz!=trackstartz){
+		if(trackisbackwardgoing){
 #ifdef DRAWTRUEVERBOSE
 			cout<<"switching entry and exit points as track is backward going"<<endl;
 #endif
@@ -586,42 +710,118 @@ void cMRDSubEvent::DrawTrueTracks(){
 
 // a test to see if a projected point in a plane is within a box in that plane
 int inline InBox( TVector3 Hit, TVector3 B1, TVector3 B2, const int Axis) {
-if ( Axis==1 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
-if ( Axis==2 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.X() > B1.X() && Hit.X() < B2.X()) return 1;
-if ( Axis==3 && Hit.X() > B1.X() && Hit.X() < B2.X() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
-return 0;
+	if ( Axis==1 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
+	if ( Axis==2 && Hit.Z() > B1.Z() && Hit.Z() < B2.Z() && Hit.X() > B1.X() && Hit.X() < B2.X()) return 1;
+	if ( Axis==3 && Hit.X() > B1.X() && Hit.X() < B2.X() && Hit.Y() > B1.Y() && Hit.Y() < B2.Y()) return 1;
+	return 0;
 }
 
 // projects the hitpoint by adding a scaled vector to the start point
 int inline GetIntersection( float fDst1, float fDst2, TVector3 P1, TVector3 P2, TVector3 &Hit) {
-if ( (fDst1 * fDst2) >= 0.0f) return 0;
-if ( fDst1 == fDst2) return 0; 
-Hit = P1 + (P2-P1) * ( -fDst1/(fDst2-fDst1) );
-return 1;
+	if ( (fDst1 * fDst2) >= 0.0f) return 0;
+	if ( fDst1 == fDst2) return 0; 
+	Hit = P1 + (P2-P1) * ( -fDst1/(fDst2-fDst1) );
+	return 1;
 }
 
 // returns true if line (L1, L2) intersects with the box (B1, B2)
 // returns intersection point in Hit
-bool CheckLineBox( TVector3 B1, TVector3 B2, TVector3 L1, TVector3 L2, TVector3 &Hit)
-{
-if (L2.X() < B1.X() && L1.X() < B1.X()) return false;
-if (L2.X() > B2.X() && L1.X() > B2.X()) return false;
-if (L2.Y() < B1.Y() && L1.Y() < B1.Y()) return false;
-if (L2.Y() > B2.Y() && L1.Y() > B2.Y()) return false;
-if (L2.Z() < B1.Z() && L1.Z() < B1.Z()) return false;
-if (L2.Z() > B2.Z() && L1.Z() > B2.Z()) return false;
-if (L1.X() > B1.X() && L1.X() < B2.X() &&
-    L1.Y() > B1.Y() && L1.Y() < B2.Y() &&
-    L1.Z() > B1.Z() && L1.Z() < B2.Z()) 
-    {Hit = L1; 
-    return true;}
-if ( (GetIntersection( L1.X()-B1.X(), L2.X()-B1.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 ))
-  || (GetIntersection( L1.Y()-B1.Y(), L2.Y()-B1.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 )) 
-  || (GetIntersection( L1.Z()-B1.Z(), L2.Z()-B1.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 )) 
-  || (GetIntersection( L1.X()-B2.X(), L2.X()-B2.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 )) 
-  || (GetIntersection( L1.Y()-B2.Y(), L2.Y()-B2.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 )) 
-  || (GetIntersection( L1.Z()-B2.Z(), L2.Z()-B2.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 )))
-	return true;
+bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, TVector3 &Hit, TVector3 &Hit2, bool &error){
+	error=false;
+	bool startsinmrd=false, stopsinmrd=false;
+	// check if it misses the box entirely by being on one side of a plane over entire track
+	if (L2.X() < B1.X() && L1.X() < B1.X()) return false;
+	if (L2.X() > B2.X() && L1.X() > B2.X()) return false;
+	if (L2.Y() < B1.Y() && L1.Y() < B1.Y()) return false;
+	if (L2.Y() > B2.Y() && L1.Y() > B2.Y()) return false;
+	if (L2.Z() < B1.Z() && L1.Z() < B1.Z()) return false;
+	if (L2.Z() > B2.Z() && L1.Z() > B2.Z()) return false;
+	// check if it's inside the box to begin with (classed as an interception at start vtx)
+	if (L1.X() > B1.X() && L1.X() < B2.X() &&
+		L1.Y() > B1.Y() && L1.Y() < B2.Y() &&
+		L1.Z() > B1.Z() && L1.Z() < B2.Z())
+		{startsinmrd=true; /*Hit = L1; return true;*/}
+		// XXX DISABLE RETURN FOR TRACKS STARTING IN MRD - NEED TO FIND EXIT POINT
+	// check if it's inside the box to end with (classed as an interception at stop vtx)
+	if (L2.X() > B1.X() && L2.X() < B2.X() &&
+		L2.Y() > B1.Y() && L2.Y() < B2.Y() &&
+		L2.Z() > B1.Z() && L2.Z() < B2.Z())
+		{stopsinmrd=true; /*Hit2 = L2; return true;*/}
+	if(startsinmrd&&stopsinmrd){
+		// no point looking for interceptions
+		Hit=L1; Hit2=L2; return true;
+	}
+	// going forward, either one or both track endpoints are outside the MRD, and the MRD is hit.
+	// we need to find the interception(s) with the MRD volumetric surface.
 
-return false;
+	// check for an interception in X, Y then Z.
+	//if ( (GetIntersection( L1.X()-B1.X(), L2.X()-B1.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 ))
+	//  || (GetIntersection( L1.Y()-B1.Y(), L2.Y()-B1.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 ))
+	//  || (GetIntersection( L1.Z()-B1.Z(), L2.Z()-B1.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 ))
+	//  || (GetIntersection( L1.X()-B2.X(), L2.X()-B2.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 ))
+	//  || (GetIntersection( L1.Y()-B2.Y(), L2.Y()-B2.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 ))
+	//  || (GetIntersection( L1.Z()-B2.Z(), L2.Z()-B2.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 )))
+	//	return true;
+
+	// Above seems to assume there will only be one interception!!
+	// e.g. if X has an interception, there are no checks for Z interception - if it enters
+	// the front face and exits the side, only the side exit will be returned. 
+	// Instead, note all interception points and return the first (and second if it exists)
+	std::vector<TVector3> interceptions;
+	bool anyinterception=false;
+	bool thisinterception;
+
+	thisinterception=
+	GetIntersection( L1.X()-B1.X(), L2.X()-B1.X(), L1, L2, Hit) && InBox(Hit, B1, B2, 1);
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.Y()-B1.Y(), L2.Y()-B1.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.Z()-B1.Z(), L2.Z()-B1.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.X()-B2.X(), L2.X()-B2.X(), L1, L2, Hit) && InBox( Hit, B1, B2, 1 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.Y()-B2.Y(), L2.Y()-B2.Y(), L1, L2, Hit) && InBox( Hit, B1, B2, 2 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+	thisinterception=
+	GetIntersection( L1.Z()-B2.Z(), L2.Z()-B2.Z(), L1, L2, Hit) && InBox( Hit, B1, B2, 3 );
+	if(thisinterception){ interceptions.push_back(Hit); anyinterception=true; }
+
+	if((interceptions.size()>2)||(startsinmrd&&interceptions.size()==2)){
+		cerr<<"CheckLineBox found more than two intercepts?! Or 2 intercepts but starts in MRD?? Intercepts at:"<<endl;
+		for(auto&& avec : interceptions)
+			cerr<<"("<<avec.X()<<", "<<avec.Y()<<", "<<avec.Z()<<")"<<endl;
+		error=true;
+		//assert(false); // leave for later so we can print debug info.
+		return false;
+	} else if(interceptions.size()==2){
+		auto vec1 = interceptions.at(0);
+		auto vec2 = interceptions.at(1);
+		if(vec1.Z()<vec2.Z()){
+			Hit=vec1;
+			Hit2=vec2;
+		} else {
+			Hit=vec2;
+			Hit2=vec1;
+		}
+		return true;
+	} else if(interceptions.size()==1) {
+		if(stopsinmrd){
+			Hit=interceptions.at(0);
+			Hit2=L2; // Hit2 is 'mrd exit' point - return track end. 
+		} else if (startsinmrd){
+			Hit = L1;
+			Hit=interceptions.at(0);
+		} else {
+			cerr<<"only one intercept found, but track neither starts nor stops in mrd??"<<endl;
+			error=true;
+			return false;
+		}
+		return true;
+	} else {
+		return false;
+	}
 }

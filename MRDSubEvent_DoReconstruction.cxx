@@ -19,7 +19,7 @@ class mrdcluster;
 class mrdcell;
 const Int_t mintracklength=0;	// tracks must have (mintracklength+1) cells to qualify
 								// be generous - allow 1-cell tracks. We'll require tank coincidence anyway.
-const Double_t chi2limit=80.0;	// max chi^2 from a linear least squares fit to all 3 clusters for those
+const Double_t chi2limit=125.0; //80.0;	// max chi^2 from a linear least squares fit to all 3 clusters for those
 								// to be classed as clusters in the same track
 								// 40 - offset of 1 cell. but doesn't allow multi-digit clusters 
 		//140						// which increase opening angle to ~70. This doesn't allow large kinks
@@ -256,7 +256,7 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 #ifdef TRACKFINDVERBOSE
 									cout<<"this is an intermediate, skipping this endpoint cluster."<<endl;
 #endif
-									continue;
+									break;
 								}
 							}
 							if(!foundintermediate){
@@ -353,20 +353,53 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 						// now we need to check if this cell is already the upstream neighbour of
 						// another cell - i.e. does the track split here
 						if((upcell->dtneighbourcellindex==-2)||(upcell->dtneighbourcellindex>-1)){
+// Previously the idea here was to look for tracks that split - i.e. if 2 cells are potential downstream candidates,
+// the track 'splits' and the downstream tracks are considered independent from each other, and from the daughter.
+// Unfortunately in practice this fragments tracks, and parent segments get pruned as they are not long enough.
+// Instead, we'll just have to choose one or the other... and hope we choose right, because the other daughter may die!
+// TODO: Perhaps add proper support for keeping all daughters associated with the parent ...
+//
+//#ifdef TRACKFINDVERBOSE
+//							cout<<"this is a second downtrack candidate! Track splits!"<<endl;
+//#endif
+//							// we need to un-set the existing neighbour. Instead set both downstream
+//							// candidates as their own new tracks, and call this track the 'parent'
+//							if(upcell->dtneighbourcellindex!=-2){
+//								mrdcell* dtneighbourcell = thecells.at(upcell->dtneighbourcellindex);
+//								dtneighbourcell->parentcellindex = upcell->cellid;
+//								dtneighbourcell->utneighbourcellindex = -1;
+//								dtneighbourcell->neighbourchi2 = 0.;
+//								upcell->dtneighbourcellindex=-2;
+//							}
+//							downcell->parentcellindex = upcell->cellid;
+//							upcell->hasdaughters = true;
 #ifdef TRACKFINDVERBOSE
-							cout<<"this is a second downtrack candidate! Track splits!"<<endl;
+							cout<<"this is a second downtrack candidate! Choosing best match"<<endl;
 #endif
 							// we need to un-set the existing neighbour. Instead set both downstream
 							// candidates as their own new tracks, and call this track the 'parent'
-							if(upcell->dtneighbourcellindex!=-2){
-								mrdcell* dtneighbourcell = thecells.at(upcell->dtneighbourcellindex);
-								dtneighbourcell->parentcellindex = upcell->cellid;
-								dtneighbourcell->utneighbourcellindex = -1;
-								dtneighbourcell->neighbourchi2 = 0.;
-								upcell->dtneighbourcellindex=-2;
+							if(!((downcluster->layer)>(thecells.at(upcell->dtneighbourcellindex)->clusters.second->layer)) &&
+								chi2<(thecells.at(upcell->dtneighbourcellindex)->neighbourchi2)){
+#ifdef TRACKFINDVERBOSE
+								cout<<"this match has a better chi2, overriding existing pairing"<<endl;
+								cout<<"considering cell "<<acelli<<" the upstream neighbour of cell "<<bcelli<<endl;
+#endif
+								downcell->utneighbourcellindex = upcell->cellid;
+								downcell->neighbourchi2 = chi2;
+								mrdcell* olddtneighbourcell = thecells.at(upcell->dtneighbourcellindex);
+								upcell->dtneighbourcellindex=downcell->cellid;
+								// wipe old downstream neighbour details
+								olddtneighbourcell->utneighbourcellindex = -1;
+								 // should we still leave some of this info? 
+								olddtneighbourcell->neighbourchi2 = 0.;
+								olddtneighbourcell->parentcellindex = upcell->cellid;
+								downcell->parentcellindex = upcell->cellid;
+								upcell->hasdaughters = true;
+							} else {
+#ifdef TRACKFINDVERBOSE
+								cout<<"this match has a worse chi2, ignoring this pairing"<<endl;
+#endif
 							}
-							downcell->parentcellindex = upcell->cellid;
-							upcell->hasdaughters = true;
 						} else {
 #ifdef TRACKFINDVERBOSE
 							cout<<"no existing downtrack candidate..."<<endl;
@@ -618,12 +651,12 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 				else if(stoppmt<0) hsidestop=-1;              // left hand side
 				double avgside = (hsidestart+hsidestop)/2.;   // this averages to 0 in
 															  // case they're on opposite sides
-				if(avgside==0){
-#ifdef TRACKFINDVERBOSE
-					cout<<"average side of hcell "<<testi<<" is 0, no compatibility check"<<endl;
-#endif
-					continue;  // paddles are central - either side is consistent. 								   // no change to figure of merit
-				}
+//				if(avgside==0){
+//#ifdef TRACKFINDVERBOSE
+//					cout<<"average side of hcell "<<testi<<" is 0, no compatibility check"<<endl;
+//#endif
+//					continue;  // paddles are central - either side is consistent. 								   // no change to figure of merit
+//				}
 #ifdef TRACKFINDVERBOSE
 				cout<<"htrack cell "<<testi<<" starts in layer "<<startlayer<<" on side "<<hsidestart
 					<<" and goes to layer "<<stoplayer<<" on side "<<hsidestop
@@ -639,7 +672,8 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 					cout<<"vtrack cell "<<testj<<" starts in layer "<<interlayer<<endl;
 #endif
 					if( (interlayer>startlayer&&interlayer<stoplayer) || 
-						((interlayer==startlayer-1)&&(outerlayer==stoplayer+1)) ){
+						((interlayer==startlayer-1)&&(outerlayer==stoplayer+1)) ||
+						(outerlayer>startlayer&&outerlayer<stoplayer) ){
 						double altside;
 						if(interlayer>startlayer&&interlayer<stoplayer){
 							// alternate cluster layer is between this cell's layers
@@ -652,14 +686,35 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 #ifdef TRACKFINDVERBOSE
 						cout<<"vtrack cell "<<testj<<" in alt view is on side "<<altside<<endl;
 #endif
-						if((avgside*altside)>0){
-							// both are on the same side:
-							hfom+=1;
-						} else if ((avgside*altside)<0){
-							// they're on opposite sides
-							hfom-=1;
-						} // else crossing or centre, no preference
-						hcomparisons++;
+						if(!(outerlayer>startlayer&&outerlayer<stoplayer)){
+							if((avgside*altside)>0){
+								// both are on the same side:
+								hfom+=1;
+							} else if ((avgside*altside)<0){
+								// they're on opposite sides
+								hfom-=1;
+							} else if(avgside==0){
+								if((interlayer==startlayer-1)&&(outerlayer==stoplayer+1)){
+									// this cell crosses sides, and alternate view cell straddles this cell
+									// Alt view should also cross sides.
+									if(altside==0) hfom+=1; else hfom-=1;
+								} else if(interlayer>startlayer&&interlayer<stoplayer){
+									// this cell crosses sides, and alternate view cell starts between this 
+									// cell's layers and crosses sides.
+									if(altside==0) hfom+=1; // No demerit
+								} else {
+									hcomparisons--; // counter the increment below.
+								}
+							}
+							hcomparisons++;
+						} else {
+							// this cell crosses sides. We should also look for side crossings on cells
+							// ending between this cell's layers, not just starting between them.
+							if(avgside==0&&altside==0){
+								hfom+=1;
+								hcomparisons++;
+							}
+						}
 					}
 					
 					if(testj==0){  // one last test on the last cluster
@@ -720,12 +775,12 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 					<<" and goes to layer "<<stoplayer<<" on side "<<vsidestop
 					<<" giving average side "<<avgside<<endl;
 #endif
-				if(avgside==0){
-#ifdef TRACKFINDVERBOSE
-					cout<<"average side of vcell "<<testi<<" is 0, no compatibility check"<<endl;
-#endif
-					continue;
-				}
+//				if(avgside==0){
+//#ifdef TRACKFINDVERBOSE
+//					cout<<"average side of vcell "<<testi<<" is 0, no compatibility check"<<endl;
+//#endif
+//					continue;
+//				}
 				
 				
 				// now scan over the other view hits
@@ -737,7 +792,8 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 					cout<<"htrack cell "<<testj<<" starts in layer "<<interlayer<<endl;
 #endif
 					if( (interlayer>startlayer&&interlayer<stoplayer) || 
-						((interlayer==startlayer-1)&&(outerlayer==stoplayer+1)) ){
+						((interlayer==startlayer-1)&&(outerlayer==stoplayer+1)) ||
+						(outerlayer>startlayer&&outerlayer<stoplayer) ){
 						double altside;
 						if(interlayer>startlayer&&interlayer<stoplayer){
 							// alternate cluster layer is between this cell's layers
@@ -750,14 +806,35 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 #ifdef TRACKFINDVERBOSE
 						cout<<"htrack cell "<<testj<<" in alt view is on side "<<altside<<endl;
 #endif
-						if((avgside*altside)>0){
-							// both are on the same side:
-							vfom+=1.;
-						} else if ((avgside*altside)<0){
-							// they're on opposite sides
-							vfom-=1.;
-						} // else one of them is a multi-paddle cluster spanning both sides. null merit.
-						vcomparisons++;
+						if(!(outerlayer>startlayer&&outerlayer<stoplayer)){
+							if((avgside*altside)>0){
+								// both are on the same side:
+								vfom+=1.;
+							} else if ((avgside*altside)<0){
+								// they're on opposite sides
+								vfom-=1.;
+							} else if(avgside==0){
+								if((interlayer==startlayer-1)&&(outerlayer==stoplayer+1)){
+									// this cell crosses sides, and alternate view cell straddles this cell
+									// Alt view should also cross sides.
+									if(altside==0) vfom+=1; else vfom-=1;
+								} else if(interlayer>startlayer&&interlayer<stoplayer){
+									// this cell crosses sides, and alternate view cell starts between this 
+									// cell's layers and crosses sides.
+									if(altside==0) vfom+=1; // No demerit
+								} else {
+									vcomparisons--; // counter the increment below.
+								}
+							}
+							vcomparisons++;
+						} else {
+							// this cell crosses sides. We should also look for side crossings on cells
+							// ending between this cell's layers, not just starting between them.
+							if(avgside==0&&altside==0){
+								vfom+=1;
+								vcomparisons++;
+							}
+						}
 					}
 					
 					if(testj==0){  // one last test on the last cluster
@@ -830,17 +907,23 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 				<<coshang<<" for horizontal angle and "<<cosvang<<" for vertical angle"<<endl;
 #endif
 			thisfom+=(coshang+cosvang);
-			
+			thisfom+=(vtrack.size() + htrack.size())/2.;
+#ifdef TRACKFINDVERBOSE
+			cout<<"updating figure-of-merit based on number of cells in tracks: "
+				<<htrack.size()/2<<" for horizontal track and "<<vtrack.size()/2
+				<<" for vertical track"<<endl
+				<<"FINAL FOM FOR MATCH: "<<thisfom<<endl;
+#endif
 			matchmerits.at(tracki).at(trackj)=thisfom;
 		}
 	}
-	//TODO: SHOULD DEMERIT BY TRACK ANGLE (AS LOWEST PRIORITY) TO BIAS TOWARDS SHALLOW TRACKS
 	
 #ifdef TRACKFINDVERBOSE
 	cout<<"matching tracks in two views"<<endl;
 #endif
-	double fomthreshold=2; // a pair of tracks must have at least this figure-of-merit to be matched
-						   // maximum FOM is 4: complete compatibilty in both views, and both endpoints.
+	double fomthreshold=7.0; // a pair of tracks must have at least this figure-of-merit to be matched
+						   // XXX needs tuning
+						   // XXX ADD MORE FOM FOR MORE CELLS IN A TRACK.
 	// now find the maximum merit pairs, noting that there may not be the same number of tracks in each view!
 	std::vector<std::pair<int,int> > matchedtracks;  // <hpaddletracks index, vpaddletracks index>
 	while(true){
@@ -858,16 +941,27 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 #ifdef TRACKFINDVERBOSE
 		cout<<"max FOM for pairing "<<matchedtracks.size()<<" is "<<currentmax<<endl;
 #endif
+		// OK, in theory we should just find the maximum of the matchmerits matrix, match that 
+		// pair, mask off that row/column, and repeat.
+		// in practice we have a bunch of fringe cases such as tracks that merge or split,
+		// for which we want to avoid creating tracks, even if they have the best FOM.
+		// first check if this is a single-cell track joining two already assigned clusters:
 		if(currentmax>fomthreshold){
 			bool makethepair=true;
 			std::vector<mrdcell*> htrack = hpaddletracks.at(maxrow);
 			std::vector<mrdcell*> vtrack = vpaddletracks.at(maxcolumn);
-			if(htrack.size()==1&&vtrack.size()==1){
-				// OK, in theory we should just find the maximum of the matchmerits matrix, match that 
-				// pair, mask off that row/column, and repeat.
-				// in practice we have a bunch of fringe cases, where we want to avoid creating tracks
-				// that merge or split if possible. 
-				// first check if this is a single-cell track joining two already assigned clusters:
+#ifdef TRACKFINDVERBOSE
+			cout<<"candidate track "<<matchedtracks.size()<<" htrack has "<<htrack.size()
+				<<" cells, goes from ("<<htrack.front()->clusters.second->GetCentreIndex()
+				<<", "<<htrack.front()->clusters.second->layer<<") to ("
+				<<htrack.back()->clusters.first->GetCentreIndex()<<", "
+				<<htrack.back()->clusters.first->layer<<"), vtrack has "<<vtrack.size()
+				<<" cells, goes from ("<<vtrack.front()->clusters.second->GetCentreIndex()
+				<<", "<<vtrack.front()->clusters.second->layer<<") to ("
+				<<vtrack.back()->clusters.first->GetCentreIndex()<<", "
+				<<vtrack.back()->clusters.first->layer<<"),"<<endl;
+#endif
+			if(htrack.size()<3||vtrack.size()<3){ // aggressively prune bridges
 				bool hisbadmatch = BridgeSearch(htrack, matchedtracks, hpaddletracks, "h");
 #ifdef TRACKFINDVERBOSE
 				if(hisbadmatch) cout<<"h track in this pair bridges two existing tracks, removing it."<<endl;
@@ -876,7 +970,7 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 				// update the merit table to remove it from future pair considerations
 				if(hisbadmatch) matchmerits.at(maxrow).assign(matchmerits.at(maxrow).size(),-1);
 				// same now for the vtrack part of the pair
-				bool visbadmatch = BridgeSearch(vtrack, matchedtracks, vpaddletracks, "v");
+				bool visbadmatch = BridgeSearch(vtrack, matchedtracks, vpaddletracks, "V");
 #ifdef TRACKFINDVERBOSE
 				if(visbadmatch) cout<<"v track in this pair bridges two existing tracks, removing it."<<endl;
 #endif
@@ -1104,12 +1198,21 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 					} // while loop over other v candidates for the h part
 				}
 				// end search over remaining tracks to find a better one with lower fom
-			} // else - this new candidate has multiple cells. 
+				
+				// OK, we've tried our best to find alternates, but there might not be anything better.
+				// still, we're not keen on having tracks built from clusters in existing tracks.
+				// update the FOM, and re-evaluate if we still want to make this:
+				if(hhassharedcluster) currentmax-=1.5;
+				if(vhassharedcluster) currentmax-=1.5;
+				if(currentmax<fomthreshold) makethepair=false;
+				
+			} // else - this new candidate has >= 3 cells - bypass additional pruning tests
 			
 			// add this matching to the list of pairs
 			if(makethepair){
 #ifdef TRACKFINDVERBOSE
-				cout<<"matching horizontal track "<<maxrow<<" to vertical track "<<maxcolumn<<endl;
+				cout<<"matching horizontal track "<<maxrow<<" to vertical track "<<maxcolumn
+					<<", match FOM "<<currentmax<<endl;
 #endif
 				matchedtracks.push_back(std::make_pair(maxrow, maxcolumn));
 			}
@@ -1392,8 +1495,8 @@ bool cMRDSubEvent::SearchForClusterInTracks(const std::vector<std::pair<int,int>
 bool cMRDSubEvent::BridgeSearch(const std::vector<mrdcell*> &tracktotest, const std::vector<std::pair<int,int> > &matchedtracks, const std::vector<std::vector<mrdcell*> > &allpaddletracks, const std::string horv){
 	// test if a single-cell track pair candidate is joining two existing tracks in either of it's views
 	bool badmatch=false;
-	mrdcluster* trackstartcluster = tracktotest.front()->clusters.first;
-	mrdcluster* trackstopcluster  = tracktotest.back()->clusters.second;
+	mrdcluster* trackstartcluster = tracktotest.front()->clusters.second;
+	mrdcluster* trackstopcluster  = tracktotest.back()->clusters.first;
 	
 	bool startclusterassigned=false, stopclusterassigned=false;
 	
