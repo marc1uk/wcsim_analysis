@@ -15,15 +15,17 @@ void WCSimAnalysis::OpenMRDtrackOutfile(int filenum){
 	if(mrdtrackfile) mrdtrackfile->Close();
 	mrdtrackfile = new TFile(filenameout.Data(),"RECREATE","MRD Tracks file");
 	mrdtrackfile->cd();
-	recotree = new TTree("mrdtree","Tree for reconstruction data");
+	mrdtree = new TTree("mrdtree","Tree for reconstruction data");
 	gROOT->cd();
 	
 	nummrdtracksthisevent=0;
 	aSubEvent = new TClonesArray("cMRDSubEvent");	// string is class name
 	
-	nummrdsubeventsthiseventb = recotree->Branch("nummrdsubeventsthisevent",&nummrdsubeventsthisevent);
-	subeventsinthiseventb = recotree->Branch("subeventsinthisevent",&aSubEvent, nummrdsubeventsthisevent);
-	nummrdtracksthiseventb = recotree->Branch("nummrdtracksthisevent",&nummrdtracksthisevent);
+	mrdeventnumb = mrdtree->Branch("EventID",&eventnum);
+	mrdtriggernumb = mrdtree->Branch("TriggerID",&triggernum);
+	nummrdsubeventsthiseventb = mrdtree->Branch("nummrdsubeventsthisevent",&nummrdsubeventsthisevent);
+	subeventsinthiseventb = mrdtree->Branch("subeventsinthisevent",&aSubEvent, nummrdsubeventsthisevent);
+	nummrdtracksthiseventb = mrdtree->Branch("nummrdtracksthisevent",&nummrdtracksthisevent);
 	
 }
 
@@ -54,10 +56,10 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 		nummrdsubeventsthiseventb->Fill();
 		nummrdtracksthiseventb->Fill();
 		subeventsinthiseventb->Fill();
-		//recotree->Fill();						// fill the branches so the entries align.
+		//mrdtree->Fill();						// fill the branches so the entries align.
 		mrdtrackfile->cd();
-		recotree->SetEntries(nummrdtracksthiseventb->GetEntries());
-		recotree->Write("",kOverwrite);
+		mrdtree->SetEntries(nummrdtracksthiseventb->GetEntries());
+		mrdtree->Write("",kOverwrite);
 		gROOT->cd();
 		return;
 		// skip remainder
@@ -269,7 +271,7 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 		nummrdsubeventsthiseventb->Fill();
 		nummrdtracksthiseventb->Fill();
 		subeventsinthiseventb->Fill();
-		//recotree->Fill();
+		//mrdtree->Fill();
 		
 	}	// end multiple subevents case
 	
@@ -282,8 +284,8 @@ if your class contains pointers, use aTrack.Clear("C"). You MUST then provide a 
 	cout<<"writing output files, end of finding MRD SubEvents and Tracks in this event"<<endl;
 #endif
 	mrdtrackfile->cd();
-	recotree->SetEntries(nummrdtracksthiseventb->GetEntries());
-	recotree->Write("",kOverwrite);
+	mrdtree->SetEntries(nummrdtracksthiseventb->GetEntries());
+	mrdtree->Write("",kOverwrite);
 	if(cMRDSubEvent::imgcanvas) cMRDSubEvent::imgcanvas->Update();
 	gROOT->cd();
 }

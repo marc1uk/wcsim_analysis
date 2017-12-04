@@ -6,7 +6,8 @@
 void RegexTest(std::string fname="/pnfs/annie/persistent/users/moflaher/g4dirt/annie_tank_flux.2000.root"){
   // NOTE: ESCAPE SEQUENCES REQUIRE DOUBLE BACKSLASHES
   //std::string theexpressionstring = ".*/[^0-9]+\\.([0-9]+)\\.root";	// success!
-  std::string theexpressionstring = ".*/?[^\\.]+\\.([0-9]+)\\.root";
+  //std::string theexpressionstring = ".*/?[^\\.]+\\.([0-9]+)\\.root";
+  std::string theexpressionstring = ".*/?[^\\.]+\\.([0-9]+)\\.?([0-9]+)?\\.root";
   cout<<"testing "<<fname<<" against "<<theexpressionstring<<endl;
   std::match_results<string::const_iterator> submatches;
   std::regex theexpression (theexpressionstring);

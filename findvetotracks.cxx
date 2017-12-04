@@ -1,6 +1,6 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 // #######################################################################
-#include "VetoEventClass.hh"			// a class for defining subevents
+#include "VetoEventClass.hh"          // a class for defining subevents
 
 #ifndef VETOSPLITVERBOSE
 //#define VETOSPLITVERBOSE 1
@@ -10,7 +10,7 @@
 // =======================
 void WCSimAnalysis::OpenFACCtrackOutfile(int filenum){
 	TString filenameout = TString::Format("%s/vetotrackfile.%d.root",outputdir,filenum);
-	cout<<"opening facc output file"<<filenameout.Data()<<endl;
+	cout<<"opening facc output file "<<filenameout.Data()<<endl;
 	if(vetotrackfile) vetotrackfile->Close();
 	vetotrackfile = new TFile(filenameout.Data(),"RECREATE","Veto Events file");
 	vetotrackfile->cd();
@@ -18,8 +18,10 @@ void WCSimAnalysis::OpenFACCtrackOutfile(int filenum){
 	gROOT->cd();
 	
 	numvetoeventsthisevent=0;
-	FaccSubEvents = new TClonesArray("cVetoEvent");	// string is class name 
+	FaccSubEvents = new TClonesArray("cVetoEvent"); // string is class name 
 	
+	vetoeventnumb = vetotree->Branch("EventID",&eventnum);
+	vetotriggernumb = vetotree->Branch("TriggerID",&triggernum);
 	numvetoeventsthiseventb = vetotree->Branch("NumVetoEvents",&numvetoeventsthisevent);
 	vetoeventsinthiseventb = vetotree->Branch("VetoEvents",&FaccSubEvents, numvetoeventsthisevent);
 	

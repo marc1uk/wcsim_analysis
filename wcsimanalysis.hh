@@ -48,19 +48,23 @@
 //#include "../wcsim/include/WCSimRootOptions.hh"
 //#include "../wcsim/include/WCSimRootLinkDef.hh"
 // #######################################################################
+// from ANNIEDAQ
+#include "CardData.h"
 
 // CLASS DEF
 // =========
 class WCSimAnalysis : public TObject {
 	private:
-	// CONSTS
-	const Int_t numtankpmts=128+2*(26);	// 26 pmts and lappds on each cap
-	const Int_t nummrdpmts=307;
-	const Int_t numvetopmts=26;
-	const Int_t caparraysize=8;    // pmts on the cap form an nxn grid where caparraysize=n
-	const Int_t pmtsperring=16;    // pmts around each ring of the main walls
-	const Int_t numpmtrings=8;     // num rings around the main walls
-	const Int_t MAXTRACKSPEREVENT=50;
+	// CONSTS - put in a namespace not the class. combine with MRDspecs.hh. Pull from geo/opts if possible.
+	const Int_t numtankpmts=128+2*(26);     // 26 pmts and lappds on each cap
+	const Int_t nummrdpmts=307;             //
+	const Int_t numvetopmts=26;             //
+	const Int_t caparraysize=8;             // pmts on the cap form an nxn grid where caparraysize=n
+	const Int_t pmtsperring=16;             // pmts around each ring of the main walls
+	const Int_t numpmtrings=8;              // num rings around the main walls
+	const Int_t MAXTRACKSPEREVENT=50;       //
+	int pre_trigger_window_ns;              // read from options file
+	int post_trigger_window_ns;             // read from options file
 
 	int treeNumber=-1;
 	Double_t maxsubeventduration=30.;  // in ns?
@@ -73,6 +77,7 @@ class WCSimAnalysis : public TObject {
 	const char* inputdir;
 	TChain* t; 
 	WCSimRootGeom* geo=0;
+	WCSimRootOptions *opt=0;
 	WCSimRootEvent* b=0;
 	WCSimRootEvent* m=0;
 	WCSimRootEvent* v=0;
@@ -86,8 +91,73 @@ class WCSimAnalysis : public TObject {
 	TFile* currentfile;
 	std::string currentfilestring;
 	Int_t eventnum;
+	Int_t sequence_id;
+	Int_t minibuffer_id;
+	unsigned long long placeholder_date_ns;
 	Int_t runnum;
 	Int_t triggernum;
+	
+	// Variables for output files replicating ANNIE Raw data format
+	std::string rawfilename;
+	TFile* rawfileout=nullptr;
+	// pmt data tree
+	// ~~~~~~~~~~~~~
+	TTree* tPMTData;
+	ULong64_t fileout_LastSync, fileout_StartCount;
+	Int_t fileout_SequenceID, fileout_StartTimeSec, fileout_StartTimeNSec, fileout_TriggerNumber,
+		fileout_CardID, fileout_Channels, fileout_BufferSize, fileout_Eventsize, fileout_FullBufferSize;
+	ULong64_t* fileout_TriggerCounts=nullptr;
+	Int_t* fileout_Rates=nullptr;
+	UShort_t* fileout_Data=nullptr;
+	// put the following in a namespace rather than the WCSimAnalysis class?
+	const int full_buffer_size = CardData::FullBufferSize;
+	const int minibuffer_datapoints_per_channel = CardData::BufferSize / CardData::TriggerNumber;
+	const int channels_per_adc_card = CardData::Channels;
+	const int minibuffers_per_fullbuffer = CardData::TriggerNumber;
+	const int num_adc_cards = (numtankpmts-1)/channels_per_adc_card + 1; // round up, requiring numtankpmts!=0
+	// n.b. variant that doesn't require !=0, but could overflow:
+	// num_adc_cards = (numtankpmts + channels_per_adc_card - 1) / channels_per_adc_card;
+	
+	// run info tree
+	// ~~~~~~~~~~~~~
+	TTree* tRunInformation;
+	std::string fileout_InfoTitle, fileout_InfoMessage;
+	// trigger data tree
+	// ~~~~~~~~~~~~~~~~~
+	TTree* tTrigData;
+	Int_t fileout_FirmwareVersion, /*fileout_EventSize,*/ fileout_TriggerSize,
+		fileout_FIFOOverflow, fileout_DriverOverfow;
+	UShort_t* fileout_EventIDs=nullptr;
+	ULong64_t* fileout_EventTimes=nullptr;
+	UInt_t* fileout_TriggerMasks=nullptr, *fileout_TriggerCounters=nullptr;
+	int MAXEVENTSIZE=10, MAXTRIGGERSIZE=10;
+	// mrd data tree
+	// ~~~~~~~~~~~~~
+	TTree* tCCData;
+	UInt_t fileout_Trigger, fileout_OutNumber;
+	ULong64_t fileout_TimeStamp;
+	std::vector<string> fileout_Type;
+	std::vector<unsigned int> fileout_Value, fileout_Slot, fileout_Channel;
+	// filling the output file
+	// ~~~~~~~~~~~~~~~~~~~~~~~
+	void LoadOutputFiles();
+	void FillEmulatedCCData();
+	void FillEmulatedTrigData();
+	void FillEmulatedPMTData();
+	void FillEmulatedRunInformation();
+	void AddCCDataEntry(WCSimRootCherenkovDigiHit* digihit);
+	void AddPMTDataEntry(WCSimRootCherenkovDigiHit* digihit);
+	void ConstructEmulatedPmtDataReadout();
+	void AddMinibufferStartTime();
+	void GenerateMinibufferPulse(int digit_index, double digit_charge, std::vector<uint16_t> &pulsevector);
+	void RiffleShuffle();
+	std::vector<std::string>* GetTemplateRunInfo();
+	std::vector<CardData> emulated_pmtdata_readout;
+	std::vector<std::vector<uint16_t>> temporary_databuffers;
+	std::vector<uint16_t> pulsevector;
+	TF1* fLandau{nullptr};
+	// switches to allow turning this conversion on/off:
+	bool add_emulated_ccdata=false, add_emulated_triggerdata=true, add_emulated_pmtdata=true;
 
 	// PMT MAP VARIABLES
 	// needed for drawing tank histograms
@@ -159,19 +229,22 @@ class WCSimAnalysis : public TObject {
 	int wcsimfilenum;
 	const char* outputdir="";
 	TFile* mrdtrackfile=0, *vetotrackfile=0;
-	TTree* recotree=0; // mrd track reconstruction tree
-	TTree* vetotree=0; // veto event tree
+	TTree* mrdtree=0; // mrd track reconstruction tree
+	TTree* vetotree=0; // veto track reconstruction tree
 	std::vector<Double_t> mrddigittimesthisevent;
 	Int_t nummrdsubeventsthisevent;
 	Int_t nummrdtracksthisevent;
+	TBranch* mrdeventnumb;
+	TBranch* mrdtriggernumb;
 	TBranch* nummrdsubeventsthiseventb=0;
 	TBranch* nummrdtracksthiseventb=0;
 	TBranch* subeventsinthiseventb=0;
-	TBranch* tracksinthiseventb=0;
 	TClonesArray* aTrack=0;
 	TClonesArray* aSubEvent=0;
 	std::vector<double> vetodigittimesthisevent;
 	Int_t numvetoeventsthisevent=0;
+	TBranch* vetoeventnumb;
+	TBranch* vetotriggernumb;
 	TBranch* numvetoeventsthiseventb;
 	TBranch* vetoeventsinthiseventb;
 	TClonesArray* FaccSubEvents=0;
@@ -195,31 +268,37 @@ class WCSimAnalysis : public TObject {
 	int LoadTchainEntry(Int_t &eventnum);
 	
 	// functions - pre-event-loop analysis initializations
-	void DoTankPreLoop();
-	void DoMRDpreLoop();
-	void DoVetoPreLoop();
+	void DoTankPreEventLoop();
+	void DoMRDpreEventLoop();
+	void DoVetoPreEventLoop();
 	
 	// functions - event and hit wide loops
 	void DoTankPreHitLoop();
-	void DoTankEventwide(Int_t &numtruehits, Int_t &numdigits);
+	void DoTankPreTriggerLoop();
+	void DoTankTrigger(int &numtruehits, int &numdigits);
+	void DoTankPostTriggerLoop(int &numtruehits, int &numdigits);
 	void DoTankTrueHits();
 	void DoTankDigitHits();
 	void DoTankPostHitLoop();
 	void DoMRDpreHitLoop();
-	void DoMRDeventwide(Int_t &numtruehits, Int_t &numdigits);
+	void DoMRDpreTriggerLoop();
+	void DoMRDtrigger(int &numtruehits, int &numdigits);
+	void DoMRDpostTriggerLoop(int &numtruehits, int &numdigits);
 	void DoMRDtrueHits();
 	void DoMRDdigitHits();
 	void DoMRDpostHitLoop();
 	void DoVetoPreHitLoop();
-	void DoVetoEventwide(Int_t &numtruehits, Int_t &numdigits);
+	void DoVetoPreTriggerLoop();
+	void DoVetoTrigger(int &numtruehits, int &numdigits);
+	void DoVetoPostTriggerLoop(int &numtruehits, int &numdigits);
 	void DoVetoTrueHits();
 	void DoVetoDigitHits();
 	void DoVetoPostHitLoop();
 	
 	// functions - post-event-loop analysis initializations
-	void DoTankPostLoop();
-	void DoMRDpostLoop();
-	void DoVetoPostLoop();
+	void DoTankPostEventLoop();
+	void DoMRDpostEventLoop();
+	void DoVetoPostEventLoop();
 	
 	// functions - histogram declaration
 	void DefineTankHistos();
@@ -279,6 +358,7 @@ WCSimAnalysis::~WCSimAnalysis(){
 	cout<<"deleting geometry, branches and triggers"<<endl;
 	// wcsim classes
 	if( geo ) { delete geo; geo=0; }
+	if( opt ) { delete opt; opt=0; }
 	cout<<"deleting branches"<<endl;
 	if( b ) { delete b; b=0; }
 	if( m ) { delete m; m=0; }
@@ -368,6 +448,11 @@ WCSimAnalysis::~WCSimAnalysis(){
 #include "mrdanalysis.cxx"
 #include "vetoanalysis.cxx"
 #include "findvetotracks.cxx"
+#include "createrawfile.cxx"
+#include "fill_emulated_ccdata.cxx"
+#include "fill_emulated_triggerdata.cxx"
+#include "fill_emulated_pmtdata.cxx"
+#include "gettemplateruninfo.cxx"
 
 //TODO std::string intxnumtotype(gst genieeventasclass){
 

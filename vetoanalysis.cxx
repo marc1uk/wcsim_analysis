@@ -3,19 +3,25 @@
 
 // VETO PRE-EVENT-LOOP ACTIONS
 // ===============================
-void WCSimAnalysis::DoVetoPreLoop(){
+void WCSimAnalysis::DoVetoPreEventLoop(){
 	DefineVetoHistos();
 	//OpenFACCtrackOutfile(wcsimfilenum);
 }
 
 //############################################################################################
 
-// VETO EVENT-WIDE ACTIONS
+// VETO PRE-TRIGGER LOOP ACTIONS
 // ===============================
-void WCSimAnalysis::DoVetoEventwide(Int_t &numtruehits, Int_t &numdigits){
+void WCSimAnalysis::DoVetoPreTriggerLoop(){
+}
+
+//############################################################################################
+
+// VETO TRIGGER ACTIONS
+// ===============================
+void WCSimAnalysis::DoVetoTrigger(Int_t &numtruehits, Int_t &numdigits){
 	numtruehits = atrigv->GetCherenkovHits()->GetEntries();
 	numdigits = atrigv->GetCherenkovDigiHits()->GetEntries();
-	FillVetoEventWideHists(numtruehits, numdigits);
 }
 
 //############################################################################################
@@ -62,6 +68,8 @@ void WCSimAnalysis::DoVetoDigitHits(){
 		// call functions that use this information
 		// ========================================
 		FillVetoDigiHitsHist(digihit);
+		
+		if(add_emulated_ccdata) AddCCDataEntry(digihit);
 	}
 }
 
@@ -70,13 +78,22 @@ void WCSimAnalysis::DoVetoDigitHits(){
 // VETO POST-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoVetoPostHitLoop(){
-	FindVetoTracksInEvent();
+	//FindVetoTracksInEvent();
+	//FillEmulatedCCData(); Fill() is called per digit.
+}
+
+//############################################################################################
+
+// VETO POST-TRIGGER LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoVetoPostTriggerLoop(Int_t &numtruehits, Int_t &numdigits){
+	FillVetoEventWideHists(numtruehits, numdigits);
 }
 
 //############################################################################################
 
 // VETO POST-EVENT-LOOP ACTIONS
 // ===============================
-void WCSimAnalysis::DoVetoPostLoop(){
+void WCSimAnalysis::DoVetoPostEventLoop(){
 	DrawVetoHistos();
 }

@@ -212,13 +212,19 @@ void truthtracks(){
 	cBonsaiEvent* bonsaievent = new cBonsaiEvent();
 	
 	// mrdtree
+	Int_t mrdeventnum=-1;
+	Int_t mrdtriggernum;
 	Int_t numMrdEvents;
 	Int_t numMrdTracks;
 	TClonesArray* mrdevents = new TClonesArray("cMRDSubEvent");
+	int currentmrdtreeentry=-1; // keeps track of the matching of mrdtree entries with wcsimT entries
 	
 	// vetotree
+	//Int_t vetoeventnum=-1;
+	//Int_t vetotriggernum;
 	//Int_t numVetoEvents;
 	//TClonesArray* vetoevents = new TClonesArray("cVetoEvent");
+	int currentvetotreeentry=-1;
 	
 	// geoT
 	WCSimRootGeom* geo = 0; 
@@ -592,7 +598,7 @@ void truthtracks(){
 			if(nummrdentries==0){cout<<"mrdtree has no entries!"<<endl; break; }
 			
 			// load Veto event file
-			/*
+			/*  disabled because dirt events won't have a veto. we should probably enable it anyway.
 			vetofilepath = TString::Format("%s/vetotrackfile.%d.root",analysispath,filenum);
 			//cout<<"corresponding veto event file is "<<wcsimfilepath<<endl;
 			vetofile = TFile::Open(vetofilepath);
@@ -658,11 +664,17 @@ void truthtracks(){
 			gtree->SetBranchAddress("gmcrec",&genierecordval,&genierecordBranch);
 			
 			// mrdtree:
+			// to support multiple triggers, we won't have 1:1 event correspondance with wcsimT.
+			// we need to scan mrdtree to find all events with mrdeventnum the same as the wcsimT entry.
+			mrdtree->SetBranchAddress("EventID",&mrdeventnum);
+			mrdtree->SetBranchAddress("TriggerID",&mrdtriggernum);
 			mrdtree->SetBranchAddress("nummrdsubeventsthisevent",&numMrdEvents);
 			mrdtree->SetBranchAddress("nummrdtracksthisevent",&numMrdTracks);
 			mrdtree->SetBranchAddress("subeventsinthisevent",&mrdevents);
 			
 			// vetotree: TODO TODO TODO
+			//vetotree->SetBranchAddress("EventID",&vetoeventnum);
+			//vetotree->SetBranchAddress("TriggerID",&vetotriggernum);
 			//vetotree->SetBranchAddress("numvetoeventsthisevent",&numVetoEvents);
 			//vetotree->SetBranchAddress("vetoeventsinthisevent",&vetoevents);
 			
@@ -1061,7 +1073,15 @@ void truthtracks(){
 		Double_t muonmass = (db.GetParticle(13)->Mass())*1000.;      // converted to MeV
 		// need this when calculating neutrino event info, which uses relativistic muon energy
 		
-		if(numMrdEvents>0) hadMrdEvent=true;
+		// was this working before? didn't appear to actually load the MRD entry!?!
+		// scan forward to the next MRD tree entry with eventnum = the current wcsimT tree entry.
+		while(mrdeventnum<wcsimTentry){
+			currentmrdtreeentry++;
+			mrdtree->GetEntry(currentmrdtreeentry);
+		}
+		// how about scanning to find the right trigger? we need to do that too! XXX FIXME XXX XXX FIXME XXX
+		
+		if(mrdeventnum==wcsimTentry&&numMrdEvents>0) hadMrdEvent=true;
 		// in case we find no suitable tracks, pre-fill with blanks
 		mrdEntryVertex=TVector3(0,0,0);
 		mrdEntryTime= 0;
@@ -1082,10 +1102,9 @@ void truthtracks(){
 		int matchedsubevent=-1;
 		int matchedtrack=-1;
 		
-		if(numMrdTracks>0){ // quick skip
+		if(mrdeventnum==wcsimTentry&&numMrdTracks>0){ // quick skip
 			hadMrdTrack=true;
 			mrdevents->Clear();
-			mrdtree->GetEntry(wcsimTentry);
 			assert(numMrdEvents==mrdevents->GetEntriesFast()
 				&&"Num MRD SubEvents in TClonesArray does not match claimed number!");
 			
@@ -1353,11 +1372,26 @@ void truthtracks(){
 		
 		/* veto events are empty until dirt events are simulated */
 		/*
-		vetoevent->Clear();
-		vetotree->GetEntry(wcsimTentry);
-		*/
-		hadVetoEvent  = false;
-		vetoEventTime = 0.;
+		// scan forward to the next MRD tree entry with eventnum = the current wcsimT tree entry.
+		while(vetoeventnum<wcsimTentry){
+			currentvetotreeentry++;
+			vetotree->GetEntry(currentvetotreeentry);
+		}
+		if(currentvetotreeentry!=wcsimTentry){ // don't think this should ever happen: we should have at least 1
+			hadVetoEvent  = false;
+			vetoEventTime = 0.;
+		} else {
+			
+			// we should also check for matching trigger... we may have >1 trigger
+			// at the least the event time will be relative to trigger time.
+			//  XXX FIXME XXX XXX FIXME XXX
+			
+			vetoevent->Clear();???? there is no variable vetoevent. placeholder code? unneeded?
+			vetotree->GetEntry(wcsimTentry);
+			*/
+			hadVetoEvent  = false;
+			vetoEventTime = 0.;
+		//}
 		
 		// ==================================================================================================
 		// combine events to calculate neutrino reconstructed information

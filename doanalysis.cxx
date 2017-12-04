@@ -1,100 +1,200 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 //############################################################################################
 
+#define FILE_VERSION 2
+#define VERBOSE 1
+/*
+Version 1:
+wcsim_wdirt_07-02-17, 200 PMTs + 200 LAPPDs, including dirt intx.
+
+Version 2:
+wcsim_tankonly_03-05-17, 200 PMTs + 200 LAPPDs, tank only, with bug fixes, bad lappd pulse timing resoln
+
+Version 3:
+wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8inHQE), no LAPPDs.
+
+Version 4:
+???????????????????????, 120 PMTs of 3 different types, no LAPPDs?, ANNIE Hefty triggering.
+*/
+
 // LOOP OVER EVENTS TO DO ANALYSIS
 // ===============================
 void WCSimAnalysis::DoAnalysis(){
 
 	InitEnvironment();			// things like loading the libraries and class header locations
 	LoadInputFiles();			// open input tchain
+	LoadOutputFiles();			// create and open output files - must go after loading first entry
 	MakePMTmap(); 				// map pmt positions from geometry file (only uses geotree)
 	GetTreeData(); 				// get branches from tree, get triggers from the first entry
 
 	// Declare loop locals
 	// ===================
 	eventnum=0;
+	sequence_id=0;
+	minibuffer_id=0;
 	firstfile=1000;
 	treeNumber=-1;
 	
 	// Perform Pre-Loop actions
-	DoTankPreLoop();
-	DoMRDpreLoop();
-	DoVetoPreLoop();
+#ifdef VERBOSE
+	cout<<"performing Tank PreEventLoop"<<endl;
+#endif
+	DoTankPreEventLoop();
+#ifdef VERBOSE
+	cout<<"performing MRD PreEventLoop"<<endl;
+#endif
+	DoMRDpreEventLoop();
+#ifdef VERBOSE
+	cout<<"performing FACC PreEventLoop"<<endl;
+#endif
+	DoVetoPreEventLoop();
+	
+	if(add_emulated_pmtdata) FillEmulatedRunInformation();
 	
 	// Loop over events
 	// ================
 	cout<<"Looping over entries"<<endl;
-	int breakearlyat=-1;
+	int breakearlyat=2;
 	int maxdigits=0;
 	do {
 		// load next entry, including new trees and setting branch addresses when necessary
-		//cout<<"loading entry "<<eventnum<<endl;
+#ifdef VERBOSE
+		cout<<"loading entry "<<eventnum<<endl;
+#endif
 		int entryvalid = LoadTchainEntry(eventnum); // note eventnum may be modified within this function!
-		//cout<<"analyzing event "<<eventnum<<endl;
+#ifdef VERBOSE
+		cout<<"analyzing event "<<eventnum<<endl;
+#endif
 		if(entryvalid==0 || (eventnum>=breakearlyat&&breakearlyat>0)){ break; }
 		
-		// TODO: should include a loop over triggers here
 		// TODO: TO BE ABLE TO DO THIS MRDTRACKCLASS AND VETOTRACKCLASS NEED TO SUPPORT
 		// MULTIPLE TRIGGERS PER TREE ENTRY
-		Int_t trigger=0;
-		// for(Int_t trigger=0; trigger< (b->GetNumberOfEvents()); trigger++){
-		atrigt = b->GetTrigger(trigger);
-		atrigm = m->GetTrigger(trigger);
-		atrigv = v->GetTrigger(trigger);
+#ifdef VERBOSE
+		cout<<"Doing PreTriggerLoops"<<endl;
+#endif
+		DoTankPreTriggerLoop();
+		DoMRDpreTriggerLoop();
+		DoVetoPreTriggerLoop();
 		
-		header = atrigt->GetHeader();
-		//eventnum = header->GetEvtNum();					<<< not sure this works
-		runnum = header->GetRun();
-		triggernum = header->GetSubEvtNumber();
+		// store event wide counters outside the trigger loop.
+		int numtankhits=0, numtankdigits=0;
+		int nummrdhits=0, nummrddigits=0;
+		int numvetohits=0, numvetodigits=0;
 		
-		// TANK ANALYSIS
-		// =============
-		int numtanktruehits=0, numtankdigits=0;
-		// pre hit loop actions
-		DoTankEventwide(numtanktruehits, numtankdigits);
-		// loop over true hits and digits internally
-		DoTankPreHitLoop();
-		DoTankTrueHits();
-		DoTankDigitHits();
-		// post hit loop actions
-		DoTankPostHitLoop();
-		//if(numtankdigits>maxdigits){ maxdigits=numtankdigits; cout<<"maxdigits now "<<maxdigits<<endl; }
-//		if(numtankdigits==79){ cout<<numtankdigits<<" digits in this event"<<endl; break; }
+		triggernum=0;
+		for(triggernum=0; triggernum< (b->GetNumberOfEvents()); triggernum++){
+#ifdef VERBOSE
+			cout<<"Getting Triggers"<<endl;
+#endif
+			atrigt = b->GetTrigger(triggernum);
+			atrigm = m->GetTrigger(triggernum);
+			atrigv = v->GetTrigger(triggernum);
+			
+#ifdef VERBOSE
+			cout<<"Getting Header info"<<endl;
+#endif
+			header = atrigt->GetHeader();
+			//int event_id = header->GetEvtNum();               <<< not sure this works
+			runnum = header->GetRun();
+			//int trigger_id = header->GetSubEvtNumber();
+			
+			// TANK ANALYSIS
+			// =============
+#ifdef VERBOSE
+			cout<<"Doing Tank Trigger Analaysis"<<endl;
+#endif
+			DoTankTrigger(numtankhits, numtankdigits);
+			// pre hit loop actions
+#ifdef VERBOSE
+			cout<<"Doing Tank PreHitLoop Analaysis"<<endl;
+#endif
+			DoTankPreHitLoop();
+			// loop over true hits and digits internally
+#ifdef VERBOSE
+			cout<<"Doing Tank True Hit Analaysis"<<endl;
+#endif
+			DoTankTrueHits();
+#ifdef VERBOSE
+			cout<<"Doing Tank Digit Analaysis"<<endl;
+#endif
+			DoTankDigitHits();
+			// post hit loop actions
+#ifdef VERBOSE
+			cout<<"Doing Tank PostHitLoop Analaysis"<<endl;
+#endif
+			DoTankPostHitLoop();
+			//if(numtankdigits>maxdigits){ maxdigits=numtankdigits; cout<<"maxdigits now "<<maxdigits<<endl; }
+			//if(numtankdigits==79){ cout<<numtankdigits<<" digits in this event"<<endl; break; }
+			
+			// MRD ANALYSIS
+			// ============
+#ifdef VERBOSE
+			cout<<"Doing MRD Analaysis"<<endl;
+#endif
+			DoMRDtrigger(nummrdhits, nummrddigits);
+			// pre hit loop actions
+			DoMRDpreHitLoop();
+			// loop over true hits and digits internally
+			DoMRDtrueHits();
+			DoMRDdigitHits();
+			// post hit loop actions
+			DoMRDpostHitLoop();
+			
+			// VETO ANALYSIS
+			// =============
+#ifdef VERBOSE
+			cout<<"Doing FACC Analaysis"<<endl;
+#endif
+			DoVetoTrigger(numvetohits, numvetodigits);
+			// pre hit loop actions
+			DoVetoPreHitLoop();
+			// loop over true hits and digits internally
+			DoVetoTrueHits();
+			DoVetoDigitHits();
+			// post hit loop actions
+			DoVetoPostHitLoop();
+			
+			// advance the counter of triggers (minibuffers)
+			minibuffer_id++;
+			if(minibuffer_id==minibuffers_per_fullbuffer){
+#ifdef VERBOSE
+				cout<<"Filling Emulated PMT Data"<<endl;
+#endif
+				minibuffer_id=0;
+				if(add_emulated_pmtdata) FillEmulatedPMTData();
+				sequence_id++;
+			}
+			// LOOP TO NEXT TRIGGER
+			// ====================
+#ifdef VERBOSE
+			cout<<"Looping to next trigger"<<endl;
+#endif
+		}
 		
-		// MRD ANALYSIS
-		// ============
-		int nummrdtruehits=0, nummrddigits=0;
-		// pre hit loop actions
-		DoMRDeventwide(nummrdtruehits, nummrddigits);
-		// loop over true hits and digits internally
-		DoMRDpreHitLoop();
-		DoMRDtrueHits();
-		DoMRDdigitHits();
-		// post hit loop actions
-		DoMRDpostHitLoop();
+#ifdef VERBOSE
+			cout<<"Doing PostTriggerLoops"<<endl;
+#endif
+		DoTankPostTriggerLoop(numtankhits, numtankdigits);
+		DoMRDpostTriggerLoop(nummrdhits, nummrddigits);
+		DoVetoPostTriggerLoop(numvetohits, numvetodigits);
 		
-		// VETO ANALYSIS
-		// =============
-		int numvetotruehits=0, numvetodigits=0;
-		// pre hit loop actions
-		DoVetoEventwide(numvetotruehits, numvetodigits);
-		// loop over true hits and digits internally
-		DoVetoPreHitLoop();
-		DoVetoTrueHits();
-		DoVetoDigitHits();
-		// post hit loop actions
-		DoVetoPostHitLoop();
+		//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos
+		eventnum++;
+		b->ReInitialize();
+		m->ReInitialize();
+		v->ReInitialize();
 		
 		// LOOP TO NEXT EVENT
 		// ==================
-		//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos
-		eventnum++;
 	} while (1);
 	cout<<"Reached end of TChain: analysed "<<eventnum<<" events"<<endl;
 	
-	DoTankPostLoop();
-	DoMRDpostLoop();
-	DoVetoPostLoop();
+#ifdef VERBOSE
+	cout<<"doing PostEventLoops"<<endl;
+#endif
+	DoTankPostEventLoop();
+	DoMRDpostEventLoop();
+	DoVetoPostEventLoop();
 	
 //	DrawGlobalHistos(); 	// doesn't fall into any other category.... 
 }

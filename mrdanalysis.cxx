@@ -3,21 +3,25 @@
 
 // MRD PRE-EVENT-LOOP ACTIONS
 // ===============================
-void WCSimAnalysis::DoMRDpreLoop(){
+void WCSimAnalysis::DoMRDpreEventLoop(){
 	DefineMRDhistos();
 	//OpenMRDtrackOutfile(wcsimfilenum);	// open file for writing mrd tracks
-	//TClonesArray* aTrack; clear this?
-	//TClonesArray &aTracka = *aTrack; reset this?
 }
 
 //############################################################################################
 
-// MRD EVENT-WIDE ACTIONS
+// MRD PRE-TRIGGER LOOP ACTIONS
 // ===============================
-void WCSimAnalysis::DoMRDeventwide(Int_t &numtruehits, Int_t &numdigits){
-	numtruehits = atrigm->GetCherenkovHits()->GetEntries();
-	numdigits = atrigm->GetCherenkovDigiHits()->GetEntries();
-	FillMRDeventWideHists(numtruehits, numdigits);
+void WCSimAnalysis::DoMRDpreTriggerLoop(){
+}
+
+//############################################################################################
+
+// MRD TRIGGER ACTIONS
+// ===================
+void WCSimAnalysis::DoMRDtrigger(Int_t &numtruehits, Int_t &numdigits){
+	numtruehits += atrigm->GetCherenkovHits()->GetEntries();
+	numdigits += atrigm->GetCherenkovDigiHits()->GetEntries();
 }
 
 //############################################################################################
@@ -64,6 +68,8 @@ void WCSimAnalysis::DoMRDdigitHits(){
 		// call functions that use this information
 		// ========================================
 		FillMRDdigiHitsHist(digihit);
+		
+		if(add_emulated_ccdata) AddCCDataEntry(digihit);
 	}
 }
 
@@ -72,13 +78,22 @@ void WCSimAnalysis::DoMRDdigitHits(){
 // MRD POST-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoMRDpostHitLoop(){
-	FindMRDtracksInEvent();
+	//FindMRDtracksInEvent(); 
+	FillEmulatedCCData(); // ensure CCData hits are written to raw file. Currently unneeded.
+}
+
+//############################################################################################
+
+// MRD POST-TRIGGER LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoMRDpostTriggerLoop(Int_t &numtruehits, Int_t &numdigits){
+	FillMRDeventWideHists(numtruehits, numdigits);
 }
 
 //############################################################################################
 
 // MRD POST-EVENT-LOOP ACTIONS
 // ===============================
-void WCSimAnalysis::DoMRDpostLoop(){
+void WCSimAnalysis::DoMRDpostEventLoop(){
 	DrawMRDhistos();
 }

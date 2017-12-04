@@ -3,18 +3,30 @@
 
 // TANK PRE-EVENT-LOOP ACTIONS
 // ===============================
-void WCSimAnalysis::DoTankPreLoop(){
+void WCSimAnalysis::DoTankPreEventLoop(){
 	DefineTankHistos();
 }
 
 //############################################################################################
 
-// TANK EVENT-WIDE ACTIONS
+// TANK PRE-TRIGGER LOOP ACTIONS
 // ===============================
-void WCSimAnalysis::DoTankEventwide(Int_t &numtruehits, Int_t &numdigits){
-	numtruehits = atrigt->GetCherenkovHits()->GetEntries();
-	numdigits = atrigt->GetCherenkovDigiHits()->GetEntries();
-	FillTankEventWideHists(numtruehits, numdigits);
+void WCSimAnalysis::DoTankPreTriggerLoop(){
+}
+
+//############################################################################################
+
+// TANK TRIGGER ACTIONS
+// ====================
+void WCSimAnalysis::DoTankTrigger(Int_t &numtruehits, Int_t &numdigits){
+	numtruehits += atrigt->GetCherenkovHits()->GetEntries();
+	numdigits += atrigt->GetCherenkovDigiHits()->GetEntries();
+	
+	if(add_emulated_pmtdata){
+		// if starting a fresh readout, set the top level (non-minibuffer level) readout details
+		if(minibuffer_id==0) ConstructEmulatedPmtDataReadout();
+		AddMinibufferStartTime();
+	}
 }
 
 //############################################################################################
@@ -63,10 +75,12 @@ void WCSimAnalysis::DoTankDigitHits(){
 		// ============================
 		WCSimRootCherenkovDigiHit* digihit = (WCSimRootCherenkovDigiHit*)atrigt->GetCherenkovDigiHits()->At(i);
 		//WCSimRootChernkovDigiHit has methods GetTubeId(), GetT(), GetQ()
-
+		
 		// call functions that use this information
 		// ========================================
 		FillTankDigiHitsHist(digihit);
+		
+		if(add_emulated_pmtdata) AddPMTDataEntry(digihit);
 	}
 }
 
@@ -96,12 +110,25 @@ void WCSimAnalysis::DoTankPostHitLoop(){
 			bottomcaphist->Draw("colz");
 		}
 	}
+	
+	if(add_emulated_pmtdata) FillEmulatedPMTData();
+	if(add_emulated_triggerdata) FillEmulatedTrigData();
+	// where do we need to fill fileout_EventTimes / fileout_TriggerCounters arrays?
+	// should these be called here (once per trigger) or in Post Trigger Loop (once per event)??
+}
+
+//############################################################################################
+
+// TANK POST-TRIGGER LOOP ACTIONS
+// ===============================
+void WCSimAnalysis::DoTankPostTriggerLoop(Int_t &numtruehits, Int_t &numdigits){
+	FillTankEventWideHists(numtruehits, numdigits);
 }
 
 //############################################################################################
 
 // TANK POST-EVENT-LOOP ACTIONS
 // ===============================
-void WCSimAnalysis::DoTankPostLoop(){
+void WCSimAnalysis::DoTankPostEventLoop(){
 	DrawTankHistos();
 }
