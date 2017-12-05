@@ -1,5 +1,8 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 // #######################################################################
+#ifndef EMULATED_OUT_VERBOSE
+//#define EMULATED_OUT_VERBOSE 1
+#endif
 
 namespace {
 	// Used to convert between seconds and nanoseconds
@@ -9,6 +12,9 @@ namespace {
 }
 
 void WCSimAnalysis::AddPMTDataEntry(WCSimRootCherenkovDigiHit* digihit){
+#ifdef EMULATED_OUT_VERBOSE
+	//cout<<"adding emulated PMT data digit"<<endl;
+#endif
 	//WCSimRootChernkovDigiHit has methods GetTubeId(), GetT(), GetQ()
 	
 	/*
@@ -34,8 +40,9 @@ void WCSimAnalysis::AddPMTDataEntry(WCSimRootCherenkovDigiHit* digihit){
 	   this shuld also be shortened for ANNIE
 	*/
 	
-	int channelnum = digihit->GetTubeId()%channels_per_adc_card;
-	int cardid = (digihit->GetTubeId()-channelnum)/channels_per_adc_card;
+	// remember tubeids start from 1
+	int channelnum = (digihit->GetTubeId()-1)%channels_per_adc_card;
+	int cardid = ((digihit->GetTubeId()-1)-channelnum)/channels_per_adc_card;
 	
 	/* digit time is relative to the trigger time (ndigits threshold crossing).
 	   we need to convert this to position of the digit within the minibuffer data array 
@@ -70,6 +77,9 @@ void WCSimAnalysis::AddPMTDataEntry(WCSimRootCherenkovDigiHit* digihit){
 }
 
 void WCSimAnalysis::GenerateMinibufferPulse(int digit_index, double digit_charge, std::vector<uint16_t> &pulsevector){
+#ifdef EMULATED_OUT_VERBOSE
+	//cout<<"generating emulated digit pulse"<<endl;
+#endif
 	// need to construct a waveform which crosses a Hefty threshold at digit_index
 	// and has integral digit_charge. A landau function has approximately the right shape
 	if(fLandau==nullptr){
@@ -96,6 +106,9 @@ void WCSimAnalysis::GenerateMinibufferPulse(int digit_index, double digit_charge
 }
 
 void WCSimAnalysis::AddMinibufferStartTime(){
+#ifdef EMULATED_OUT_VERBOSE
+	cout<<"Adding a new minibuffer start time to emulated PMT data"<<endl;
+#endif
 	
 	// we need to record in the readout the start time of this minibuffer relative to the card 
 	// initialization time (StartTimeSec+StartTimeNSec, or StartCount)
@@ -119,6 +132,9 @@ void WCSimAnalysis::AddMinibufferStartTime(){
 }
 
 void WCSimAnalysis::ConstructEmulatedPmtDataReadout(){
+#ifdef EMULATED_OUT_VERBOSE
+	cout<<"constructing emulated PMT data"<<endl;
+#endif
 	// fill all the non-minibuffer info and reset the minibuffers
 	
 	// going to use the time of the first trigger in the readout as StartTime, for all cards.
@@ -129,6 +145,8 @@ void WCSimAnalysis::ConstructEmulatedPmtDataReadout(){
 	
 	if(emulated_pmtdata_readout.size()<num_adc_cards){
 		emulated_pmtdata_readout= std::vector<CardData>(num_adc_cards);
+		std::vector<uint16_t> tempvec(full_buffer_size);
+		temporary_databuffers = std::vector< std::vector<uint16_t> >(num_adc_cards,tempvec);
 	}
 	
 	for(int cardi=0; cardi<num_adc_cards; cardi++){
@@ -153,6 +171,9 @@ void WCSimAnalysis::ConstructEmulatedPmtDataReadout(){
 }
 
 void WCSimAnalysis::FillEmulatedPMTData(){
+#ifdef EMULATED_OUT_VERBOSE
+	cout<<"filling emulated PMT data tree entries for this full buffer readout"<<endl;
+#endif
 	//fileout_TriggerCounts = new ULong64_t[minibuffers_per_fullbuffer];  // must be >= fileout_TriggerNumber
 	//fileout_Rates         = new Int_t[channels_per_adc_card];           // must be >= fileout_Channels
 	//fileout_Data          = new UShort_t[full_buffer_size];             // must be >= fileout_FullBufferSize

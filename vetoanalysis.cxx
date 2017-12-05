@@ -20,8 +20,8 @@ void WCSimAnalysis::DoVetoPreTriggerLoop(){
 // VETO TRIGGER ACTIONS
 // ===============================
 void WCSimAnalysis::DoVetoTrigger(Int_t &numtruehits, Int_t &numdigits){
-	numtruehits = atrigv->GetCherenkovHits()->GetEntries();
-	numdigits = atrigv->GetCherenkovDigiHits()->GetEntries();
+	numtruehits += atrigv->GetCherenkovHits()->GetEntries();
+	numdigits += atrigv->GetCherenkovDigiHits()->GetEntries();
 }
 
 //############################################################################################

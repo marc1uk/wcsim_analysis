@@ -7,6 +7,7 @@ TString pwd = gSystem->Getenv("PWD");
 TString wcsimlibraryloc = pwd + "/../wcsim/";
 TString wcsimincludeloc = wcsimlibraryloc + "/include/";
 gInterpreter->AddIncludePath(wcsimincludeloc);
+// n.b. for later versions of root gInterpreter->AddInclude(path); will accept path prefixed with -I for consistency
 //gSystem->AddIncludePath(TString::Format("%s%s","-I",wcsimincludeloc.Data()));
 
 //TString includeline = "#include \"" + wcsimincludeloc;

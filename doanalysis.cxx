@@ -54,7 +54,7 @@ void WCSimAnalysis::DoAnalysis(){
 	// Loop over events
 	// ================
 	cout<<"Looping over entries"<<endl;
-	int breakearlyat=2;
+	int breakearlyat=10;
 	int maxdigits=0;
 	do {
 		// load next entry, including new trees and setting branch addresses when necessary
@@ -84,7 +84,7 @@ void WCSimAnalysis::DoAnalysis(){
 		triggernum=0;
 		for(triggernum=0; triggernum< (b->GetNumberOfEvents()); triggernum++){
 #ifdef VERBOSE
-			cout<<"Getting Triggers"<<endl;
+			cout<<"Getting Triggers "<<triggernum<<endl;
 #endif
 			atrigt = b->GetTrigger(triggernum);
 			atrigm = m->GetTrigger(triggernum);
@@ -168,6 +168,9 @@ void WCSimAnalysis::DoAnalysis(){
 			// ====================
 #ifdef VERBOSE
 			cout<<"Looping to next trigger"<<endl;
+			b->ReInitialize();
+			m->ReInitialize();
+			v->ReInitialize();
 #endif
 		}
 		
@@ -180,9 +183,6 @@ void WCSimAnalysis::DoAnalysis(){
 		
 		//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos
 		eventnum++;
-		b->ReInitialize();
-		m->ReInitialize();
-		v->ReInitialize();
 		
 		// LOOP TO NEXT EVENT
 		// ==================

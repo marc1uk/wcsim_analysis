@@ -27,6 +27,7 @@ void WCSimAnalysis::DoTankTrigger(Int_t &numtruehits, Int_t &numdigits){
 		if(minibuffer_id==0) ConstructEmulatedPmtDataReadout();
 		AddMinibufferStartTime();
 	}
+	cout<<endl<<"ok"<<endl;
 }
 
 //############################################################################################
@@ -79,7 +80,7 @@ void WCSimAnalysis::DoTankDigitHits(){
 		// call functions that use this information
 		// ========================================
 		FillTankDigiHitsHist(digihit);
-		
+		cout<<"adding pmt data entry"<<endl;
 		if(add_emulated_pmtdata) AddPMTDataEntry(digihit);
 	}
 }

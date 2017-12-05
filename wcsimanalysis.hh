@@ -2,6 +2,8 @@
 #ifndef WCSimAnalysisClass
 #define WCSimAnalysisClass
 
+#define FILE_VERSION 2
+
 #include "TROOT.h"
 #include "TRint.h"
 #include "TSystem.h"
@@ -38,15 +40,19 @@
 #include "WCSimPmtInfo.hh"
 #include "WCSimLAPPDInfo.hh"
 #include "WCSimEnumerations.hh"
-#include "WCSimRootOptions.hh"
 #include "WCSimRootLinkDef.hh"
+#if FILE_VERSION>1
+#include "WCSimRootOptions.hh"
+#endif
 //#include "../wcsim/include/WCSimRootEvent.hh"
 //#include "../wcsim/include/WCSimRootGeom.hh"
 //#include "../wcsim/include/WCSimPmtInfo.hh"
 //#include "../wcsim/include/WCSimLAPPDInfo.hh"
 //#include "../wcsim/include/WCSimEnumerations.hh"
-//#include "../wcsim/include/WCSimRootOptions.hh"
 //#include "../wcsim/include/WCSimRootLinkDef.hh"
+//#if FILE_VERSION>2
+//#include "../wcsim/include/WCSimRootOptions.hh"
+//#endif
 // #######################################################################
 // from ANNIEDAQ
 #include "CardData.h"
@@ -86,7 +92,7 @@ class WCSimAnalysis : public TObject {
 	WCSimRootTrigger* atrigm=0;
 	WCSimRootTrigger* atrigv=0;
 	WCSimRootEventHeader* header=0;
-	int firstfile=0; // skips analysis of files in a TChain with number less than this
+	int firstfilenum=0; // skips analysis of files in a TChain with number less than this
 	TTree* currenttree;
 	TFile* currentfile;
 	std::string currentfilestring;
