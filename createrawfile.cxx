@@ -33,7 +33,7 @@ void WCSimAnalysis::LoadOutputFiles(){
 	//*----------------------------------------------------------------------------*
 	tPMTData      = new TTree("PMTData","");
 	fileout_TriggerCounts = new ULong64_t[minibuffers_per_fullbuffer];     // must be >= TriggerNumber
-	fileout_Rates         = new Int_t[channels_per_adc_card];              // must be >= Channels
+	fileout_Rates         = new UInt_t[channels_per_adc_card];              // must be >= Channels
 	fileout_Data          = new UShort_t[full_buffer_size];                // must be >= FullBufferSize
 	//*............................................................................*
 	TBranch *bLastSync       = tPMTData->Branch("LastSync", &fileout_LastSync);
@@ -47,7 +47,7 @@ void WCSimAnalysis::LoadOutputFiles(){
 	TBranch *bCardID         = tPMTData->Branch("CardID", &fileout_CardID);
 	TBranch *bChannels       = tPMTData->Branch("Channels", &fileout_Channels);
 	TBranch *bRates          = tPMTData->Branch("Rates", &fileout_Rates, 
-		"fileout_Rates[Channels]/I");
+		"fileout_Rates[Channels]/i");
 	TBranch *bBufferSize     = tPMTData->Branch("BufferSize", &fileout_BufferSize);
 	TBranch *bEventsize      = tPMTData->Branch("Eventsize", &fileout_Eventsize);
 	TBranch *bFullBufferSize = tPMTData->Branch("FullBufferSize", &fileout_FullBufferSize);
@@ -66,7 +66,7 @@ void WCSimAnalysis::LoadOutputFiles(){
 	//*............................................................................*
 	TBranch *bFirmwareVersion = tTrigData->Branch("FirmwareVersion", &fileout_FirmwareVersion);
 	TBranch *bSequenceID2     = tTrigData->Branch("SequenceID", &fileout_SequenceID);
-	TBranch *bEventsize2       = tTrigData->Branch("Eventsize", &fileout_Eventsize);
+	TBranch *bEventsize2      = tTrigData->Branch("Eventsize", &fileout_Eventsize);
 	TBranch *bTriggerSize     = tTrigData->Branch("TriggerSize", &fileout_TriggerSize);
 	TBranch *bFIFOOverflow    = tTrigData->Branch("FIFOOverflow", &fileout_FIFOOverflow);
 	TBranch *bDriverOverfow   = tTrigData->Branch("DriverOverfow", &fileout_DriverOverfow);
@@ -88,6 +88,8 @@ void WCSimAnalysis::LoadOutputFiles(){
 	TBranch *bChannel   = tCCData->Branch("Channel", &fileout_Channel);
 	TBranch *bTimeStamp = tCCData->Branch("TimeStamp", &fileout_TimeStamp);
 	//*............................................................................*
+	
+	gROOT->cd();
 	
 //	RunInformation: fixed 11 entries per run;
 //	PMTData: one entry per trigger readout (6128 entries);

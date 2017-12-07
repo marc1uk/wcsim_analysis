@@ -46,7 +46,9 @@ void WCSimAnalysis::LoadInputFiles(){
 			assert(false&&"Check input path: stat says it's neither file nor directory..?");
 		}
 	} else {
-		assert(false&&"stat failed on input path! Is it valid?"); // error
+		//assert(false&&"stat failed on input path! Is it valid?"); // error
+		// errors could be because this is a file pattern: e.g. wcsim_0.4*.root Treat as a file.
+		isdir=false;
 	}
 	
 	if(isdir){
@@ -121,8 +123,14 @@ void WCSimAnalysis::LoadInputFiles(){
 	if (opttree->GetEntries() == 0) { cout<<"opttree has no entries!"<<endl; exit(9); }
 	opttree->GetEntry(0);
 	opt->Print();
-	pre_trigger_window_ns = opt->GetNDigitsPreTriggerWindow();
+	pre_trigger_window_ns = -1.*opt->GetNDigitsPreTriggerWindow(); // NOTE: OPTIONS STORE AS NEGATIVE. 
 	post_trigger_window_ns = opt->GetNDigitsPostTriggerWindow();
+	
+	//total trigger time is 1350ns (950+400) / 2ns -> 675 samples/ minibuffer / channel
+	//-> 675*40 = 27,000 samples / channel = 108,000 points per full buffer.
+	minibuffer_datapoints_per_channel = (pre_trigger_window_ns+post_trigger_window_ns) / ADC_NS_PER_SAMPLE;
+	full_buffer_size = minibuffer_datapoints_per_channel * channels_per_adc_card * minibuffers_per_fullbuffer;
+	emulated_event_size = minibuffer_datapoints_per_channel / 4.; // the 4 comes from ADC firmware stuff.
 }
 
 //############################################################################################
@@ -204,7 +212,7 @@ int WCSimAnalysis::LoadTchainEntry(Int_t &eventnum){
 		}
 		break;
 	} // end of do while - break after skipping selected entries.
-	cout<<"Loading entry "<<eventnum<<endl;
+	//cout<<"Loading entry "<<eventnum<<endl;
 	t->GetEntry(eventnum);
 	return 1;
 }

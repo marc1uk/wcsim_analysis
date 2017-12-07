@@ -24,7 +24,7 @@ void WCSimAnalysis::FillEmulatedTrigData(){
 	fileout_FIFOOverflow = 0;        // FIXME
 	fileout_DriverOverfow = 0;       // FIXME
 	
-	//fileout_EventSize = ???;       // FIXME there's already a fileout_EventSize for PMTData. Same?
+	//fileout_EventSize = 0;         // FIXME there's already a fileout_EventSize for PMTData. Same?
 	fileout_TriggerSize = 0;         // FIXME
 	
 	if(fileout_Eventsize>MAXEVENTSIZE){
@@ -42,15 +42,15 @@ void WCSimAnalysis::FillEmulatedTrigData(){
 		fileout_TriggerCounters = new UInt_t[MAXTRIGGERSIZE];
 	}
 	
-	if(fileout_EventIDs==nullptr) fileout_EventIDs = new UShort_t[0];
-	if(fileout_EventTimes==nullptr) fileout_EventTimes = new ULong64_t[0];
-	if(fileout_TriggerMasks==nullptr) fileout_TriggerMasks = new UInt_t[0];
-	if(fileout_TriggerCounters==nullptr) fileout_TriggerCounters = new UInt_t[0];
-	
-	//fileout_EventIDs = ???;          // FIXME
-	//fileout_EventTimes = ???;        // FIXME
-	//fileout_TriggerMasks = ???;      // FIXME
-	//fileout_TriggerCounters = ???;   // FIXME
+	// XXX XXX XXX FILL WITH ZEROS UNTIL WE DO BETTER XXX XXX XXX
+	for(int i=0; i<fileout_Eventsize; i++){
+		fileout_EventIDs[i] = 0;          // FIXME
+		fileout_EventTimes[i] = 0;        // FIXME
+	}
+	for(int i=0; i<fileout_TriggerSize; i++){
+		fileout_TriggerMasks[i] = 0;      // FIXME
+		fileout_TriggerCounters[i] = 0;   // FIXME
+	}
 	
 	tTrigData->Fill();
 }

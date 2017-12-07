@@ -2,7 +2,9 @@
 //############################################################################################
 
 #define FILE_VERSION 2
+#ifndef VERBOSE
 #define VERBOSE 1
+#endif
 /*
 Version 1:
 wcsim_wdirt_07-02-17, 200 PMTs + 200 LAPPDs, including dirt intx.
@@ -54,7 +56,8 @@ void WCSimAnalysis::DoAnalysis(){
 	// Loop over events
 	// ================
 	cout<<"Looping over entries"<<endl;
-	int breakearlyat=10;
+	int breakearlyat=-1;
+	int breakearlysequenceid=4;
 	int maxdigits=0;
 	do {
 		// load next entry, including new trees and setting branch addresses when necessary
@@ -65,10 +68,9 @@ void WCSimAnalysis::DoAnalysis(){
 #ifdef VERBOSE
 		cout<<"analyzing event "<<eventnum<<endl;
 #endif
-		if(entryvalid==0 || (eventnum>=breakearlyat&&breakearlyat>0)){ break; }
+		if( (entryvalid==0) || (eventnum>=breakearlyat&&breakearlyat>0)
+			|| (sequence_id>breakearlysequenceid&&breakearlysequenceid>0) ){ break; }
 		
-		// TODO: TO BE ABLE TO DO THIS MRDTRACKCLASS AND VETOTRACKCLASS NEED TO SUPPORT
-		// MULTIPLE TRIGGERS PER TREE ENTRY
 #ifdef VERBOSE
 		cout<<"Doing PreTriggerLoops"<<endl;
 #endif
@@ -154,15 +156,19 @@ void WCSimAnalysis::DoAnalysis(){
 			// post hit loop actions
 			DoVetoPostHitLoop();
 			
-			// advance the counter of triggers (minibuffers)
-			minibuffer_id++;
-			if(minibuffer_id==minibuffers_per_fullbuffer){
+			if(add_emulated_pmtdata){
+				// advance the counter of triggers (minibuffers)
+				minibuffer_id++;
+				if(minibuffer_id==minibuffers_per_fullbuffer){
 #ifdef VERBOSE
-				cout<<"Filling Emulated PMT Data"<<endl;
+					cout<<"#########################"<<endl;
+					cout<<"Filling Emulated PMT Data"<<endl;
 #endif
-				minibuffer_id=0;
-				if(add_emulated_pmtdata) FillEmulatedPMTData();
-				sequence_id++;
+					FillEmulatedPMTData();
+					FillEmulatedTrigData();
+					sequence_id++;
+					minibuffer_id=0;
+				}
 			}
 			// LOOP TO NEXT TRIGGER
 			// ====================
@@ -184,6 +190,8 @@ void WCSimAnalysis::DoAnalysis(){
 		//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos
 		eventnum++;
 		
+		cout<<"minibuffer_id="<<minibuffer_id<<", sequence_id="<<sequence_id<<endl;
+		
 		// LOOP TO NEXT EVENT
 		// ==================
 	} while (1);
@@ -195,6 +203,8 @@ void WCSimAnalysis::DoAnalysis(){
 	DoTankPostEventLoop();
 	DoMRDpostEventLoop();
 	DoVetoPostEventLoop();
+	
+	if(rawfileout) rawfileout->Write();
 	
 //	DrawGlobalHistos(); 	// doesn't fall into any other category.... 
 }

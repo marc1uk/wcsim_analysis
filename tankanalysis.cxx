@@ -27,7 +27,7 @@ void WCSimAnalysis::DoTankTrigger(Int_t &numtruehits, Int_t &numdigits){
 		if(minibuffer_id==0) ConstructEmulatedPmtDataReadout();
 		AddMinibufferStartTime();
 	}
-	cout<<endl<<"ok"<<endl;
+	//cout<<endl<<"ok"<<endl;
 }
 
 //############################################################################################
@@ -80,7 +80,6 @@ void WCSimAnalysis::DoTankDigitHits(){
 		// call functions that use this information
 		// ========================================
 		FillTankDigiHitsHist(digihit);
-		cout<<"adding pmt data entry"<<endl;
 		if(add_emulated_pmtdata) AddPMTDataEntry(digihit);
 	}
 }
@@ -111,11 +110,6 @@ void WCSimAnalysis::DoTankPostHitLoop(){
 			bottomcaphist->Draw("colz");
 		}
 	}
-	
-	if(add_emulated_pmtdata) FillEmulatedPMTData();
-	if(add_emulated_triggerdata) FillEmulatedTrigData();
-	// where do we need to fill fileout_EventTimes / fileout_TriggerCounters arrays?
-	// should these be called here (once per trigger) or in Post Trigger Loop (once per event)??
 }
 
 //############################################################################################

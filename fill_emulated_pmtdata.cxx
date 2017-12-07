@@ -1,15 +1,8 @@
 /* vim:set noexpandtab tabstop=4 wrap */
 // #######################################################################
 #ifndef EMULATED_OUT_VERBOSE
-//#define EMULATED_OUT_VERBOSE 1
+#define EMULATED_OUT_VERBOSE 1
 #endif
-
-namespace {
-	// Used to convert between seconds and nanoseconds
-	constexpr unsigned long long BILLION = 1000000000;
-	// The cards have clock frequencies of 125 MHz, so they take samples every 8 ns.
-	constexpr unsigned long long CLOCK_TICK = 8; // ns
-}
 
 void WCSimAnalysis::AddPMTDataEntry(WCSimRootCherenkovDigiHit* digihit){
 #ifdef EMULATED_OUT_VERBOSE
@@ -55,16 +48,35 @@ void WCSimAnalysis::AddPMTDataEntry(WCSimRootCherenkovDigiHit* digihit){
 	int digits_time_ns = digihit->GetT() + pre_trigger_window_ns;
 #endif
 	// convert to index of this time in the minibuffer waveform array
-	int digits_time_index = 
-		(digits_time_ns * minibuffer_datapoints_per_channel) / (pre_trigger_window_ns+post_trigger_window_ns);
+	int digits_time_index = digits_time_ns / ADC_NS_PER_SAMPLE;
+	// int digits_time_index =
+	//	(digits_time_ns * minibuffer_datapoints_per_channel) / (pre_trigger_window_ns+post_trigger_window_ns);
+	//cout<<"digit time is "<<digits_time_ns<<"ns, total trigger window time is "
+	//	<<(pre_trigger_window_ns+post_trigger_window_ns)<<", so digit lies at index "<<digits_time_index
+	//	<<" in the trigger window."<<endl;
+	
+	// need to scale area so that amplitude is in ADC counts and time is in samples
+	//convert digihit->GetQ() pe's to Coulombs by * e.
+	//C corresponds to y axis I[A], x axis s. Y AXIS (I) IS CALCULATED AUTOMATICALLY.
+	//then change x axis from s to (ns/8) => area = area * 1e9 * (1/8)
+	//then change y axis from I to ADC => ADC = (V/ADC_TO_VOLT[V/ct]) = (I*R/ADC_TO_VOLT) = I * (R / ADC_TO_VOLT)
+	//so total scaling area = digihit->GetQ() * e * 1e9 * (1/8) * 50 * (1/ADC_TO_VOLT)
+	// ADC_TO_VOLT ~0.0006
+	
+	// digit Q is ~0-30... what the hell are units?! few pe * gain 10^7 = few 10^7 pe's... 
+	// charge on electron = 10^-19C = few 10^-12 C... where 30 from?!?
+	double adjusted_digit_q = digihit->GetQ() * (1./ADC_NS_PER_SAMPLE) /* * pow(10.,9.) */
+		* (ADC_INPUT_RESISTANCE/ADC_TO_VOLT) * PULSE_HEIGHT_FUDGE_FACTOR;
 	
 	// construct a suitable pulse waveform using the position and charge of the digit
 	pulsevector.assign(minibuffer_datapoints_per_channel,0);
-	GenerateMinibufferPulse(digits_time_index, digihit->GetQ(), pulsevector);
+	GenerateMinibufferPulse(digits_time_index, adjusted_digit_q, pulsevector);
 	
 	// calculate the offset of the minibuffer, for this channel, within the full buffer for the readout
-	int channeloffset = (channelnum * full_buffer_size) / num_adc_cards;
+	int channeloffset = channelnum * (full_buffer_size / channels_per_adc_card);
 	int minibufferoffset = minibuffer_id*minibuffer_datapoints_per_channel;
+	//cout<<"this event+channel's minbuffer starts at index "<<channeloffset + minibufferoffset
+	//	<<" within the full buffer"<<endl;
 	
 	// get the full data array for this card, and an iterator to the appropriate start point
 	auto& thiscards_fullbuffer = temporary_databuffers.at(cardid);
@@ -74,9 +86,26 @@ void WCSimAnalysis::AddPMTDataEntry(WCSimRootCherenkovDigiHit* digihit){
 	std::transform(minibuffer_start, minibuffer_start+minibuffer_datapoints_per_channel, pulsevector.begin(),
 		minibuffer_start, std::plus<uint16_t>() );
 	
+	//int totalindex=channeloffset + minibufferoffset + digits_time_index;
+	//cout<<"NS: "<<digits_time_index<<", I: "<<totalindex<<", E: "<<eventnum<<", T: "<<triggernum<<", S: "<<sequence_id<<", M: "<<minibuffer_id<<endl;
+	
+	// draw for debug
+//	cout<<"making graph of this channel's buffer of size "<<(full_buffer_size/channels_per_adc_card)<<endl;
+//	static TGraph* buffergraph = new TGraph(full_buffer_size/channels_per_adc_card);
+//	static TCanvas* buffercanvas = new TCanvas();
+//	int i=0;
+//	for(auto it=thiscards_fullbuffer.begin()+channeloffset; it!=thiscards_fullbuffer.end(); it++){
+//		auto theval = *it;
+//		buffergraph->SetPoint(i,i,theval); i++;
+//	}
+//	buffercanvas->cd();
+//	buffergraph->Draw("alp");
+//	buffercanvas->Update();
+//	//std::this_thread::sleep_for (std::chrono::seconds(5));
+//	gPad->WaitPrimitive();
 }
 
-void WCSimAnalysis::GenerateMinibufferPulse(int digit_index, double digit_charge, std::vector<uint16_t> &pulsevector){
+void WCSimAnalysis::GenerateMinibufferPulse(int digit_index, double adjusted_digit_q, std::vector<uint16_t> &pulsevector){
 #ifdef EMULATED_OUT_VERBOSE
 	//cout<<"generating emulated digit pulse"<<endl;
 #endif
@@ -84,7 +113,6 @@ void WCSimAnalysis::GenerateMinibufferPulse(int digit_index, double digit_charge
 	// and has integral digit_charge. A landau function has approximately the right shape
 	if(fLandau==nullptr){
 		fLandau = new TF1("fLandau","[2]*TMath::Landau(x,[0],[1],1)",-10,100);
-		fLandau->SetRange(-10,100);
 	}
 	// [0] is ~position of maximum, [1] is width (sigma), [2] is a scaling.
 	// the last parameter (fixed to 1 above) is 'normalise by dividing by sigma'.
@@ -92,17 +120,32 @@ void WCSimAnalysis::GenerateMinibufferPulse(int digit_index, double digit_charge
 	// (with 0 the maximum is fixed to ~0.18 and the integral varies)
 	// by choosing 1 we can always get the desired integral (Q). How should we vary height vs width?
 	// that's given by the typical aspect ratio of a PMT pulse: 
-	// Looking at data: with X scale in samples (2ns) fitting a landau gives a sigma of ~2
+	// Looking at data: with X scale in samples (8ns) fitting a landau gives a sigma of ~2
+	// typical digit Qs are 0-30. (PEs?)
 	
-	fLandau->SetParameters(digit_charge, digit_index, 2.);
+	fLandau->SetParameters(digit_index, 2., adjusted_digit_q);
 	// landau function is interesting in region -5*sigma -> 50*sigma, or for sigma=2, -10 to 100
 	//fLandau->SetRange(-10,100); only set in creation as fixed
 	
 	for(int i=(digit_index-10); i<(digit_index+100); i++){
 		// pulses very close to the front/end of the minibuffer: get tructated.
-		if( (i<0) || (i>pulsevector.size()) ) continue;
-		pulsevector.at(digit_index)=fLandau->Eval(i);
+		if( (i<0) || (i>(pulsevector.size()-1)) ) continue;
+		pulsevector.at(i)=fLandau->Eval(i);
 	}
+	
+//	// draw for debug
+//	static TGraph* pulsegraph = new TGraph(pulsevector.size());
+//	static TCanvas* pulsecanvas = new TCanvas();
+//	int i=0;
+//	for(i=0; i<pulsevector.size(); i++) pulsegraph->SetPoint(i,(float)i,(float)pulsevector.at(i));
+//	i=0;
+//	double px, py;
+//	for(i=0; i<pulsegraph->GetN();i++){pulsegraph->GetPoint(i,px,py); cout<<" "<<i<<"("<<px<<","<<py<<")";} cout<<endl;
+//	pulsecanvas->cd();
+//	pulsegraph->Draw("alp");
+//	pulsecanvas->Update();
+//	//std::this_thread::sleep_for (std::chrono::seconds(5));
+//	//gPad->WaitPrimitive();
 }
 
 void WCSimAnalysis::AddMinibufferStartTime(){
@@ -114,6 +157,7 @@ void WCSimAnalysis::AddMinibufferStartTime(){
 	// initialization time (StartTimeSec+StartTimeNSec, or StartCount)
 	// since each card gets initialized at a slightly different time, the minibuffer start counts
 	// are slightly different in each card, even though they represent the same trigger.
+	int card=0;
 	for(auto&& acard : emulated_pmtdata_readout){
 		// get start time of this card in abs ns
 		int readout_starttime_s = acard.StartTimeSec;
@@ -125,9 +169,17 @@ void WCSimAnalysis::AddMinibufferStartTime(){
 		unsigned long long minibuffer_time = static_cast<unsigned long long>(header->GetDate()) 
 			+ placeholder_date_ns;
 		// calculate the clock ticks since that time and when the card was initialized
-		int relative_start_time_clockticks = (minibuffer_time - readout_time) / CLOCK_TICK;
+		int relative_start_time_clockticks = (minibuffer_time - readout_time) / ADC_NS_PER_SAMPLE;
 		
 		acard.TriggerCounts.at(minibuffer_id) = relative_start_time_clockticks;
+		
+		if(card==0){
+			cout<<"start time of card: "<<readout_starttime_s<<":"<<readout_starttime_ns
+				<<" = "<<readout_time<<endl
+				<<"Trigger time ns: "<<header->GetDate()<<", placeholder_date_ns: "<<placeholder_date_ns
+				<<" = "<<minibuffer_time<<". relative start time: "<<relative_start_time_clockticks<<endl;
+			card++;
+		}
 	}
 }
 
@@ -140,6 +192,7 @@ void WCSimAnalysis::ConstructEmulatedPmtDataReadout(){
 	// going to use the time of the first trigger in the readout as StartTime, for all cards.
 	// this isn't true for real data... Should we do something else? FIXME
 	unsigned long long triggertime = static_cast<unsigned long long>(header->GetDate()) + placeholder_date_ns;
+	unsigned long long BILLION = 1000000000;
 	int triggersecs = triggertime % BILLION;
 	int triggernsecs = triggertime - triggersecs;
 	
@@ -158,6 +211,9 @@ void WCSimAnalysis::ConstructEmulatedPmtDataReadout(){
 		acard.StartTimeNSec = triggernsecs;
 		//acard.StartCount = default BOGUS_INT until i know what to put here
 		acard.CardID = cardi;
+		acard.Eventsize = emulated_event_size;
+		acard.BufferSize = minibuffer_datapoints_per_channel * minibuffers_per_fullbuffer;
+		acard.FullBufferSize = acard.BufferSize * channels_per_adc_card;
 		//acard.Data.assign(full_buffer_size,0); not necessary since we're using the temporary buffers
 		temporary_databuffers.at(cardi).assign(full_buffer_size,0);
 	}
@@ -172,10 +228,10 @@ void WCSimAnalysis::ConstructEmulatedPmtDataReadout(){
 
 void WCSimAnalysis::FillEmulatedPMTData(){
 #ifdef EMULATED_OUT_VERBOSE
-	cout<<"filling emulated PMT data tree entries for this full buffer readout"<<endl;
+	//cout<<"filling emulated PMT data tree entries for this full buffer readout"<<endl;
 #endif
 	//fileout_TriggerCounts = new ULong64_t[minibuffers_per_fullbuffer];  // must be >= fileout_TriggerNumber
-	//fileout_Rates         = new Int_t[channels_per_adc_card];           // must be >= fileout_Channels
+	//fileout_Rates         = new UInt_t[channels_per_adc_card];           // must be >= fileout_Channels
 	//fileout_Data          = new UShort_t[full_buffer_size];             // must be >= fileout_FullBufferSize
 	////*............................................................................*
 	//TBranch *bLastSync       = tPMTData->Branch("LastSync", &fileout_LastSync);
@@ -221,13 +277,44 @@ void WCSimAnalysis::FillEmulatedPMTData(){
 		fileout_TriggerCounts     = acard.TriggerCounts.data();
 		fileout_Rates             = acard.Rates.data();
 		fileout_Data              = acard.Data.data();
+		tPMTData->SetBranchAddress("Data",fileout_Data); 
+		// ^ why?! without this first set of full buffers all read garbage... 
 		
 		tPMTData->Fill();
 	}
 	
+//	// draw for debug
+//	int samples_per_channel = full_buffer_size/channels_per_adc_card;
+//	static TGraph* buffergraph = new TGraph(samples_per_channel);
+//	static TCanvas* buffercanvas = new TCanvas();
+//	for(int i=0; i<samples_per_channel; i++){
+//		buffergraph->SetPoint(i,(float)i,(float)fileout_Data[i]);
+//	}
+//	buffergraph->SetLineColor(kRed);
+//	buffercanvas->cd();
+//	buffergraph->Draw("alp");
+//	buffercanvas->Update();
+//	gPad->WaitPrimitive();
+//	
+//	// retrieve the version in the tree
+//	std::vector<uint16_t> z(full_buffer_size,0);
+//	tPMTData->SetBranchAddress("Data",z.data());
+//	cout<<"retrieving Data[] from tree entry "<<(tPMTData->GetEntries()-1)<<endl;
+//	tPMTData->GetEntry(tPMTData->GetEntries()-1);
+//	for(int i=0; i<samples_per_channel; i++){
+//		buffergraph->SetPoint(i,(float)i,(float)z.at(i));
+//	}
+//	buffergraph->SetLineColor(kBlue);
+//	buffercanvas->cd();
+//	buffergraph->Draw("alp");
+//	buffercanvas->Update();
+//	gPad->WaitPrimitive();
+//	tPMTData->SetBranchAddress("Data",fileout_Data);
+//	z.clear();
+	
 }
 
-void WCSimAnalysis::RiffleShuffle(){
+void WCSimAnalysis::RiffleShuffle(bool do_shuffle){
 /*
 	4 channels are separate and isolated within the full buffer:
 	[chan 1][chan 2][chan 3][chan 4]
@@ -248,26 +335,31 @@ void WCSimAnalysis::RiffleShuffle(){
 		auto& card_buffer = acard.Data;
 		auto& temp_card_buffer = temporary_databuffers.at(cardi);
 		
-		// split the deck into four piles
-		for(int channeli=0; channeli<channels_per_adc_card; channeli++){
-			auto channel_buffer_start = card_buffer.begin() + (channel_buffer_size * channeli);
-			auto temp_channel_buffer_start = temp_card_buffer.begin() + (channel_buffer_size * channeli);
-			// split each pile into two, then interleave pairs in the two piles
-			for(int samplei=0, samplej=0; samplei<channel_buffer_size; samplei+=4, samplej+=2){
-				//0 = 0
-				*(channel_buffer_start + samplej) = 
-					*(temp_channel_buffer_start + samplei);
-				//1 = 1
-				*(channel_buffer_start + samplej + 1) = 
-					*(temp_channel_buffer_start + samplei + 1);
-				//20,000 = 2
-				*(channel_buffer_start + (channel_buffer_size/2) + samplej ) 
-					= *(temp_channel_buffer_start + samplei + 2);
-				//20,001 = 3
-				*(channel_buffer_start + (channel_buffer_size/2) + samplej + 1) 
-					= *(temp_channel_buffer_start + samplei + 3);
+		if(do_shuffle){
+			// split the deck into four piles
+			for(int channeli=0; channeli<channels_per_adc_card; channeli++){
+				auto channel_buffer_start = card_buffer.begin() + (channel_buffer_size * channeli);
+				auto temp_channel_buffer_start = temp_card_buffer.begin() + (channel_buffer_size * channeli);
+				// split each pile into two, then interleave pairs in the two piles
+				for(int samplei=0, samplej=0; samplei<channel_buffer_size; samplei+=4, samplej+=2){
+					//0 = 0
+					*(channel_buffer_start + samplej) = 
+						*(temp_channel_buffer_start + samplei);
+					//1 = 1
+					*(channel_buffer_start + samplej + 1) = 
+						*(temp_channel_buffer_start + samplei + 1);
+					//20,000 = 2
+					*(channel_buffer_start + (channel_buffer_size/2) + samplej ) 
+						= *(temp_channel_buffer_start + samplei + 2);
+					//20,001 = 3
+					*(channel_buffer_start + (channel_buffer_size/2) + samplej + 1) 
+						= *(temp_channel_buffer_start + samplei + 3);
+				}
 			}
+		} else {
+			for(int i=0; i<temp_card_buffer.size(); i++) card_buffer.at(i)=temp_card_buffer.at(i);
 		}
+		
 	}
 	// finally, ask a player to cut the deck
 }

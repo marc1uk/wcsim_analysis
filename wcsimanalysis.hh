@@ -18,10 +18,12 @@
 #include "TProfile.h"
 #include "TProfile2D.h"
 #include "TCanvas.h"
+#include "TGraph.h"
 #include "TString.h"
 #include "TMath.h"
 #include "TColor.h"
 #include "TStyle.h"
+#include "TF1.h"
 #include <exception>	// for stdexcept
 #include <vector>
 #include <map>
@@ -71,14 +73,14 @@ class WCSimAnalysis : public TObject {
 	const Int_t MAXTRACKSPEREVENT=50;       //
 	int pre_trigger_window_ns;              // read from options file
 	int post_trigger_window_ns;             // read from options file
-
+	
 	int treeNumber=-1;
 	Double_t maxsubeventduration=30.;  // in ns?
 	// canvas sizes
 	float win_scale;
 	int n_wide;
 	int n_high;
-
+	
 	// Input file read variables
 	const char* inputdir;
 	TChain* t; 
@@ -97,9 +99,6 @@ class WCSimAnalysis : public TObject {
 	TFile* currentfile;
 	std::string currentfilestring;
 	Int_t eventnum;
-	Int_t sequence_id;
-	Int_t minibuffer_id;
-	unsigned long long placeholder_date_ns;
 	Int_t runnum;
 	Int_t triggernum;
 	
@@ -113,17 +112,8 @@ class WCSimAnalysis : public TObject {
 	Int_t fileout_SequenceID, fileout_StartTimeSec, fileout_StartTimeNSec, fileout_TriggerNumber,
 		fileout_CardID, fileout_Channels, fileout_BufferSize, fileout_Eventsize, fileout_FullBufferSize;
 	ULong64_t* fileout_TriggerCounts=nullptr;
-	Int_t* fileout_Rates=nullptr;
+	UInt_t* fileout_Rates=nullptr;
 	UShort_t* fileout_Data=nullptr;
-	// put the following in a namespace rather than the WCSimAnalysis class?
-	const int full_buffer_size = CardData::FullBufferSize;
-	const int minibuffer_datapoints_per_channel = CardData::BufferSize / CardData::TriggerNumber;
-	const int channels_per_adc_card = CardData::Channels;
-	const int minibuffers_per_fullbuffer = CardData::TriggerNumber;
-	const int num_adc_cards = (numtankpmts-1)/channels_per_adc_card + 1; // round up, requiring numtankpmts!=0
-	// n.b. variant that doesn't require !=0, but could overflow:
-	// num_adc_cards = (numtankpmts + channels_per_adc_card - 1) / channels_per_adc_card;
-	
 	// run info tree
 	// ~~~~~~~~~~~~~
 	TTree* tRunInformation;
@@ -146,6 +136,7 @@ class WCSimAnalysis : public TObject {
 	std::vector<unsigned int> fileout_Value, fileout_Slot, fileout_Channel;
 	// filling the output file
 	// ~~~~~~~~~~~~~~~~~~~~~~~
+	// methods
 	void LoadOutputFiles();
 	void FillEmulatedCCData();
 	void FillEmulatedTrigData();
@@ -155,23 +146,39 @@ class WCSimAnalysis : public TObject {
 	void AddPMTDataEntry(WCSimRootCherenkovDigiHit* digihit);
 	void ConstructEmulatedPmtDataReadout();
 	void AddMinibufferStartTime();
-	void GenerateMinibufferPulse(int digit_index, double digit_charge, std::vector<uint16_t> &pulsevector);
-	void RiffleShuffle();
+	void GenerateMinibufferPulse(int digit_index, double adjusted_digit_q, std::vector<uint16_t> &pulsevector);
+	void RiffleShuffle(bool do_shuffle=true);
 	std::vector<std::string>* GetTemplateRunInfo();
+	// variables: TODO put in a namespace rather than the WCSimAnalysis class?
+	Int_t sequence_id;
+	Int_t minibuffer_id;
+	// switches to allow turning this conversion on/off:
+	bool add_emulated_ccdata=false, add_emulated_triggerdata=true, add_emulated_pmtdata=true;
+	int full_buffer_size;                  // = CardData::FullBufferSize; read in utilityfuncs from options
+	int minibuffer_datapoints_per_channel; // = CardData::BufferSize / CardData::TriggerNumber;
+	int emulated_event_size;               // = CardData::Eventsize; 
+	const int minibuffers_per_fullbuffer = CardData::TriggerNumber;
+	const int channels_per_adc_card = CardData::Channels;
+	const int num_adc_cards = (numtankpmts-1)/channels_per_adc_card + 1; // round up, requiring numtankpmts!=0
+	// n.b. variant that doesn't require !=0, but could overflow:
+	// num_adc_cards = (numtankpmts + channels_per_adc_card - 1) / channels_per_adc_card;
+	unsigned long long placeholder_date_ns;
 	std::vector<CardData> emulated_pmtdata_readout;
 	std::vector<std::vector<uint16_t>> temporary_databuffers;
 	std::vector<uint16_t> pulsevector;
 	TF1* fLandau{nullptr};
-	// switches to allow turning this conversion on/off:
-	bool add_emulated_ccdata=false, add_emulated_triggerdata=true, add_emulated_pmtdata=true;
-
+	const int ADC_NS_PER_SAMPLE=2;
+	const double ADC_INPUT_RESISTANCE = 50.;  // Ohm
+	const double ADC_TO_VOLT = 2.415 / std::pow(2., 12);// * by this constant converts ADC counts to Volts
+	const double PULSE_HEIGHT_FUDGE_FACTOR = (1./300.); // WHAT UNITS ARE DIGIT Q's IN?!?
+	
 	// PMT MAP VARIABLES
 	// needed for drawing tank histograms
 	std::map<int, std::pair<int,int> > topcappositionmap;
 	std::map<int, std::pair<int,int> > bottomcappositionmap;
 	std::map<int, std::pair<int,int> > wallpositionmap;
 	
-
+	
 	// HISTOGRAMS
 	// tank histograms
 	// ~~~~~~~~~~~~~~~
@@ -210,7 +217,7 @@ class WCSimAnalysis : public TObject {
 	TH1D* digitTimeDistveto=0;
 	TH2D* facchist=0;
 	TH2D* PMTsvDigitTimeveto=0;
-
+	
 	// CANVASES
 	// global canvases
 	// ~~~~~~~~~~~~~~~
@@ -228,7 +235,7 @@ class WCSimAnalysis : public TObject {
 	// ~~~~~~~~~~~~~~~
 	TCanvas *QvsTvetoCanv=0;
 	TCanvas* vetoLastTimevsNumHitsCanv=0;
-
+	
 	// MRD TRACK RECONSTRUCTION
 	// ~~~~~~~~~~~~~~~~~~~~~~~~
 	// variables for file writing
@@ -260,7 +267,7 @@ class WCSimAnalysis : public TObject {
 	Bool_t drawtankhistos=false;
 	Bool_t drawmrdhistos=false;
 	Bool_t drawvetohistos=false;
-
+	
 	public:
 	// constructor + destructor
 	WCSimAnalysis(const char* indir="/home/marc/anniegpvm/stats10k", const char* outdir=".");
@@ -310,7 +317,7 @@ class WCSimAnalysis : public TObject {
 	void DefineTankHistos();
 	void DefineMRDhistos();
 	void DefineVetoHistos();
-
+	
 	// functions - histogram filling
 	void FillTankEventWideHists(Int_t numtruehits, Int_t numdigits);
 	void FillMRDeventWideHists(Int_t numtruehits, Int_t numdigits);
@@ -322,7 +329,7 @@ class WCSimAnalysis : public TObject {
 	void FillMRDdigiHitsHist(WCSimRootCherenkovDigiHit* digihit);
 	void FillVetoTrueHitsHist(WCSimRootCherenkovHit* hit, WCSimRootCherenkovHitTime *hittime);
 	void FillVetoDigiHitsHist(WCSimRootCherenkovDigiHit* digihit);
-
+	
 	// functions - histogram drawing
 	void DrawTankHistos();
 	void DrawMRDhistos();
@@ -331,7 +338,7 @@ class WCSimAnalysis : public TObject {
 	
 	// functions - plot styling
 	void ColourPlotStyle();
-
+	
 	// functions - mrd track finding
 	void OpenMRDtrackOutfile(int filenum);
 	void FindMRDtracksInEvent();
@@ -340,7 +347,7 @@ class WCSimAnalysis : public TObject {
 	
 	// the one that calls all the others
 	void DoAnalysis();
-
+	
 	ClassDef(WCSimAnalysis,1);	// INCREMENT VERSION NUM EVERY TIME CLASS MEMBERS CHANGE
 };
 
@@ -374,7 +381,7 @@ WCSimAnalysis::~WCSimAnalysis(){
 //	if( atrigt ) { delete atrigt; atrigt=0; }
 //	if( atrigm ) { delete atrigm; atrigm=0; }
 //	if( atrigv ) { delete atrigv; atrigv=0; }
-
+	
 	// HISTOGRAMS
 	cout<<"deleting histograms"<<endl;
 	// tank histograms
@@ -414,7 +421,7 @@ WCSimAnalysis::~WCSimAnalysis(){
 	if( digitTimeDistveto ) { delete digitTimeDistveto; digitTimeDistveto=0; }
 	if( facchist ) { delete facchist; facchist=0; }
 	if( PMTsvDigitTimeveto ) { delete PMTsvDigitTimeveto; PMTsvDigitTimeveto=0; }
-
+	
 	// CANVASES
 	cout<<"deleting canvases"<<endl;
 	// global canvases
@@ -429,7 +436,12 @@ WCSimAnalysis::~WCSimAnalysis(){
 	// veto canvases
 	if( QvsTvetoCanv ) { delete QvsTvetoCanv; QvsTvetoCanv=0; }
 	if( vetoLastTimevsNumHitsCanv ) { delete vetoLastTimevsNumHitsCanv; vetoLastTimevsNumHitsCanv=0; }
-
+	
+	// EMULATED OUTPUT STUFF
+	cout<<"clearing up after emulated file conversion"<<endl;
+	if( fLandau ){ delete fLandau; fLandau=0; }
+	if( rawfileout ){ rawfileout->Close(); delete rawfileout; rawfileout=0; }
+	
 	// Close output files
 	// TChain* t doesn't need closing...
 	cout<<"closing file"<<endl;

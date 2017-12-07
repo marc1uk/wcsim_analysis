@@ -1,7 +1,8 @@
 {
 //TString compilerflags = "-Wno-sign-compare -Wno-overloaded-virtual -Wno-literal-conversion";
-//gSystem->SetFlagsOpt(compilerflags.Data());
-//gSystem->SetFlagsDebug(compilerflags.Data());
+TString compilerflags = "-fdiagnostics-color=always -Wno-sign-compare";
+gSystem->SetFlagsOpt(compilerflags.Data());
+gSystem->SetFlagsDebug(compilerflags.Data());
 TString pwd = gSystem->Getenv("PWD");
 
 TString wcsimlibraryloc = pwd + "/../wcsim/";
@@ -36,7 +37,7 @@ TString analyzecommand = "WCSimAnalysis* theana = analysiscaller";
 // various paths to different analysis directories
 //TString filestoanalyze = pwd+"/in/MRD_muon_sample";
 //TString filestoanalyze = pwd+"/in/temp";
-TString filestoanalyze = "/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_BNB_World_10k_29-06-17/wcsim_0.4000.root";
+TString filestoanalyze = "/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_BNB_World_10k_29-06-17/wcsim_0.400*.root";
 //TString filestoanalyze="/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/temp";
 //TString filestoanalyze = "/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17";
 //TString outputdir = "/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/temp";

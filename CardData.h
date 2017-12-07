@@ -24,12 +24,12 @@ class CardData{
   //uint64_t* triggerCounts;           // --
   std::vector<ULong64_t> TriggerCounts; // ADC ticks of the start of each minibuffer in the Full buffer?
   //uint32_t* Rates;                   // --
-  std::vector<Int_t> Rates;            // Avg pulse rate? units? size is number of channels.
+  std::vector<UInt_t> Rates;            // Avg pulse rate? units? size is number of channels.
   int CardID;                          // card position in VME crate
   static int Channels;                 // num channels on card
-  static int BufferSize;               // datapoints per channel in a minibuffer.
-  static int Eventsize;                // ??? always 250?
-  static int FullBufferSize;           // Channels * Buffersize. corresponds to 80us. 
+  static int BufferSize;               // datapoints per channel in a full buffer.
+  static int Eventsize;                // samples per minibuffer per channel divided by 4.
+  static int FullBufferSize;           // Channels * BufferSize. corresponds to 80us. 
   //uint16_t* Data;                    // Concatenated data from all channels on card. Size FullBufferSize.
   std::vector<uint16_t> Data;
   // With a fullbuffer of 160k and 4 channels, there's 40k samples per channel, 
@@ -43,9 +43,9 @@ class CardData{
 
 int CardData::TriggerNumber = 40;
 int CardData::Channels = 4;
-int CardData::BufferSize = 40000;
-int CardData::Eventsize = 250;         // FIXME?
-int CardData::FullBufferSize = (CardData::Channels * CardData::BufferSize);
+int CardData::BufferSize = 40000;      // UNUSED: calculated in utilityfuncs using trigger window
+int CardData::Eventsize = 250;         // UNUSED: as above
+int CardData::FullBufferSize = (CardData::Channels * CardData::BufferSize); // UNUSED: as above
 
 void CardData::Reset(){
   LastSync = BOGUS_UINT64;
