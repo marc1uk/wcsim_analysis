@@ -15,22 +15,22 @@ namespace{
 
 class CardData{
   public:
-  uint64_t LastSync;                   // ? clock ticks of last GPS sync pulse
-  int SequenceID;                      // unique minibuffer id. should account for event, trigger, minibuffer!
-  int StartTimeSec;                    // unix epoch timestamp at StartCount ADC counts
-  int StartTimeNSec;                   // above, ns part
-  uint64_t StartCount;                 // ADC counts from powerup when ... it gets initialized? 
-  static int TriggerNumber;            // number of minibuffers. 40 for Hefty mode. 
-  //uint64_t* triggerCounts;           // --
-  std::vector<ULong64_t> TriggerCounts; // ADC ticks of the start of each minibuffer in the Full buffer?
-  //uint32_t* Rates;                   // --
+  uint64_t LastSync;                    // ??? clock ticks of last GPS sync pulse FIXME
+  int SequenceID;                       // readout id. incremented once every 40 triggers
+  int StartTimeSec;                     // unix epoch timestamp at StartCount. FIXME corresponding to when?
+  int StartTimeNSec;                    // above, ns part FIXME
+  uint64_t StartCount;                  // ADC counts from powerup when ... FIXME
+  static int TriggerNumber;             // number of minibuffers. 40 for Hefty mode. 
+  //uint64_t* triggerCounts;            // --
+  std::vector<ULong64_t> TriggerCounts; // ADC ticks of the start of each minibuffer in the Full buffer? FIXME
+  //uint32_t* Rates;                    // --
   std::vector<UInt_t> Rates;            // Avg pulse rate? units? size is number of channels.
-  int CardID;                          // card position in VME crate
-  static int Channels;                 // num channels on card
-  static int BufferSize;               // datapoints per channel in a full buffer.
-  static int Eventsize;                // samples per minibuffer per channel divided by 4.
-  static int FullBufferSize;           // Channels * BufferSize. corresponds to 80us. 
-  //uint16_t* Data;                    // Concatenated data from all channels on card. Size FullBufferSize.
+  int CardID;                           // card position in VME crate
+  static int Channels;                  // num channels on card
+  static int BufferSize;                // datapoints per channel in a full buffer.
+  static int Eventsize;                 // samples per minibuffer per channel divided by 4.
+  static int FullBufferSize;            // Channels * BufferSize. corresponds to 80us. 
+  //uint16_t* Data;                     // Concatenated data from all channels on card. Size FullBufferSize.
   std::vector<uint16_t> Data;
   // With a fullbuffer of 160k and 4 channels, there's 40k samples per channel, 
   // and with 40 minibuffers per fullbuffer, that's 1k samples per minibuffer per channel.
@@ -54,9 +54,9 @@ void CardData::Reset(){
   StartTimeNSec = BOGUS_INT;
   StartCount = BOGUS_UINT64;
   CardID = BOGUS_INT;
-  TriggerCounts.assign(TriggerNumber,BOGUS_UINT64);   // start counts of each minibuffer
-  Rates.assign(Channels,BOGUS_UINT32);                // avg pulse rate on each PMT
-  Data.assign(FullBufferSize,BOGUS_UINT16);           // 160k datapoints
+  TriggerCounts.assign(TriggerNumber,BOGUS_UINT64);
+  Rates.assign(Channels,BOGUS_UINT32);
+  Data.assign(FullBufferSize,BOGUS_UINT16);
 }
 
 #endif

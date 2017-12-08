@@ -30,6 +30,13 @@ void WCSimAnalysis::DoMRDtrigger(Int_t &numtruehits, Int_t &numdigits){
 // ===============================
 void WCSimAnalysis::DoMRDpreHitLoop(){
 	mrddigittimesthisevent.clear();
+	
+	// reset vectors before filling MRD digits.
+	if(add_emulated_ccdata){
+		fileout_Value.clear();
+		fileout_Slot.clear();
+		fileout_Channel.clear();
+	}
 }
 
 //############################################################################################

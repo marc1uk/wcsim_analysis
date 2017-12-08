@@ -159,6 +159,7 @@ class WCSimAnalysis : public TObject {
 	int emulated_event_size;               // = CardData::Eventsize; 
 	const int minibuffers_per_fullbuffer = CardData::TriggerNumber;
 	const int channels_per_adc_card = CardData::Channels;
+	const int channels_per_tdc_card = 32;
 	const int num_adc_cards = (numtankpmts-1)/channels_per_adc_card + 1; // round up, requiring numtankpmts!=0
 	// n.b. variant that doesn't require !=0, but could overflow:
 	// num_adc_cards = (numtankpmts + channels_per_adc_card - 1) / channels_per_adc_card;
@@ -168,6 +169,9 @@ class WCSimAnalysis : public TObject {
 	std::vector<uint16_t> pulsevector;
 	TF1* fLandau{nullptr};
 	const int ADC_NS_PER_SAMPLE=2;
+	const int MRD_NS_PER_SAMPLE=4;
+	const int MRD_TIMEOUT_NS=4200;
+	const unsigned long long MRD_TIMESTAMP_DELAY = static_cast<unsigned long long>(MRD_TIMEOUT_NS);
 	const double ADC_INPUT_RESISTANCE = 50.;  // Ohm
 	const double ADC_TO_VOLT = 2.415 / std::pow(2., 12);// * by this constant converts ADC counts to Volts
 	const double PULSE_HEIGHT_FUDGE_FACTOR = (1./300.); // WHAT UNITS ARE DIGIT Q's IN?!?

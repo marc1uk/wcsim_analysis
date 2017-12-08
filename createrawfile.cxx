@@ -80,14 +80,34 @@ void WCSimAnalysis::LoadOutputFiles(){
 	//*----------------------------------------------------------------------------*
 	tCCData = new TTree("CCData","");
 	//*............................................................................*
-	TBranch *bTrigger   = tCCData->Branch("Trigger", &fileout_Trigger);
-	TBranch *bOutNumber = tCCData->Branch("OutNumber", &fileout_OutNumber);
-	TBranch *bType      = tCCData->Branch("Type", &fileout_Type);
-	TBranch *bValue     = tCCData->Branch("Value", &fileout_Value);
-	TBranch *bSlot      = tCCData->Branch("Slot", &fileout_Slot);
-	TBranch *bChannel   = tCCData->Branch("Channel", &fileout_Channel);
-	TBranch *bTimeStamp = tCCData->Branch("TimeStamp", &fileout_TimeStamp);
+	TBranch *bTrigger   = tCCData->Branch("Trigger", &fileout_Trigger);         // readout number
+	TBranch *bOutNumber = tCCData->Branch("OutNumber", &fileout_OutNumber);     // num hits this event/readout
+	TBranch *bType      = tCCData->Branch("Type", &fileout_Type);               // card type string, "TDC", "ADC"
+	TBranch *bValue     = tCCData->Branch("Value", &fileout_Value);             // see below
+	TBranch *bSlot      = tCCData->Branch("Slot", &fileout_Slot);               // card position in crate
+	TBranch *bChannel   = tCCData->Branch("Channel", &fileout_Channel);         // channel in card
+	TBranch *bTimeStamp = tCCData->Branch("TimeStamp", &fileout_TimeStamp);     // see below
 	//*............................................................................*
+	/*
+	The MRD process is:
+		1. Trigger card sends common start to MRD cards
+		2. A timer is started on all channels.
+		3. When a channel receives a pulse, the timer stops. XXX: only the first pulse is recorded!XXX
+		4. After all channels either record hits or time out (currently 4.2us) everything is read out.
+		   A timestamp is created at time of readout. Note this is CLOSE TO, BUT NOT EQUAL TO the trigger
+		   time. (Probably ~ trigger time + timeout...)
+		5. Channels with a hit will have an entry created with 'Value' = clock ticks between the common
+		   start and when the hit arrived. Channels that timed out have no entry.
+	
+	Timestamp is a UTC [ns] timestamp of when the readout ended. To correctly map Value to an actual time
+	one would need to match the MRD timestamp to the trigger card timestamp (which will be more accurate)
+	then add Value * MRD_CLOCK_TICK_NS to the Trigger time. 
+	
+	Only the first pulse will be recorded .... IS THIS OK? XXX
+	What about pre-trigger? - common start issued by trigger is from Beam not on NDigits, so always pre-beam...?
+	TDC records with resolution 4ns = 1 sample per ns? or round times to nearest/round down to 4ns?
+	TDCRes https://github.com/ANNIEDAQ/ANNIEDAQ/blob/master/configfiles/TDCreg
+	*/
 	
 	gROOT->cd();
 	

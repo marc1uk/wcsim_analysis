@@ -19,8 +19,8 @@ void WCSimAnalysis::FillEmulatedTrigData(){
 	// TBranch *bTriggerMasks    = tTrigData->Branch("TriggerMasks", &fileout_TriggerMasks);
 	// TBranch *bTriggerCounters = tTrigData->Branch("TriggerCounters", &fileout_TriggerCounters);
 	
-	fileout_FirmwareVersion = 0;     // FIXME represent WCSim version instead
-	fileout_SequenceID = 0;          // FIXME
+	fileout_FirmwareVersion = FILE_VERSION;
+	fileout_SequenceID = sequence_id;
 	fileout_FIFOOverflow = 0;        // FIXME
 	fileout_DriverOverfow = 0;       // FIXME
 	
