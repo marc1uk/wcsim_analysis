@@ -1,10 +1,14 @@
 /* vim:set noexpandtab tabstop=4 wrap */
+#ifndef STRIPMRDPOSITIONS_C
+#define STRIPMRDPOSITIONS_C
+
 #include <string>
 #include <regex>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
 #include "TSystem.h"
+#include "MRDSubEvent_ReconstructionClasses.hh"
 using namespace std;
 //.x /annie/app/users/moflaher/wcsim/root_work/RegexTest.C+	<< standalone call
 
@@ -121,3 +125,5 @@ int mrdcluster::StripMrdPositions(){
 //	}
 	return 1;
 }
+
+#endif

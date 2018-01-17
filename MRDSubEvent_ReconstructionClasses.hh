@@ -2,6 +2,8 @@
 #ifndef _cMRD_reconstruction_classes
 #define _cMRD_reconstruction_classes 1
 
+#include "MRDspecs.hh"
+
 #ifdef __MAKECINT__
 #pragma link C++ class std::pair<mrdcluster*,mrdcluster*>+;
 #endif
@@ -23,7 +25,7 @@ class mrdcluster : public TObject{
 		digittimes.push_back(timein);
 		
 		// calculate in-layer tube index - first subtract id of first tube in the layer
-		pmtidin -= layeroffsets.at(layer);
+		pmtidin -= MRDSpecs::layeroffsets.at(layer);
 		// correct for the fact there are two halves to each layer. 
 		// tubes 0 and 1 are in opposite halves!!
 		// if pmtidin%2==1, it is in the second half. Merge halves by subtracting 1, then divide by 2. 
@@ -62,12 +64,12 @@ class mrdcluster : public TObject{
 			//cout<<"layer is a h layer, xmaxid is "<<xmaxid
 			//	<<", getting upper paddle extent of pmt id "<<(2*xmaxid) + layeroffsets.at(layer)
 			//	<<" = "<<paddle_extentsy.at((2*xmaxid) + layeroffsets.at(layer)).second<<endl;
-			return paddle_extentsy.at((2*xmaxid) + layeroffsets.at(layer)).second;
+			return paddle_extentsy.at((2*xmaxid) + MRDSpecs::layeroffsets.at(layer)).second;
 		} else {
 			//cout<<"layer is a v layer, xmaxid is "<<xmaxid
 			//	<<", getting upper paddle extent of pmt id "<<(2*xmaxid) + layeroffsets.at(layer)
 			//	<<" = "<<paddle_extentsx.at((2*xmaxid) + layeroffsets.at(layer)).second<<endl;
-			return paddle_extentsx.at((2*xmaxid) + layeroffsets.at(layer)).second;
+			return paddle_extentsx.at((2*xmaxid) + MRDSpecs::layeroffsets.at(layer)).second;
 		}
 	}
 	Double_t GetXmin(){
@@ -76,12 +78,12 @@ class mrdcluster : public TObject{
 			//cout<<"layer is a h layer, xminid is "<<xminid
 			//	<<", getting lower paddle extent of pmt id "<<(2*xminid) + layeroffsets.at(layer)
 			//	<<" = "<<paddle_extentsy.at((2*xminid) + layeroffsets.at(layer)).first<<endl;
-			return paddle_extentsy.at((2*xminid) + layeroffsets.at(layer)).first;
+			return paddle_extentsy.at((2*xminid) + MRDSpecs::layeroffsets.at(layer)).first;
 		} else {
 			//cout<<"layer is a v layer, xminid is "<<xminid
 			//	<<", getting lower paddle extent of pmt id "<<(2*xminid) + layeroffsets.at(layer)
 			//	<<" = "<<paddle_extentsx.at((2*xminid) + layeroffsets.at(layer)).first<<endl;
-			return paddle_extentsx.at((2*xminid) + layeroffsets.at(layer)).first;
+			return paddle_extentsx.at((2*xminid) + MRDSpecs::layeroffsets.at(layer)).first;
 		}
 	}
 	Double_t GetCentre(){
@@ -100,7 +102,7 @@ class mrdcluster : public TObject{
 		//cout<<"generating cluster with tube "<<pmtidin<<endl;
 		
 		// calculate pmt number within this layer
-		pmtidin -= layeroffsets.at(layer);
+		pmtidin -= MRDSpecs::layeroffsets.at(layer);
 		// correct for the fact there are two halves to each layer. 
 		// tubes 0 and 1 are in opposite halves!!
 		// if pmtidin%2==1, it is in the second half. Merge halves by subtracting 1. 
@@ -150,14 +152,14 @@ class mrdcluster : public TObject{
 #include "StripMrdPositions.C"	// function to pull information about paddle positions from file
 Int_t mrdcluster::clustercounter=0;
 Bool_t mrdcluster::fillstaticmembers=true;
-std::vector<Int_t> mrdcluster::paddle_orientations(nummrdpmts);
-std::vector<Int_t> mrdcluster::paddle_layers(nummrdpmts);
-std::vector<Double_t> mrdcluster::paddle_originx(nummrdpmts);
-std::vector<Double_t> mrdcluster::paddle_originy(nummrdpmts);
-std::vector<Double_t> mrdcluster::paddle_originz(nummrdpmts);
-std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsx(nummrdpmts);
-std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsy(nummrdpmts);
-std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsz(nummrdpmts);
+std::vector<Int_t> mrdcluster::paddle_orientations(MRDSpecs::nummrdpmts);
+std::vector<Int_t> mrdcluster::paddle_layers(MRDSpecs::nummrdpmts);
+std::vector<Double_t> mrdcluster::paddle_originx(MRDSpecs::nummrdpmts);
+std::vector<Double_t> mrdcluster::paddle_originy(MRDSpecs::nummrdpmts);
+std::vector<Double_t> mrdcluster::paddle_originz(MRDSpecs::nummrdpmts);
+std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsx(MRDSpecs::nummrdpmts);
+std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsy(MRDSpecs::nummrdpmts);
+std::vector<std::pair<Double_t,Double_t> > mrdcluster::paddle_extentsz(MRDSpecs::nummrdpmts);
 int nothing = mrdcluster::StripMrdPositions();
 // FIXME: RESULTS RETURNED FROM STRIPMRDPOSITIONS ARE IN MM!
 // EVERYTHING ELSE HERE IS IN CM. THIS IS CONFUSING.

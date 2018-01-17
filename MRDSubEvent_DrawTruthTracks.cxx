@@ -1,6 +1,9 @@
 /* vim:set noexpandtab tabstop=4 wrap */
+#ifndef MRDSUBEVENTDRAWTRUETRACKS
+#define MRDSUBEVENTDRAWTRUETRACKS
+
 #ifndef DRAWTRUEVERBOSE
-#define DRAWTRUEVERBOSE
+//#define DRAWTRUEVERBOSE
 #endif
 
 bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, TVector3 &Hit, TVector3 &Hit2, bool &error);
@@ -15,7 +18,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 	// we have std::vector<TArrow*> truetrackarrows; to add the arrows to
 		
 #ifdef DRAWTRUEVERBOSE
-	cout<<"MRD width is "<<MRD_width<<", maxwidth is "<<(maxwidth/2.)<<", MRD height is "<<MRD_height<<", maxheight is "<<(maxheight/2.)<<", MRD start is "<<MRD_start<<", MRD end is "<<(MRD_start+MRD_depth)<<", MRD depth is "<<(MRD_depth/2.)<<", mrdZlen is "<<(mrdZlen/2.)<<endl;
+	cout<<"MRD width is "<<MRDSpecs::MRD_width<<", MRDSpecs::maxwidth is "<<(MRDSpecs::maxwidth/2.)<<", MRD height is "<<MRDSpecs::MRD_height<<", MRDSpecs::maxheight is "<<(MRDSpecs::maxheight/2.)<<", MRD start is "<<MRDSpecs::MRD_start<<", MRD end is "<<(MRDSpecs::MRD_start+MRDSpecs::MRD_depth)<<", MRD depth is "<<(MRDSpecs::MRD_depth/2.)<<", MRDSpecs::mrdZlen is "<<(MRDSpecs::mrdZlen/2.)<<endl;
 #endif
 	
 #ifdef DRAWTRUEVERBOSE
@@ -99,17 +102,17 @@ void cMRDSubEvent::DrawTrueTracks(){
 		double dirz = nextrack.GetDir(2);
 		
 		// skip the easy ones
-		if(primarystopvertex.Z()<MRD_start){
+		if(primarystopvertex.Z()<MRDSpecs::MRD_start){
 #ifdef DRAWTRUEVERBOSE
 			cout<<"skipping track "<<trackit<<" as it doesn't make it to mrd: trackstopz="
-				<<primarystopvertex.Z()<<", MRD_start="<<MRD_start<<endl;
+				<<primarystopvertex.Z()<<", MRDSpecs::MRD_start="<<MRDSpecs::MRD_start<<endl;
 #endif
 			continue;
 		}  // the track never makes it to the MRD
-		if(primarystopvertex.Z()>(MRD_start+MRD_depth)){
+		if(primarystopvertex.Z()>(MRDSpecs::MRD_start+MRDSpecs::MRD_depth)){
 #ifdef DRAWTRUEVERBOSE
 			cout<<"skipping track "<<trackit<<" as it starts after mrd: trackstartz="
-				<<primarystopvertex.Z()<<", MRD_start+MRD_depth="<<MRD_start+MRD_depth<<endl;
+				<<primarystopvertex.Z()<<", MRDSpecs::MRD_start+MRDSpecs::MRD_depth="<<MRDSpecs::MRD_start+MRDSpecs::MRD_depth<<endl;
 #endif
 			continue;
 		} // the track is somehow created after the MRD
@@ -134,23 +137,23 @@ void cMRDSubEvent::DrawTrueTracks(){
 		// check for intercept and record entry point
 		bool checkboxlinerror=false, muonentersMRD=false, muonstopsinMRD, muonrangesoutMRD;
 		muonentersMRD  =  CheckLineBox( primarystartvertex.Vect(), primarystopvertex.Vect(), 
-										TVector3(-MRD_width,-MRD_height,MRD_start), 
-										TVector3(MRD_width,MRD_height,MRD_end),
+										TVector3(-MRDSpecs::MRD_width,-MRDSpecs::MRD_height,MRDSpecs::MRD_start), 
+										TVector3(MRDSpecs::MRD_width,MRDSpecs::MRD_height,MRDSpecs::MRD_end),
 										MRDentrypoint, MRDexitpoint, checkboxlinerror );
 		// sanity check: XXX DISABLE TO ALLOW TRACKS STARTING IN THE MRD
 		//assert(MRDentrypoint!=primarystartvertex.Vect()&&"track starts in MRD!?");
 		// check if MRD stops in the MRD
-		muonstopsinMRD = ( abs(primarystopvertex.X())<MRD_width&&
-						   abs(primarystopvertex.Y())<MRD_height&&
-						   primarystopvertex.Z()>MRD_start&&
-						   primarystopvertex.Z()<(MRD_start+MRD_depth) );
+		muonstopsinMRD = ( abs(primarystopvertex.X())<MRDSpecs::MRD_width&&
+						   abs(primarystopvertex.Y())<MRDSpecs::MRD_height&&
+						   primarystopvertex.Z()>MRDSpecs::MRD_start&&
+						   primarystopvertex.Z()<(MRDSpecs::MRD_start+MRDSpecs::MRD_depth) );
 		if(muonentersMRD){
-			muonrangesoutMRD = ((MRDentrypoint.Z()==MRD_start)&&(MRDexitpoint.Z()==MRD_end));
+			muonrangesoutMRD = ((MRDentrypoint.Z()==MRDSpecs::MRD_start)&&(MRDexitpoint.Z()==MRDSpecs::MRD_end));
 			MuTrackInMRD = (MRDexitpoint-MRDentrypoint);
 			mutracklengthinMRD = MuTrackInMRD.Mag();
 			mrdpenetrationcm = MuTrackInMRD.Z();
 			mrdpenetrationlayers=0;
-			for(auto layerzval : mrdscintlayers){
+			for(auto layerzval : MRDSpecs::mrdscintlayers){
 				if(MRDexitpoint.Z()<layerzval) break;
 				mrdpenetrationlayers++;
 			}
@@ -219,32 +222,32 @@ void cMRDSubEvent::DrawTrueTracks(){
 //		
 //		// for testing:
 ///////////////////////////////////////////////////////////////////
-////		double trackstartx=-MRD_width;
-////		double trackstarty=-MRD_height;
-////		double trackstartz=MRD_start-10.;
-////		double trackstopx=MRD_width;
-////		double trackstopy=MRD_height;
-////		double trackstopz=MRD_start+MRD_depth+10.;
+////		double trackstartx=-MRDSpecs::MRD_width;
+////		double trackstarty=-MRDSpecs::MRD_height;
+////		double trackstartz=MRDSpecs::MRD_start-10.;
+////		double trackstopx=MRDSpecs::MRD_width;
+////		double trackstopy=MRDSpecs::MRD_height;
+////		double trackstopz=MRDSpecs::MRD_start+MRDSpecs::MRD_depth+10.;
 ///////////////////////////////////////////////////////////////////
 //		
 ///////////////////////////////////////////////////////////////////
 ////		double trackstartx, trackstarty, trackstartz, trackstopx, trackstopy, trackstopz;
 ////		switch (trackit) {
 ////		case 0:
-////			trackstartx=MRD_width*1.3;
-////			trackstarty=MRD_height*1.3;
-////			trackstartz=MRD_start+(MRD_depth/2.)-(MRD_depth*(1.3/2.));
-////			trackstopx=-MRD_width*1.3;
-////			trackstopy=-MRD_height*1.3;
-////			trackstopz=MRD_start+(MRD_depth/2.)+(MRD_depth*(1.3/2.));
+////			trackstartx=MRDSpecs::MRD_width*1.3;
+////			trackstarty=MRDSpecs::MRD_height*1.3;
+////			trackstartz=MRDSpecs::MRD_start+(MRDSpecs::MRD_depth/2.)-(MRDSpecs::MRD_depth*(1.3/2.));
+////			trackstopx=-MRDSpecs::MRD_width*1.3;
+////			trackstopy=-MRDSpecs::MRD_height*1.3;
+////			trackstopz=MRDSpecs::MRD_start+(MRDSpecs::MRD_depth/2.)+(MRDSpecs::MRD_depth*(1.3/2.));
 ////			break;
 ////		case 1:
-////			trackstartx=-MRD_width*0.8;
-////			trackstarty=-MRD_height*0.8;
-////			trackstartz=MRD_start+(MRD_depth/2.)-(MRD_depth*0.4);
-////			trackstopx=MRD_width*0.8;
-////			trackstopy=MRD_height*0.8;
-////			trackstopz=MRD_start+(MRD_depth/2.)+(MRD_depth*0.4);
+////			trackstartx=-MRDSpecs::MRD_width*0.8;
+////			trackstarty=-MRDSpecs::MRD_height*0.8;
+////			trackstartz=MRDSpecs::MRD_start+(MRDSpecs::MRD_depth/2.)-(MRDSpecs::MRD_depth*0.4);
+////			trackstopx=MRDSpecs::MRD_width*0.8;
+////			trackstopy=MRDSpecs::MRD_height*0.8;
+////			trackstopz=MRDSpecs::MRD_start+(MRDSpecs::MRD_depth/2.)+(MRDSpecs::MRD_depth*0.4);
 ////			break;
 ////		}
 ///////////////////////////////////////////////////////////////////
@@ -268,31 +271,31 @@ void cMRDSubEvent::DrawTrueTracks(){
 ////			trackstopx=placeholderx2.at(trackit);
 ////			trackstopy=placeholdery2.at(trackit);
 ////		}
-////		trackstartz=placeholderz.at(trackit) + MRD_start + (MRD_depth/2.);
-////		trackstopz= placeholderz2.at(trackit) + MRD_start + (MRD_depth/2.);
+////		trackstartz=placeholderz.at(trackit) + MRDSpecs::MRD_start + (MRDSpecs::MRD_depth/2.);
+////		trackstopz= placeholderz2.at(trackit) + MRDSpecs::MRD_start + (MRDSpecs::MRD_depth/2.);
 ///////////////////////////////////////////////////////////////////
 //		
 ///////////////////////////////////////////////////////////////////
 ////		double trackstartx=0;
 ////		double trackstarty=0;
-////		double trackstartz=MRD_start-10.;
+////		double trackstartz=MRDSpecs::MRD_start-10.;
 ////		double trackstopx=0;
 ////		double trackstopy=0;
-////		double trackstopz=MRD_start+MRD_depth+10.;
+////		double trackstopz=MRDSpecs::MRD_start+MRDSpecs::MRD_depth+10.;
 ///////////////////////////////////////////////////////////////////
 //		
 //		// skip the easy ones
-//		if(trackstopz<MRD_start){
+//		if(trackstopz<MRDSpecs::MRD_start){
 //#ifdef DRAWTRUEVERBOSE
 //			cout<<"skipping track "<<trackit<<" as it doesn't make it to mrd: trackstopz="
-//				<<trackstopz<<", MRD_start="<<MRD_start<<endl;
+//				<<trackstopz<<", MRDSpecs::MRD_start="<<MRDSpecs::MRD_start<<endl;
 //#endif
 //			continue;
 //		}  // the track never makes it to the MRD
-//		if(trackstartz>(MRD_start+MRD_depth)){
+//		if(trackstartz>(MRDSpecs::MRD_start+MRDSpecs::MRD_depth)){
 //#ifdef DRAWTRUEVERBOSE
 //			cout<<"skipping track "<<trackit<<" as it starts after mrd: trackstartz="
-//				<<trackstartz<<", MRD_start+MRD_depth="<<MRD_start+MRD_depth<<endl;
+//				<<trackstartz<<", MRDSpecs::MRD_start+MRDSpecs::MRD_depth="<<MRDSpecs::MRD_start+MRDSpecs::MRD_depth<<endl;
 //#endif
 //			continue;
 //		} // the track is somehow created after the MRD
@@ -329,17 +332,17 @@ void cMRDSubEvent::DrawTrueTracks(){
 //		double mrdentryx,mrdentryy,mrdentryz, mrdexitx, mrdexity, mrdexitz;
 //		// we have 2 cases: a track starts before the MRD or in the MRD
 //		bool sidentry=false;
-//		if(frontz<MRD_start){  // case 1: track starts before the MRD.
+//		if(frontz<MRDSpecs::MRD_start){  // case 1: track starts before the MRD.
 //#ifdef DRAWTRUEVERBOSE
 //			cout<<"track starts before the MRD";
 //#endif
 //			// project the track to the z plane of the MRD start
-//			mrdentryx=frontx+(MRD_start-frontz)*/*TMath::Tan*/(avgtrackanglex);
-//			mrdentryy=fronty+(MRD_start-frontz)*/*TMath::Tan*/(avgtrackangley);
-//			if((abs(mrdentryx)<MRD_width)&&(abs(mrdentryy)<MRD_height)){
-//				mrdentryz=MRD_start;
+//			mrdentryx=frontx+(MRDSpecs::MRD_start-frontz)*/*TMath::Tan*/(avgtrackanglex);
+//			mrdentryy=fronty+(MRDSpecs::MRD_start-frontz)*/*TMath::Tan*/(avgtrackangley);
+//			if((abs(mrdentryx)<MRDSpecs::MRD_width)&&(abs(mrdentryy)<MRDSpecs::MRD_height)){
+//				mrdentryz=MRDSpecs::MRD_start;
 //#ifdef DRAWTRUEVERBOSE
-//				cout<<" and projects within X and Y bounds - zstart is MRD_start"<<endl;
+//				cout<<" and projects within X and Y bounds - zstart is MRDSpecs::MRD_start"<<endl;
 //#endif
 //			} else {
 //				sidentry=true;  // projecting to the front face doesn't put it within MRD bounds
@@ -348,9 +351,9 @@ void cMRDSubEvent::DrawTrueTracks(){
 //#endif
 //			}
 //		}
-//		if((!(frontz<MRD_start)) || sidentry){           // case 2: z entry is within MRD bounds. 
+//		if((!(frontz<MRDSpecs::MRD_start)) || sidentry){           // case 2: z entry is within MRD bounds. 
 //			// first the simple case: the track start was within the MRD
-//			if((abs(frontx)<MRD_width)&&(abs(fronty)<MRD_height)){
+//			if((abs(frontx)<MRDSpecs::MRD_width)&&(abs(fronty)<MRDSpecs::MRD_height)){
 //#ifdef DRAWTRUEVERBOSE
 //				cout<<"track starts within the MRD"<<endl;
 //#endif
@@ -364,32 +367,32 @@ void cMRDSubEvent::DrawTrueTracks(){
 //				// we need to find the z at which the projected track enters both x and y bounds
 //				// this is the greater of projected z entry point for x or y.
 //				double projectedentryzx, projectedentryzy;
-//				if(abs(frontx)<MRD_width){
+//				if(abs(frontx)<MRDSpecs::MRD_width){
 //#ifdef DRAWTRUEVERBOSE
 //					cout<<"start x is within bounds"<<endl;
 //#endif
 //					projectedentryzx = -1.; // it's already within bounds
 //				} else {
-//					double traverselength = (frontx>0) ? (frontx-MRD_width) : (frontx+MRD_width);
+//					double traverselength = (frontx>0) ? (frontx-MRDSpecs::MRD_width) : (frontx+MRDSpecs::MRD_width);
 //					projectedentryzx = frontz - traverselength/ /*TMath::Tan*/(avgtrackanglex);
 //#ifdef DRAWTRUEVERBOSE
 //					cout<<"using signed projectedentryzx="<<projectedentryzx
-//						<<", using unsigned ="<<(frontz+((abs(frontx)-MRD_width)/abs(avgtrackanglex)))<<endl;
+//						<<", using unsigned ="<<(frontz+((abs(frontx)-MRDSpecs::MRD_width)/abs(avgtrackanglex)))<<endl;
 //					//TODO i forget what this is about but they aren't always the same.
 //					cout<<"projected x entry point is at z="<<projectedentryzx<<endl;
 //#endif
 //				}
-//				if(abs(fronty)<MRD_height){
+//				if(abs(fronty)<MRDSpecs::MRD_height){
 //#ifdef DRAWTRUEVERBOSE
 //					cout<<"start y is within bounds"<<endl;
 //#endif
 //					projectedentryzy = -1.;
 //				} else {
-//					double traverselength = (fronty>0) ? (fronty-MRD_height) : (fronty+MRD_height);
+//					double traverselength = (fronty>0) ? (fronty-MRDSpecs::MRD_height) : (fronty+MRDSpecs::MRD_height);
 //					projectedentryzy = frontz - traverselength/ /*TMath::Tan*/(avgtrackangley);
 //#ifdef DRAWTRUEVERBOSE
 //					cout<<"using signed projectedentryzy="<<projectedentryzy
-//						<<", using unsigned ="<<(frontz+((abs(fronty)-MRD_height)/abs(avgtrackangley)))<<endl;
+//						<<", using unsigned ="<<(frontz+((abs(fronty)-MRDSpecs::MRD_height)/abs(avgtrackangley)))<<endl;
 //					cout<<"projected y entry point is at z="<<projectedentryzy<<endl;
 //#endif
 //				}
@@ -405,18 +408,18 @@ void cMRDSubEvent::DrawTrueTracks(){
 //		// repeat the logic for the exit point
 //		// we have 2 cases: a track ends after the MRD or in the MRD
 //		bool sidexit=false;
-//		if(backz>(MRD_start+MRD_depth)){  // case 1: track ends after the MRD.
+//		if(backz>(MRDSpecs::MRD_start+MRDSpecs::MRD_depth)){  // case 1: track ends after the MRD.
 //#ifdef DRAWTRUEVERBOSE
 //			cout<<"track ends after the MRD";
 //#endif
 //			// project the track to the z plane of the MRD end
-//			mrdexitx=frontx+(MRD_start+MRD_depth-frontz)*/*TMath::Tan*/(avgtrackanglex);
-//			mrdexity=fronty+(MRD_start+MRD_depth-frontz)*/*TMath::Tan*/(avgtrackangley);
-//			if((abs(mrdexitx)<MRD_width)&&(abs(mrdexity)<MRD_height)){
+//			mrdexitx=frontx+(MRDSpecs::MRD_start+MRDSpecs::MRD_depth-frontz)*/*TMath::Tan*/(avgtrackanglex);
+//			mrdexity=fronty+(MRDSpecs::MRD_start+MRDSpecs::MRD_depth-frontz)*/*TMath::Tan*/(avgtrackangley);
+//			if((abs(mrdexitx)<MRDSpecs::MRD_width)&&(abs(mrdexity)<MRDSpecs::MRD_height)){
 //#ifdef DRAWTRUEVERBOSE
-//				cout<<" and within MRD bounds - mrdzexit = MRD_end"<<endl;
+//				cout<<" and within MRD bounds - mrdzexit = MRDSpecs::MRD_end"<<endl;
 //#endif
-//				mrdexitz=MRD_start+MRD_depth;
+//				mrdexitz=MRDSpecs::MRD_start+MRDSpecs::MRD_depth;
 //			} else {
 //				sidexit=true;  // projecting to the back face doesn't put it within MRD bounds
 //#ifdef DRAWTRUEVERBOSE
@@ -424,9 +427,9 @@ void cMRDSubEvent::DrawTrueTracks(){
 //#endif
 //			}
 //		}
-//		if((!(backz>(MRD_start+MRD_depth)))||sidexit){  // case 2: z exit is within MRD bounds. 
+//		if((!(backz>(MRDSpecs::MRD_start+MRDSpecs::MRD_depth)))||sidexit){  // case 2: z exit is within MRD bounds. 
 //			// first the simple case: the track end is within the MRD
-//			if((abs(backx)<MRD_width)&&(abs(backy)<MRD_height)){
+//			if((abs(backx)<MRDSpecs::MRD_width)&&(abs(backy)<MRDSpecs::MRD_height)){
 //#ifdef DRAWTRUEVERBOSE
 //				cout<<"track ends within the MRD"<<endl;
 //#endif
@@ -439,24 +442,24 @@ void cMRDSubEvent::DrawTrueTracks(){
 //				// we need to find the z at which the projected track exits either x or y bounds
 //				// this is the lesser of projected z exit point for x or y.
 //				double projectedexitzx, projectedexitzy;
-//				if(abs(backx)<MRD_width){
+//				if(abs(backx)<MRDSpecs::MRD_width){
 //					projectedexitzx = 999.; // it's already within bounds
 //				} else {
-//					double traverselength = (backx>0) ? (backx-MRD_width) : (backx+MRD_width);
+//					double traverselength = (backx>0) ? (backx-MRDSpecs::MRD_width) : (backx+MRDSpecs::MRD_width);
 //					projectedexitzx = backz - traverselength/ /*TMath::Tan*/(avgtrackanglex);
 //#ifdef DRAWTRUEVERBOSE
 //					cout<<"using signed projectedexitzx="<<projectedexitzx<<", unsigned ="
-//						<<(backz-((abs(backx)-MRD_width)/abs(avgtrackanglex)))<<endl;
+//						<<(backz-((abs(backx)-MRDSpecs::MRD_width)/abs(avgtrackanglex)))<<endl;
 //#endif
 //				}
-//				if(abs(backy)<MRD_height){
+//				if(abs(backy)<MRDSpecs::MRD_height){
 //					projectedexitzy = 999.;
 //				} else {
-//					double traverselength = (backy>0) ? (backy-MRD_height) : (backy+MRD_height);
+//					double traverselength = (backy>0) ? (backy-MRDSpecs::MRD_height) : (backy+MRDSpecs::MRD_height);
 //					projectedexitzy = backz - traverselength/ /*TMath::Tan*/(avgtrackangley);
 //#ifdef DRAWTRUEVERBOSE
 //					cout<<"using signed projectedexitzy="<<projectedexitzy<<", unsigned ="
-//						<<(backz-((abs(backy)-MRD_height)/abs(avgtrackangley)))<<endl;
+//						<<(backz-((abs(backy)-MRDSpecs::MRD_height)/abs(avgtrackangley)))<<endl;
 //#endif
 //				}
 //				mrdexitz=min(projectedexitzy,projectedexitzx);
@@ -487,13 +490,13 @@ void cMRDSubEvent::DrawTrueTracks(){
 		
 		// up to now all measurements are in WCSim absolute coordinates. Shift z axis so that
 		// the MRD is centered on (0,0);
-		mrdentryz -= (MRD_start+(MRD_depth/2.));
-		mrdexitz -= (MRD_start+(MRD_depth/2.));
+		mrdentryz -= (MRDSpecs::MRD_start+(MRDSpecs::MRD_depth/2.));
+		mrdexitz -= (MRDSpecs::MRD_start+(MRDSpecs::MRD_depth/2.));
 #ifdef DRAWTRUEVERBOSE
 		cout<<"shifting z axis; new entry and exit points are "<<mrdentryz<<" and "<<mrdexitz<<endl;
 		cout<<"entry and exit points in terms of mrd width, height and depth are: ("
-			<<(mrdentryx/maxwidth)<<", "<<(mrdentryy/maxheight)<<", "<<(mrdentryz/mrdZlen)<<") -> ("
-			<<(mrdexitx/maxwidth)<<", "<<(mrdexity/maxheight)<<", "<<(mrdexitz/mrdZlen)<<")"<<endl;
+			<<(mrdentryx/MRDSpecs::maxwidth)<<", "<<(mrdentryy/MRDSpecs::maxheight)<<", "<<(mrdentryz/MRDSpecs::mrdZlen)<<") -> ("
+			<<(mrdexitx/MRDSpecs::maxwidth)<<", "<<(mrdexity/MRDSpecs::maxheight)<<", "<<(mrdexitz/MRDSpecs::mrdZlen)<<")"<<endl;
 #endif
 		
 		//============================================================
@@ -501,7 +504,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 		// we also need to know the 'side' (left or right) of the track at it's start, end, and where
 		// it crosses if applicable, for both views, so that we can shift the track in both views
 		// to account for the paddle shift used to visualize two halves on the same canvas
-		double anoffset=(scintfullzlen+scintalugap)*5.;  // this offset accuonts for the half shift
+		double anoffset=(MRDSpecs::scintfullzlen+MRDSpecs::scintalugap)*5.;  // this offset accuonts for the half shift
 		
 		// add the starting x and y, scaled to canvas size and offset to start of MRD diagram
 		/*  ✩ ✨ Magic Numbers! ✨ ✩ */
@@ -530,8 +533,8 @@ void cMRDSubEvent::DrawTrueTracks(){
 		mrdexity*=yscalefactor;
 #ifdef DRAWTRUEVERBOSE
 		cout<<"scaled entry and exit points in terms of mrd width, height and depth are: ("
-			<<(mrdentryx/maxwidth)<<", "<<(mrdentryy/maxheight)<<", "<<(mrdentryz/mrdZlen)<<") -> ("
-			<<(mrdexitx/maxwidth)<<", "<<(mrdexity/maxheight)<<", "<<(mrdexitz/mrdZlen)<<")"<<endl;
+			<<(mrdentryx/MRDSpecs::maxwidth)<<", "<<(mrdentryy/MRDSpecs::maxheight)<<", "<<(mrdentryz/MRDSpecs::mrdZlen)<<") -> ("
+			<<(mrdexitx/MRDSpecs::maxwidth)<<", "<<(mrdexity/MRDSpecs::maxheight)<<", "<<(mrdexitz/MRDSpecs::mrdZlen)<<")"<<endl;
 #endif
 		
 		// one last thing: the beam comes from the left. In the top view, right-hand-side (x>0)
@@ -542,20 +545,20 @@ void cMRDSubEvent::DrawTrueTracks(){
 		avgtrackanglex*=-1.;
 		
 		std::vector<double> xstarts, ystarts, zstartsx, zstartsy, xstops, ystops, zstopsx, zstopsy;
-		xstarts.push_back((mrdentryx/(maxwidth*topscalefactor))+0.5);
-		ystarts.push_back((mrdentryy/(maxheight*sidescalefactor))+0.5);
+		xstarts.push_back((mrdentryx/(MRDSpecs::maxwidth*topscalefactor))+0.5);
+		ystarts.push_back((mrdentryy/(MRDSpecs::maxheight*sidescalefactor))+0.5);
 		// starting z may need a shift depending on the appropriate half
 		// in top view
 		if(mrdentryy>0){
-			zstartsx.push_back((mrdentryz/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+			zstartsx.push_back((mrdentryz/(MRDSpecs::mrdZlen*topdepthscalefactor))+0.5+topzoffset);
 		} else {
-			zstartsx.push_back(((mrdentryz+anoffset)/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+			zstartsx.push_back(((mrdentryz+anoffset)/(MRDSpecs::mrdZlen*topdepthscalefactor))+0.5+topzoffset);
 		}
 		// in side view
 		if(mrdentryx>0){
-			zstartsy.push_back((mrdentryz/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+			zstartsy.push_back((mrdentryz/(MRDSpecs::mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
 		} else {
-			zstartsy.push_back(((mrdentryz+anoffset)/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+			zstartsy.push_back(((mrdentryz+anoffset)/(MRDSpecs::mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
 		}
 		// check if we cross sides, and if so, create a middle stop and start set
 		// top view
@@ -563,17 +566,17 @@ void cMRDSubEvent::DrawTrueTracks(){
 			// we'll need two lines with a bit of a disconnect. find the crossing point.
 			double crossingz = mrdentryz-((mrdentryy/yscalefactor) / /*TMath::Tan*/(avgtrackangley));
 			double crossingx = (mrdentryx/xscalefactor) + ((crossingz-mrdentryz)*avgtrackanglex);
-			xstops.push_back(((crossingx*xscalefactor)/(maxwidth*topscalefactor))+0.5);
+			xstops.push_back(((crossingx*xscalefactor)/(MRDSpecs::maxwidth*topscalefactor))+0.5);
 			if(mrdentryy>0){
-				zstopsx.push_back((crossingz/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+				zstopsx.push_back((crossingz/(MRDSpecs::mrdZlen*topdepthscalefactor))+0.5+topzoffset);
 			} else {
-				zstopsx.push_back(((crossingz+anoffset)/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+				zstopsx.push_back(((crossingz+anoffset)/(MRDSpecs::mrdZlen*topdepthscalefactor))+0.5+topzoffset);
 			}
-			xstarts.push_back(((crossingx*xscalefactor)/(maxwidth*topscalefactor))+0.5);
+			xstarts.push_back(((crossingx*xscalefactor)/(MRDSpecs::maxwidth*topscalefactor))+0.5);
 			if(mrdexity>0){
-				zstartsx.push_back((crossingz/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+				zstartsx.push_back((crossingz/(MRDSpecs::mrdZlen*topdepthscalefactor))+0.5+topzoffset);
 			} else {
-				zstartsx.push_back(((crossingz+anoffset)/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+				zstartsx.push_back(((crossingz+anoffset)/(MRDSpecs::mrdZlen*topdepthscalefactor))+0.5+topzoffset);
 			}
 		}
 		// side view
@@ -581,33 +584,33 @@ void cMRDSubEvent::DrawTrueTracks(){
 			// we'll need two lines with a bit of a disconnect. find the crossing point.
 			double crossingz = mrdentryz-((mrdentryx/xscalefactor) / /*TMath::Tan*/(avgtrackanglex));
 			double crossingy = (mrdentryy/yscalefactor) + ((crossingz-mrdentryz)*avgtrackangley);
-			ystops.push_back(((crossingy*yscalefactor)/(maxheight*sidescalefactor))+0.5);
+			ystops.push_back(((crossingy*yscalefactor)/(MRDSpecs::maxheight*sidescalefactor))+0.5);
 			if(mrdentryx>0){
-				zstopsy.push_back((crossingz/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+				zstopsy.push_back((crossingz/(MRDSpecs::mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
 			} else {
-				zstopsy.push_back(((crossingz+anoffset)/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+				zstopsy.push_back(((crossingz+anoffset)/(MRDSpecs::mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
 			}
-			ystarts.push_back(((crossingy*yscalefactor)/(maxheight*sidescalefactor))+0.5);
+			ystarts.push_back(((crossingy*yscalefactor)/(MRDSpecs::maxheight*sidescalefactor))+0.5);
 			if(mrdexitx>0){
-				zstartsy.push_back((crossingz/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+				zstartsy.push_back((crossingz/(MRDSpecs::mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
 			} else {
-				zstartsy.push_back(((crossingz+anoffset)/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+				zstartsy.push_back(((crossingz+anoffset)/(MRDSpecs::mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
 			}
 		}
 		// finally add the endpoint values, with offset for z according to ending MRD half.
-		xstops.push_back((mrdexitx/(maxwidth*topscalefactor))+0.5);
-		ystops.push_back((mrdexity/(maxheight*sidescalefactor))+0.5);
+		xstops.push_back((mrdexitx/(MRDSpecs::maxwidth*topscalefactor))+0.5);
+		ystops.push_back((mrdexity/(MRDSpecs::maxheight*sidescalefactor))+0.5);
 		// top view
 		if(mrdexity>0){
-			zstopsx.push_back((mrdexitz/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+			zstopsx.push_back((mrdexitz/(MRDSpecs::mrdZlen*topdepthscalefactor))+0.5+topzoffset);
 		} else {
-			zstopsx.push_back(((mrdexitz+anoffset)/(mrdZlen*topdepthscalefactor))+0.5+topzoffset);
+			zstopsx.push_back(((mrdexitz+anoffset)/(MRDSpecs::mrdZlen*topdepthscalefactor))+0.5+topzoffset);
 		}
 		// side view
 		if(mrdexitx>0){
-			zstopsy.push_back((mrdexitz/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+			zstopsy.push_back((mrdexitz/(MRDSpecs::mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
 		} else {
-			zstopsy.push_back(((mrdexitz+anoffset)/(mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
+			zstopsy.push_back(((mrdexitz+anoffset)/(MRDSpecs::mrdZlen*sidedepthscalefactor))+0.5+sidezoffset);
 		}
 		
 		// OK done.
@@ -647,8 +650,8 @@ void cMRDSubEvent::DrawTrueTracks(){
 			// draw the arrow indicating the true initial direction
 			if(i==0&&drawinitdir){
 				TArrow* myarrow = new TArrow( zstartsx.at(i), xstarts.at(i), 
-						zstartsx.at(i)+(dirz*10./(mrdZlen*topdepthscalefactor)),
-						xstarts.at(i)+(diry*10.*xscalefactor/(maxwidth*topscalefactor)),
+						zstartsx.at(i)+(dirz*10./(MRDSpecs::mrdZlen*topdepthscalefactor)),
+						xstarts.at(i)+(diry*10.*xscalefactor/(MRDSpecs::maxwidth*topscalefactor)),
 						0.005, arrowdir.c_str() );
 				myarrow->SetLineWidth(2);
 				myarrow->SetLineColor(kMagenta);
@@ -693,8 +696,8 @@ void cMRDSubEvent::DrawTrueTracks(){
 			// draw the arrow indicating the true initial direction
 			if(i==0&&drawinitdir){
 				TArrow* myarrow = new TArrow( zstartsy.at(i), ystarts.at(i), 
-						zstartsy.at(i)+(dirz*10./(mrdZlen*sidedepthscalefactor)),
-						ystarts.at(i)+(diry*10.*yscalefactor/(maxheight*sidescalefactor)),
+						zstartsy.at(i)+(dirz*10./(MRDSpecs::mrdZlen*sidedepthscalefactor)),
+						ystarts.at(i)+(diry*10.*yscalefactor/(MRDSpecs::maxheight*sidescalefactor)),
 						0.005, arrowdir.c_str() );
 				myarrow->SetLineWidth(2);
 				myarrow->SetLineColor(kMagenta);
@@ -825,3 +828,5 @@ bool CheckLineBox( TVector3 L1, TVector3 L2, TVector3 B1, TVector3 B2, TVector3 
 		return false;
 	}
 }
+
+#endif

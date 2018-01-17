@@ -2,8 +2,10 @@
 #define _MRD_SPECS_ 1
 
 // first panel is a HORIZONTAL LAYER.
-// TODO: this should probably be a class, struct or namespace maybe.
+// TODO: this should probably be a namespace
+// or better, stored in the WCSimRootGeom
 
+namespace MRDSpecs{
 const Int_t numpaddlesperpanelv=30;
 const Int_t numpaddlesperpanelh=26;
 const Int_t numhpanels=6;
@@ -45,7 +47,7 @@ const Double_t alusteelgap=2.0; 		// gap between alu struct and subsequent steel
 const Double_t layergap = steelscintgap + scintalugap + alusteelgap;	// total gaps between layers
 const Double_t nothickness = 0.01;
 
-const Double_t mrdZlen = numplates*steelfullzlen + (numpanels+1)*scintfullzlen + numalustructs*alufullzlen + numpanels*layergap + scintalugap;
+const Double_t mrdZlen = numplates*steelfullzlen + (numpanels+1)*scintfullzlen + numalustructs*alufullzlen + numpanels*layergap + scintalugap; // TODO reconcile this with MRD_depth
 
 const Double_t tankouterRadius= 152.4;
 
@@ -94,5 +96,5 @@ const Float_t tank_halfheight = 198.;       // tank half height in cm
 const Float_t tank_yoffset = -14.46;        // tank y offset in cm
 
 //totMRD_box = new G4Box("totMRD",(maxwidth/2),(maxheight/2),mrdZlen/2);
-
+}
 #endif 

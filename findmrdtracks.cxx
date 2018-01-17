@@ -35,7 +35,7 @@ void WCSimAnalysis::OpenMRDtrackOutfile(int filenum){
 // ==================
 void WCSimAnalysis::FindMRDtracksInEvent(){
 
-const Int_t minimumdigits =4;
+	const Int_t minimumdigits =4;
 #ifdef MRDSPLITVERBOSE
 	cout<<"Searching for MRD tracks in event "<<eventnum<<endl;
 	cout<<"mrddigittimesthisevent.size()="<<mrddigittimesthisevent.size()<<endl;

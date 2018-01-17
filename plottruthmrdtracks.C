@@ -1614,7 +1614,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #ifdef VERBOSE
 			cout<<"primarystopvol is "<<primarystopvol<<endl;
 #endif // VERBOSE
-			
+			// world extent in WCSim is +-600cm in all directions!
 			TLorentzVector primarystartvertex(  nextrack->GetStart(0),
 												nextrack->GetStart(1),
 												nextrack->GetStart(2),

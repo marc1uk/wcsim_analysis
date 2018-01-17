@@ -59,12 +59,12 @@ void cMRDTrack::DoReconstruction(){
 #endif
 	// calculate track fit start and endpoints from frontmost and backmost cell z values,
 	// and fit formulae to determine x and y
-	Double_t trackfitstartz = TMath::Min(mrdscintlayers.at(vtrackclusters.back().layer),
-										mrdscintlayers.at(htrackclusters.back().layer));
+	Double_t trackfitstartz = TMath::Min(MRDSpecs::mrdscintlayers.at(vtrackclusters.back().layer),
+										MRDSpecs::mrdscintlayers.at(htrackclusters.back().layer));
 	Double_t trackfitstarty = htrackorigin + htrackgradient*trackfitstartz;
 	Double_t trackfitstartx = vtrackorigin + vtrackgradient*trackfitstartz;
-	Double_t trackfitstopz = TMath::Max(mrdscintlayers.at(vtrackclusters.front().layer),
-										mrdscintlayers.at(htrackclusters.front().layer));
+	Double_t trackfitstopz = TMath::Max(MRDSpecs::mrdscintlayers.at(vtrackclusters.front().layer),
+										MRDSpecs::mrdscintlayers.at(htrackclusters.front().layer));
 	Double_t trackfitstopy = htrackorigin + htrackgradient*trackfitstopz;
 	Double_t trackfitstopx = vtrackorigin + vtrackgradient*trackfitstopz;
 	
@@ -124,7 +124,7 @@ void cMRDTrack::CalculateEnergyLoss(){
 	// ~5MeV/cm  (5 to 6) @ large angle 
 	// ~16MeV/cm (10 to >40) @ small angles
 	// calculate the total track length in cm
-	penetrationdepth=trackfitstop.Z()-MRD_start;
+	penetrationdepth=trackfitstop.Z()-MRDSpecs::MRD_start;
 	double muXdistanceinMRD=trackfitstop.X()-trackfitstart.X();
 	double muYdistanceinMRD=trackfitstop.Y()-trackfitstart.Y();
 	mutracklengthinMRD = 
@@ -163,16 +163,16 @@ void cMRDTrack::DoTGraphErrorsFit(){
 	//std::vector<mrdcluster> vtrackclusters;	// 
 	std::vector<double> hclusterzpositions, hclusterxpositions, hclusterzerrors, hclusterxerrors;
 	for(auto acluster : htrackclusters){
-		hclusterzpositions.push_back(mrdscintlayers.at(acluster.layer));
+		hclusterzpositions.push_back(MRDSpecs::mrdscintlayers.at(acluster.layer));
 		hclusterxpositions.push_back(acluster.GetCentre()/10.);
-		hclusterzerrors.push_back(scintfullzlen);
+		hclusterzerrors.push_back(MRDSpecs::scintfullzlen);
 		hclusterxerrors.push_back(TMath::Abs(acluster.GetXmax()-acluster.GetXmin())/10.);
 	}
 	std::vector<double> vclusterzpositions, vclusterxpositions, vclusterzerrors, vclusterxerrors;
 	for(auto acluster : vtrackclusters){
-		vclusterzpositions.push_back(mrdscintlayers.at(acluster.layer));
+		vclusterzpositions.push_back(MRDSpecs::mrdscintlayers.at(acluster.layer));
 		vclusterxpositions.push_back(acluster.GetCentre()/10.);
-		vclusterzerrors.push_back(scintfullzlen);
+		vclusterzerrors.push_back(MRDSpecs::scintfullzlen);
 		vclusterxerrors.push_back(TMath::Abs(acluster.GetXmax()-acluster.GetXmin())/10.);
 	}
 	
@@ -207,7 +207,7 @@ void cMRDTrack::DoTGraphErrorsFit(){
 	// ----------------------
 	TCanvas c1;
 	hclustergraph.Draw("AP");
-	TF1 htrackfit("htrackfit","pol1",MRD_start,(MRD_start+MRD_depth));
+	TF1 htrackfit("htrackfit","pol1",MRDSpecs::MRD_start,(MRDSpecs::MRD_start+MRDSpecs::MRD_depth));
 	htrackfit.SetParameters(0,0);
 #ifdef MRDTrack_RECO_VERBOSE
 	TFitResultPtr htrackfitresult = hclustergraph.Fit(&htrackfit,"SR");
@@ -234,7 +234,7 @@ void cMRDTrack::DoTGraphErrorsFit(){
 	// --------------------
 	c1.Clear();
 	vclustergraph.Draw("AP");
-	TF1 vtrackfit("vtrackfit","pol1",MRD_start,(MRD_start+MRD_depth));
+	TF1 vtrackfit("vtrackfit","pol1",MRDSpecs::MRD_start,(MRDSpecs::MRD_start+MRDSpecs::MRD_depth));
 	vtrackfit.SetParameters(0,0);
 #ifdef MRDTrack_RECO_VERBOSE
 	TFitResultPtr vtrackfitresult = vclustergraph.Fit(&vtrackfit,"SR");
@@ -431,13 +431,15 @@ bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradien
 	cout<<"Checking for and calculating track tank interception points"<<endl;
 #endif
 	// first as it's easiest, check if projection vertically actually enters tank height.
-	double projectedtankexity = htrackoriginin + htrackgradientin*(tank_start+(2*tank_radius));
+	double projectedtankexity = htrackoriginin + 
+		htrackgradientin*(MRDSpecs::tank_start+(2*MRDSpecs::tank_radius));
 	double projectedtankexitz, projectedtankexitx;
 #ifdef MRDTrack_RECO_VERBOSE
 	cout<<"initial back projection of track to tank back edge places projected height at "
-		<<projectedtankexity-tank_yoffset<<" relative to tank half-height "<<tank_halfheight<<endl;
+		<<projectedtankexity-MRDSpecs::tank_yoffset
+		<<" relative to tank half-height "<<MRDSpecs::tank_halfheight<<endl;
 #endif
-	if(TMath::Abs(projectedtankexity-tank_yoffset)>tank_halfheight){
+	if(TMath::Abs(projectedtankexity-MRDSpecs::tank_yoffset)>MRDSpecs::tank_halfheight){
 #ifdef MRDTrack_RECO_VERBOSE
 		cout<<"tank misses tank height"<<endl;
 #endif
@@ -452,10 +454,10 @@ bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradien
 		// we obtain:
 		// z_intercept = [ -mc +/- Sqrt(m^2*c^2 - (1+m^2)*(c^2-r^2)) ] / (1+m^2)
 		// (with z axis shifted to centre of tank)
-		double linec = vtrackoriginin + vtrackgradientin*(tank_start+tank_radius);
+		double linec = vtrackoriginin + vtrackgradientin*(MRDSpecs::tank_start+MRDSpecs::tank_radius);
 		double coeffa = 1.+pow(vtrackgradientin,2);
 		double coeffb = 2*vtrackgradientin*linec;
-		double coeffc = pow(linec,2) - pow(tank_radius,2);
+		double coeffc = pow(linec,2) - pow(MRDSpecs::tank_radius,2);
 		// first check if there is an intercept
 		double determinnt = pow(coeffb,2) - 4*coeffa*coeffc;
 #ifdef MRDTrack_RECO_VERBOSE
@@ -467,7 +469,7 @@ bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradien
 			cout<<"x-z plane interception occurs at z= "<<projectedtankexitz
 				<<" in coordinates with origin centred on the tank"<<endl;
 #endif
-			projectedtankexitz += tank_start + tank_radius; // remove tank-centering offset
+			projectedtankexitz += MRDSpecs::tank_start + MRDSpecs::tank_radius; // remove tank-centering offset
 			projectedtankexitx = vtrackoriginin + (vtrackgradientin*projectedtankexitz);
 			// we need to recalculate this as the relevant z value will have changed
 			projectedtankexity = htrackoriginin + htrackgradientin*projectedtankexitz;
@@ -475,27 +477,35 @@ bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradien
 			cout<<"interception point in global coords is ("<<projectedtankexitx<<", "
 				<<projectedtankexity<<", "<<projectedtankexitz<<"). Rechecking y in range."<<endl;
 #endif
-			if(abs(projectedtankexity-tank_yoffset)>tank_halfheight){ cout<<"y range fail"<<endl; return false; }
+			if(abs(projectedtankexity-MRDSpecs::tank_yoffset)>MRDSpecs::tank_halfheight)
+				{ cout<<"y range fail"<<endl; return false; }
 			*solution1=TVector3(projectedtankexitx,projectedtankexity,projectedtankexitz);
 #ifdef MRDTrack_RECO_VERBOSE
 			cout<<"y value at interception to tank cylinder is within tank height, doing sanity checks"<<endl;
 #endif
 			// sanity check:
-			if( (abs(projectedtankexitx)>tank_radius) || (abs(projectedtankexity-tank_yoffset)>tank_halfheight) ||
-				(projectedtankexitz<tank_start)       || (projectedtankexitz>(tank_start+(2*tank_radius)))      ||
-				(sqrt(pow(projectedtankexitz-tank_start-tank_radius,2)+pow(projectedtankexitx,2))>tank_radius)  ){
+			if( (abs(projectedtankexitx)>MRDSpecs::tank_radius)                            ||
+				(abs(projectedtankexity-MRDSpecs::tank_yoffset)>MRDSpecs::tank_halfheight) ||
+				(projectedtankexitz<MRDSpecs::tank_start)                                  ||
+				(projectedtankexitz>(MRDSpecs::tank_start+(2*MRDSpecs::tank_radius)))      ||
+				(sqrt(pow(projectedtankexitz-MRDSpecs::tank_start-MRDSpecs::tank_radius,2)
+					 +pow(projectedtankexitx,2))>MRDSpecs::tank_radius) ){
 				cerr<<"projected exit point is OUTSIDE the tank!"<<endl;
-				cerr<<"x > tank radius           : "<<(abs(projectedtankexitx)>tank_radius)<<endl;
-				cerr<<"y > tank height           : "<<(abs(projectedtankexity-tank_yoffset)>tank_halfheight)<<endl;
-				cerr<<"z < tank start            : "<<(projectedtankexitz<tank_start)<<endl;
-				cerr<<"z > tank end              : "<<(projectedtankexitz>(tank_start+(2*tank_radius)))<<endl;
+				cerr<<"x > tank radius           : "<<(abs(projectedtankexitx)>MRDSpecs::tank_radius)<<endl;
+				cerr<<"y > tank height           : "<<(abs(projectedtankexity
+				-MRDSpecs::tank_yoffset)>MRDSpecs::tank_halfheight)<<endl;
+				cerr<<"z < tank start            : "<<(projectedtankexitz<MRDSpecs::tank_start)<<endl;
+				cerr<<"z > tank end              : "<<(projectedtankexitz>
+					(MRDSpecs::tank_start+(2*MRDSpecs::tank_radius)))<<endl;
 				cerr<<"(x^2 + z^2) > tank radius : "<<
-				(sqrt(pow(projectedtankexitz-tank_start-tank_radius,2)+pow(projectedtankexitx,2))>tank_radius)<<endl;
+				(sqrt(pow(projectedtankexitz-MRDSpecs::tank_start-MRDSpecs::tank_radius,2)+
+					  pow(projectedtankexitx,2))>MRDSpecs::tank_radius)<<endl;
 				assert(false);
 			}
 			// second sanity check:
-			if( (abs((projectedtankexity-tank_yoffset)-tank_halfheight)>10.) &&
-				(abs(sqrt(pow(projectedtankexitz-tank_start-tank_radius,2)+pow(projectedtankexitx,2))-tank_radius)>10.) ){
+			if( (abs((projectedtankexity-MRDSpecs::tank_yoffset)-MRDSpecs::tank_halfheight)>10.) &&
+				(abs(sqrt(pow(projectedtankexitz-MRDSpecs::tank_start-MRDSpecs::tank_radius,2)
+						 +pow(projectedtankexitx,2))-MRDSpecs::tank_radius)>10.) ){
 				cerr<<"projected exit point doesn't lie on the tank surface!"<<endl;
 				assert(false);
 			}
@@ -509,7 +519,7 @@ bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradien
 				cout<<", calculating corresponding tank entry point"<<endl;
 #endif
 				projectedtankexitz = ( -coeffb - TMath::Sqrt(determinnt) ) / (2*coeffa);
-				projectedtankexitz += tank_start + tank_radius; // remove tank-centering offset
+				projectedtankexitz += MRDSpecs::tank_start + MRDSpecs::tank_radius; // remove tank-center offset
 				projectedtankexitx = vtrackoriginin + (vtrackgradientin*projectedtankexitz);
 				projectedtankexity = htrackoriginin + htrackgradientin*projectedtankexitz;
 #ifdef MRDTrack_RECO_VERBOSE
@@ -519,20 +529,20 @@ bool cMRDTrack::CheckTankIntercept(double htrackgradientin, double vtrackgradien
 				// since we project tracks back from the MRD, the exit point must be the barrel
 				// (cap exits would not produce an MRD track to back-project), but for the tank entry point
 				// we need to check whether the projected interception point is outside a cap. If so, recalculate.
-				if(abs(projectedtankexity-tank_yoffset)>tank_halfheight){
+				if(abs(projectedtankexity-MRDSpecs::tank_yoffset)>MRDSpecs::tank_halfheight){
 					// the track enters via a tank cap. 
-					if((projectedtankexity-tank_yoffset)>tank_halfheight){
+					if((projectedtankexity-MRDSpecs::tank_yoffset)>MRDSpecs::tank_halfheight){
 						// enters top cap
 #ifdef MRDTrack_RECO_VERBOSE
 						cout<<"tank enters top cap, recalculating"<<endl;
 #endif
-						projectedtankexity = tank_halfheight;
+						projectedtankexity = MRDSpecs::tank_halfheight;
 					} else {
 						// enters bottom cap
 #ifdef MRDTrack_RECO_VERBOSE
 						cout<<"tank enters bottom cap, recalculating"<<endl;
 #endif
-						projectedtankexity = -tank_halfheight;
+						projectedtankexity = -MRDSpecs::tank_halfheight;
 					}
 					projectedtankexitz = (projectedtankexity-htrackoriginin)/htrackgradientin;
 					projectedtankexitx = vtrackoriginin + (vtrackgradientin*projectedtankexitz);
@@ -606,18 +616,19 @@ void cMRDTrack::CheckIfStopping(){
 	double depthfidfrac = 0.9;
 	double widthfidfrac = 0.9;
 	double heightfidfrac = 0.9;
-	if( TMath::Abs(trackfitstop.Z())>(MRD_start+(MRD_depth*depthfidfrac)) ){
+	if( TMath::Abs(trackfitstop.Z())>(MRDSpecs::MRD_start+(MRDSpecs::MRD_depth*depthfidfrac)) ){
 		// if the last point is sufficiently close to the MRD end, we consider it as penetrated
 		// and take the 'zstop' as MRD_end. But, we can check from the angle if it would have exited through the sides first.
-		double projectedxexit = vtrackorigin + vtrackgradient*MRD_end;
-		double projectedyexit = htrackorigin + htrackgradient*MRD_end;
-		if( (TMath::Abs(projectedxexit)<MRD_width) && (TMath::Abs(projectedyexit)<MRD_height) ){
+		double projectedxexit = vtrackorigin + vtrackgradient*MRDSpecs::MRD_end;
+		double projectedyexit = htrackorigin + htrackgradient*MRDSpecs::MRD_end;
+		if( (TMath::Abs(projectedxexit)<MRDSpecs::MRD_width) && 
+			(TMath::Abs(projectedyexit)<MRDSpecs::MRD_height) ){
 			ispenetrating=true;
 		} else {
 			sideexit=true;
 		}
-	} else if ( (TMath::Abs(trackfitstop.X())>(MRD_width*widthfidfrac))   ||
-				(TMath::Abs(trackfitstop.Y())>(MRD_height*heightfidfrac)) ){
+	} else if ( (TMath::Abs(trackfitstop.X())>(MRDSpecs::MRD_width*widthfidfrac))   ||
+				(TMath::Abs(trackfitstop.Y())>(MRDSpecs::MRD_height*heightfidfrac)) ){
 		sideexit=true;
 	} else {
 		isstopped=true;

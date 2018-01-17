@@ -22,18 +22,18 @@ void cMRDSubEvent::DrawMrdCanvases(){
 //	std::vector<int> holdme(pmts_hit); // remember to disable this also at the end of this method
 //	std::vector<int> pmtshit_debug{
 //	0,1,
-//	(numpaddlesperpanelh/2)-1,(numpaddlesperpanelh/2),
-//	numpaddlesperpanelh-1,numpaddlesperpanelh-2,
-//	nummrdpmts-numpaddlesperpanelh,nummrdpmts-numpaddlesperpanelh+1,
-//	nummrdpmts-(numpaddlesperpanelh/2)-1,nummrdpmts-(numpaddlesperpanelh/2),
-//	nummrdpmts-2, nummrdpmts-1};
+//	(MRDSpecs::numpaddlesperpanelh/2)-1,(MRDSpecs::numpaddlesperpanelh/2),
+//	MRDSpecs::numpaddlesperpanelh-1,MRDSpecs::numpaddlesperpanelh-2,
+//	MRDSpecs::nummrdpmts-MRDSpecs::numpaddlesperpanelh,MRDSpecs::nummrdpmts-MRDSpecs::numpaddlesperpanelh+1,
+//	MRDSpecs::nummrdpmts-(MRDSpecs::numpaddlesperpanelh/2)-1,MRDSpecs::nummrdpmts-(MRDSpecs::numpaddlesperpanelh/2),
+//	MRDSpecs::nummrdpmts-2, MRDSpecs::nummrdpmts-1};
 // test set 1:
 //	0,2,4,6,8,10,12,14,16,18,20,22,24};  // all paddles in the RIGHT HAND (x>0) side of the first H layer.
 // test set 2:
 //	for(auto&& apmt : pmtshit_debug) apmt++; // all left hand (x<0) paddles of first H layer. 
 // test set 3:
 //	0,2,4,6,8,10,12,14,16,18,20,22,24,26,28};  // in conjunction with below:
-//	for(auto&& apmt : pmtshit_debug) apmt+=numpaddlesperpanelh; // all TOP (y>0) paddles of first V layer.
+//	for(auto&& apmt : pmtshit_debug) apmt+=MRDSpecs::numpaddlesperpanelh; // all TOP (y>0) paddles of first V layer.
 //// test set 4:
 //	for(auto&& apmt : pmtshit_debug) apmt++;  // all BOTTOM (y<0) paddles of first V layer.
 	
@@ -51,8 +51,8 @@ void cMRDSubEvent::DrawMrdCanvases(){
 //	digi_ts=digi_tsdebug;
 	
 	Double_t scintboxwidth=1;
-	Double_t topboxheight = (scintfullxlen/(maxwidth*1.2));
-	Double_t sideboxheight = (scintfullxlen/(maxwidth*1.3));
+	Double_t topboxheight = (MRDSpecs::scintfullxlen/(MRDSpecs::maxwidth*1.2));
+	Double_t sideboxheight = (MRDSpecs::scintfullxlen/(MRDSpecs::maxwidth*1.3));
 	Int_t paddlecolour;
 	Double_t maxtime = (*std::max_element(digi_ts.begin(), digi_ts.end()));
 	Double_t mintime = (*std::min_element(digi_ts.begin(), digi_ts.end()));
@@ -124,7 +124,7 @@ void cMRDSubEvent::DrawMrdCanvases(){
 	Bool_t rightsidehit=false, leftsidehit=false, tophit=false, bottomhit=false;
 	
 	// loop over all paddles and build a map of which were hit
-	for(int paddle=0; paddle<((numpaddlesperpanelv*numvpanels)+(numpaddlesperpanelh*numhpanels)); paddle++){
+	for(int paddle=0; paddle<((MRDSpecs::numpaddlesperpanelv*MRDSpecs::numvpanels)+(MRDSpecs::numpaddlesperpanelh*MRDSpecs::numhpanels)); paddle++){
 	
 		// check if the paddle was hit by finding it's PMT ID in the struck PMTs
 		Bool_t paddleishit;
@@ -167,18 +167,18 @@ void cMRDSubEvent::DrawMrdCanvases(){
 		// convert from simulation 'cm' units to canvas units: 0-1, 0-1 horizontal and vertical
 		// flip x sign, a "top view" with z from Left->Right has 'RHS' for x>0, but that corresponds
 		// to the LOWER (negative) half of the canvas -> i.e. x>0 should maps to canvas_y<0. 
-		holderx = 0.5+((-origin.X()/(maxwidth*1.2)));
+		holderx = 0.5+((-origin.X()/(MRDSpecs::maxwidth*1.2)));
 		Double_t anoffset=0;
-		if((ishpaddle&&(origin.X()>0))||((!ishpaddle)&&(origin.Y()<0))){anoffset=(scintfullzlen+scintalugap)*5;}
+		if((ishpaddle&&(origin.X()>0))||((!ishpaddle)&&(origin.Y()<0))){anoffset=(MRDSpecs::scintfullzlen+MRDSpecs::scintalugap)*5;}
 		// in order to view the two sets in the same graph, shift one half on the canvas
-		holdery = (origin.Y()/(maxheight*1.2))+0.5;
-		holderz = ((origin.Z()+anoffset)/(mrdZlen*1.2))+0.5;
+		holdery = (origin.Y()/(MRDSpecs::maxheight*1.2))+0.5;
+		holderz = ((origin.Z()+anoffset)/(MRDSpecs::mrdZlen*1.2))+0.5;
 //		cout<<"origin is: ("<<origin.X()<<","<<origin.Y()<<","<<origin.Z()<<")"<<endl;
 //		cout<<"scaled origin is: ("<<holderx<<","<<holdery<<","<<holderz<<")"<<endl;
 //		cout<<"ishpaddle="<<ishpaddle<<endl;
 //		if(paddle==0){
-//			cout<<"drawing box with height "<<(scintfullxlen/(maxwidth*1.2))
-//				<<" and width "<<(scintboxwidth/(mrdZlen*1.2))<<endl;
+//			cout<<"drawing box with height "<<(MRDSpecs::scintfullxlen/(MRDSpecs::maxwidth*1.2))
+//				<<" and width "<<(scintboxwidth/(MRDSpecs::mrdZlen*1.2))<<endl;
 //		}
 		
 		/*
@@ -187,23 +187,23 @@ void cMRDSubEvent::DrawMrdCanvases(){
 		if((!ishpaddle)&&(!firsthpaddledone)&&paddleishit){	//TODO: why !ishpaddle instead of ishpaddle??
 			firsthpaddledone=true;
 			xupcorner1=std::pair<double,double>(holderx-(sideboxheight/2.),holderz);
-			xdowncorner1=std::pair<double,double>(holderx+(sideboxheight/2.),holderz+(scintboxwidth/mrdZlen));
+			xdowncorner1=std::pair<double,double>(holderx+(sideboxheight/2.),holderz+(scintboxwidth/MRDSpecs::mrdZlen));
 			//cout<<"first hit h paddle at ("<<holderx<<","<<holdery<<","<<holderz<<")"<<endl;
 		}
 		if((!ishpaddle)&&paddleishit){
 			xdowncorner2=std::pair<double,double>(holderx-(sideboxheight/2.),holderz);
-			xupcorner2=std::pair<double,double>(holderx+(sideboxheight/2.),holderz+(scintboxwidth/mrdZlen));
+			xupcorner2=std::pair<double,double>(holderx+(sideboxheight/2.),holderz+(scintboxwidth/MRDSpecs::mrdZlen));
 			//cout<<"last h paddle at ("<<holderx<<","<<holdery<<","<<holderz<<")"<<endl;
 		}
 		if(ishpaddle&&(!firstvpaddledone)&&paddleishit){
 			firstvpaddledone=true;
 			yupcorner1=std::pair<double,double>(holdery-(topboxheight/2.),holderz);
-			ydowncorner1=std::pair<double,double>(holdery+(topboxheight/2.),holderz+(scintboxwidth/mrdZlen));
+			ydowncorner1=std::pair<double,double>(holdery+(topboxheight/2.),holderz+(scintboxwidth/MRDSpecs::mrdZlen));
 			//cout<<"first hit v paddle at ("<<holderx<<","<<holdery<<","<<holderz<<")"<<endl;
 		}
 		if(ishpaddle&&paddleishit){
 			ydowncorner2=std::pair<double,double>(holdery-(topboxheight/2.),holderz);
-			yupcorner2=std::pair<double,double>(holdery+(topboxheight/2.),holderz+(scintboxwidth/mrdZlen));
+			yupcorner2=std::pair<double,double>(holdery+(topboxheight/2.),holderz+(scintboxwidth/MRDSpecs::mrdZlen));
 			//cout<<"last h paddle at ("<<holderx<<","<<holdery<<","<<holderz<<")"<<endl;
 		}
 		// -----------------------------
@@ -222,9 +222,9 @@ void cMRDSubEvent::DrawMrdCanvases(){
 #endif
 			if(!ishpaddle){
 				//TBox (Double_t leftx, Double_t bottomy, Double_t rightx, Double_t topy)
-				thepaddle = new TBox(holderz,holderx-(sideboxheight/2.),holderz+(scintboxwidth/mrdZlen),holderx+(sideboxheight/2.));
+				thepaddle = new TBox(holderz,holderx-(sideboxheight/2.),holderz+(scintboxwidth/MRDSpecs::mrdZlen),holderx+(sideboxheight/2.));
 			} else {
-				thepaddle = new TBox(holderz,holdery-(topboxheight/2.),holderz+(scintboxwidth/mrdZlen),holdery+(topboxheight/2.));
+				thepaddle = new TBox(holderz,holdery-(topboxheight/2.),holderz+(scintboxwidth/MRDSpecs::mrdZlen),holdery+(topboxheight/2.));
 			}
 			paddlepointers.at(paddle) = thepaddle;
 		}
@@ -237,7 +237,7 @@ void cMRDSubEvent::DrawMrdCanvases(){
 		thepaddle->Draw();
 		
 		// check if we're changing panel
-		if( paddle!=0 && (std::count(layeroffsets.begin(), layeroffsets.end(), (paddle+1))!=0) ){
+		if( paddle!=0 && (std::count(MRDSpecs::layeroffsets.begin(), MRDSpecs::layeroffsets.end(), (paddle+1))!=0) ){
 #ifdef DRAWSUPERVERBOSE
 			cout<<"drawing paddles in alternate view"<<endl;
 #endif
@@ -250,12 +250,12 @@ void cMRDSubEvent::DrawMrdCanvases(){
 #endif
 				otherviewoffset=-0.014;
 				imgcanvas->cd(1);
-				holderx1=((scintalugap*10)/(maxwidth*1.2));
-				holderx2=(scinthfullylen/(maxwidth*1.2)); // TODO: wrong length, should be scintvfullylen
+				holderx1=((MRDSpecs::scintalugap*10)/(MRDSpecs::maxwidth*1.2));
+				holderx2=(MRDSpecs::scinthfullylen/(MRDSpecs::maxwidth*1.2)); // TODO: wrong length, should be MRDSpecs::scintvfullylen
 				// some paddles are shown in both views, so we have more TBoxes than real PMTs
-				Int_t overflowindex = nummrdpmts + (2*mrdcluster::paddle_layers.at(paddle));	// RH paddle
+				Int_t overflowindex = MRDSpecs::nummrdpmts + (2*mrdcluster::paddle_layers.at(paddle));	// RH paddle
 				if(paddlepointers.at(overflowindex)==0){
-					thepaddle = new TBox(holderz+otherviewoffset,0.5+holderx1,holderz+(scintboxwidth/mrdZlen)+otherviewoffset, 0.5+holderx1+holderx2);
+					thepaddle = new TBox(holderz+otherviewoffset,0.5+holderx1,holderz+(scintboxwidth/MRDSpecs::mrdZlen)+otherviewoffset, 0.5+holderx1+holderx2);
 					paddlepointers.at(overflowindex) = thepaddle;
 				} else {
 					thepaddle = paddlepointers.at(overflowindex);
@@ -271,7 +271,7 @@ void cMRDSubEvent::DrawMrdCanvases(){
 				thepaddle->Draw();
 				overflowindex++;	// left side paddle
 				if(paddlepointers.at(overflowindex)==0){
-					thepaddle = new TBox(holderz+otherviewoffset,0.5-holderx1,holderz+(scintboxwidth/mrdZlen)+otherviewoffset, 0.5-(holderx1+holderx2));
+					thepaddle = new TBox(holderz+otherviewoffset,0.5-holderx1,holderz+(scintboxwidth/MRDSpecs::mrdZlen)+otherviewoffset, 0.5-(holderx1+holderx2));
 					paddlepointers.at(overflowindex) = thepaddle;
 				} else {
 					thepaddle = paddlepointers.at(overflowindex);
@@ -292,11 +292,11 @@ void cMRDSubEvent::DrawMrdCanvases(){
 #endif
 				otherviewoffset=-0.01;
 				imgcanvas->cd(2);
-				holdery1=((scintalugap*10)/(maxheight*1.2));
-				holdery2=(scintvfullylen/(maxheight*1.2));
-				Int_t overflowindex = nummrdpmts + (2*mrdcluster::paddle_layers.at(paddle));	// top paddle
+				holdery1=((MRDSpecs::scintalugap*10)/(MRDSpecs::maxheight*1.2));
+				holdery2=(MRDSpecs::scintvfullylen/(MRDSpecs::maxheight*1.2));
+				Int_t overflowindex = MRDSpecs::nummrdpmts + (2*mrdcluster::paddle_layers.at(paddle));	// top paddle
 				if(paddlepointers.at(overflowindex)==0){
-					thepaddle = new TBox(holderz+otherviewoffset,holdery1+0.5,holderz+(scintboxwidth/mrdZlen)+otherviewoffset,0.5+holdery1+holdery2);
+					thepaddle = new TBox(holderz+otherviewoffset,holdery1+0.5,holderz+(scintboxwidth/MRDSpecs::mrdZlen)+otherviewoffset,0.5+holdery1+holdery2);
 					paddlepointers.at(overflowindex) = thepaddle;
 				} else {
 					thepaddle = paddlepointers.at(overflowindex);
@@ -313,7 +313,7 @@ void cMRDSubEvent::DrawMrdCanvases(){
 				thepaddle->Draw();
 				overflowindex++;	// bottom paddle
 				if(paddlepointers.at(overflowindex)==0){
-					thepaddle = new TBox(holderz+otherviewoffset,0.5-holdery1,holderz+(scintboxwidth/mrdZlen)+otherviewoffset,0.5-(holdery1+holdery2));
+					thepaddle = new TBox(holderz+otherviewoffset,0.5-holdery1,holderz+(scintboxwidth/MRDSpecs::mrdZlen)+otherviewoffset,0.5-(holdery1+holdery2));
 					paddlepointers.at(overflowindex) = thepaddle;
 				} else {
 					thepaddle = paddlepointers.at(overflowindex);
@@ -348,41 +348,41 @@ void cMRDSubEvent::DrawMrdCanvases(){
 //============================= 
 void cMRDSubEvent::ComputePaddleTransformation (const Int_t copyNo, TVector3 &origin, Bool_t &ishpaddle) {
 	Double_t Xposition=0, Yposition=0, Zposition=0;
-	Int_t panelpairnum = floor(copyNo/(numpaddlesperpanelv+numpaddlesperpanelh));
-	Int_t panelnumrem = copyNo - panelpairnum*(numpaddlesperpanelv+numpaddlesperpanelh);
+	Int_t panelpairnum = floor(copyNo/(MRDSpecs::numpaddlesperpanelv+MRDSpecs::numpaddlesperpanelh));
+	Int_t panelnumrem = copyNo - panelpairnum*(MRDSpecs::numpaddlesperpanelv+MRDSpecs::numpaddlesperpanelh);
 	Int_t panelnum;
 	Int_t paddlenum;
 	ishpaddle=false;
-	if(panelnumrem>(numpaddlesperpanelh-1)){
+	if(panelnumrem>(MRDSpecs::numpaddlesperpanelh-1)){
 		panelnum = (panelpairnum*2) +1;
-		paddlenum = panelnumrem-numpaddlesperpanelh;
+		paddlenum = panelnumrem-MRDSpecs::numpaddlesperpanelh;
 	} else {
 		panelnum = (panelpairnum*2);
 		ishpaddle = true;
 		paddlenum = panelnumrem;
 	}
 	Int_t pairnum = floor(paddlenum/2);
-	Zposition = panelnum*(steelfullzlen + alufullzlen + scintfullzlen + layergap);
-	Zposition = Zposition + steelfullzlen + steelscintgap;
-	Zposition = Zposition + (scintfullzlen/2);
-	Zposition = Zposition + MRDPMTRadius - (mrdZlen/2);
+	Zposition = panelnum*(MRDSpecs::steelfullzlen + MRDSpecs::alufullzlen + MRDSpecs::scintfullzlen + MRDSpecs::layergap);
+	Zposition = Zposition + MRDSpecs::steelfullzlen + MRDSpecs::steelscintgap;
+	Zposition = Zposition + (MRDSpecs::scintfullzlen/2);
+	Zposition = Zposition + MRDSpecs::MRDPMTRadius - (MRDSpecs::mrdZlen/2);
 	
 	if (ishpaddle){
 		if (paddlenum%2==0){
-			Xposition=((scinthfullylen+scintbordergap)/2);
+			Xposition=((MRDSpecs::scinthfullylen+MRDSpecs::scintbordergap)/2);
 		} else {
-			Xposition=-((scinthfullylen+scintbordergap)/2);
+			Xposition=-((MRDSpecs::scinthfullylen+MRDSpecs::scintbordergap)/2);
 		}
-		Yposition = pairnum*(scintfullxlen+scintbordergap);
-		Yposition = Yposition - 0.5*(((scintfullxlen+scintbordergap)/2)*numpaddlesperpanelh)+(scintfullxlen/2);
+		Yposition = pairnum*(MRDSpecs::scintfullxlen+MRDSpecs::scintbordergap);
+		Yposition = Yposition - 0.5*(((MRDSpecs::scintfullxlen+MRDSpecs::scintbordergap)/2)*MRDSpecs::numpaddlesperpanelh)+(MRDSpecs::scintfullxlen/2);
 	} else {
 		if (paddlenum%2==0){
-			Yposition=((scintvfullylen+scintbordergap)/2); 
+			Yposition=((MRDSpecs::scintvfullylen+MRDSpecs::scintbordergap)/2); 
 		} else {
-			Yposition=-((scintvfullylen+scintbordergap)/2);
+			Yposition=-((MRDSpecs::scintvfullylen+MRDSpecs::scintbordergap)/2);
 		}
-		Xposition = pairnum*(scintfullxlen+scintbordergap);
-		Xposition = Xposition - 0.5*(((scintfullxlen+scintbordergap)/2)*numpaddlesperpanelv)+(scintfullxlen/2); 
+		Xposition = pairnum*(MRDSpecs::scintfullxlen+MRDSpecs::scintbordergap);
+		Xposition = Xposition - 0.5*(((MRDSpecs::scintfullxlen+MRDSpecs::scintbordergap)/2)*MRDSpecs::numpaddlesperpanelv)+(MRDSpecs::scintfullxlen/2); 
 	}
 	TVector3 theposition(Xposition,Yposition,Zposition);
 	origin=theposition;

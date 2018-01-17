@@ -53,14 +53,14 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 #ifdef TRACKFINDVERBOSE
 	cout<<"sorting digits into layers"<<endl;
 #endif
-	std::vector< std::vector<int> > digits_by_layer( (numpanels) );	//note the inner parenthesis are rqd!
+	std::vector< std::vector<int> > digits_by_layer( (MRDSpecs::numpanels) );	//nb. inner parenthesis rqd!
 	for(Int_t adigiindex=0; adigiindex<digi_ids.size(); adigiindex++){
 		Int_t tube_id = pmts_hit.at(adigiindex);
 		Int_t strucklayer = mrdcluster::paddle_layers.at(tube_id);
 		digits_by_layer.at(strucklayer).push_back(adigiindex);
 	}
 #ifdef TRACKFINDVERBOSE
-	for(int layer=0; layer<numpanels; layer++){
+	for(int layer=0; layer<MRDSpecs::numpanels; layer++){
 		cout<<"found "<<digits_by_layer.at(layer).size()<<" digits in layer "<<layer<<endl;
 	}
 #endif
@@ -68,7 +68,7 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 	// first make note of clusters spanning two or more adjacent pmts in the same layer
 	// loop over layers, looking for multiple digits in adjacent pmts
 	std::vector<Int_t> donedigits;
-	for(int thislayer=0; thislayer<numpanels; thislayer++){
+	for(int thislayer=0; thislayer<MRDSpecs::numpanels; thislayer++){
 		if(digits_by_layer.at(thislayer).size()==0) continue;
 		std::vector<Int_t> digitsinthislayer = digits_by_layer.at(thislayer);
 		// it will be easier to perform a linear scan across the layer looking for adjacent pmts
@@ -184,7 +184,7 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 	}
 	
 	// 5. generate a std::vector all the possible cells for each layer
-	for(int thislayer=0; thislayer<numpanels; thislayer++){
+	for(int thislayer=0; thislayer<MRDSpecs::numpanels; thislayer++){
 	// loop over all clusters in the layer ... 
 #ifdef TRACKFINDVERBOSE
 		cout<<"constructing cells from clusters starting in layer "<<thislayer<<endl;
@@ -640,12 +640,12 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 				
 				// and what side are they on?
 				int startpmt = htrack.at(testi)->clusters.first->GetCentreIndex();
-				startpmt-= ((numpaddlesperpanelh/2.)-1.)/2.;  // -6 -> centre paddle will have value 0.
+				startpmt-= ((MRDSpecs::numpaddlesperpanelh/2.)-1.)/2.;  // -6 -> centre paddle will be 0.
 				double hsidestart=0;  // 0 indicates a centre paddle - neither side.
 					 if(startpmt>0) hsidestart= 1;            // right hand side
 				else if(startpmt<0) hsidestart=-1;            // left hand side
 				double stoppmt = htrack.at(testi)->clusters.second->GetCentreIndex();
-				stoppmt-= ((numpaddlesperpanelh/2.)-1.)/2.;   // -6 -> centre paddle will have value 0.
+				stoppmt-= ((MRDSpecs::numpaddlesperpanelh/2.)-1.)/2.;   // -6 -> centre paddle will be 0.
 				int hsidestop=0;  // 0 indicates a centre paddle - neither side.
 					 if(stoppmt>0) hsidestop= 1;              // right hand side
 				else if(stoppmt<0) hsidestop=-1;              // left hand side
@@ -759,12 +759,12 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 				
 				// and what side are they on?
 				int startpmt = vtrack.at(testi)->clusters.first->GetCentreIndex();
-				startpmt-= ((numpaddlesperpanelv/2.)-1.)/2.;  // -7 -> centre paddle will have value 0.
+				startpmt-= ((MRDSpecs::numpaddlesperpanelv/2.)-1.)/2.;  // -7 -> centre paddle will be 0.
 				double vsidestart=0;  // 0 indicates a centre paddle - neither side.
 					 if(startpmt>0) vsidestart= 1;            // right hand side
 				else if(startpmt<0) vsidestart=-1;            // left hand side
 				double stoppmt = vtrack.at(testi)->clusters.second->GetCentreIndex();
-				stoppmt-= ((numpaddlesperpanelv/2.)-1.)/2.;   // -7 -> centre paddle will have value 0.
+				stoppmt-= ((MRDSpecs::numpaddlesperpanelv/2.)-1.)/2.;   // -7 -> centre paddle will be 0.
 				int vsidestop=0;  // 0 indicates a centre paddle - neither side.
 					 if(stoppmt>0) vsidestop= 1;              // right hand side
 				else if(stoppmt<0) vsidestop=-1;              // left hand side
@@ -895,12 +895,12 @@ void cMRDSubEvent::DoReconstruction(bool printtracks, bool drawcells, bool drawf
 #endif 
 			double deltah = htrack.front()->clusters.second->GetCentre()
 							-htrack.back()->clusters.first->GetCentre();
-			double deltaxh = mrdscintlayers.at(hstoplayer)-mrdscintlayers.at(hstartlayer);
+			double deltaxh = MRDSpecs::mrdscintlayers.at(hstoplayer)-MRDSpecs::mrdscintlayers.at(hstartlayer);
 			double coshang = TMath::Cos(TMath::ATan(deltah/deltaxh));
 			
 			double deltav = vtrack.front()->clusters.second->GetCentre()
 							-vtrack.back()->clusters.first->GetCentre();
-			double deltaxv = mrdscintlayers.at(vstoplayer)-mrdscintlayers.at(vstartlayer);
+			double deltaxv = MRDSpecs::mrdscintlayers.at(vstoplayer)-MRDSpecs::mrdscintlayers.at(vstartlayer);
 			double cosvang = TMath::Cos(TMath::ATan(deltav/deltaxv));
 #ifdef TRACKFINDVERBOSE
 			cout<<"updating figure-of-merit based on steepness of track angle by "

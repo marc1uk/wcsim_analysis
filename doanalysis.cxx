@@ -57,7 +57,7 @@ void WCSimAnalysis::DoAnalysis(){
 	// ================
 	cout<<"Looping over entries"<<endl;
 	int breakearlyat=-1;
-	int breakearlysequenceid=4;
+	int breakearlysequenceid=-1;
 	int maxdigits=0;
 	do {
 		// load next entry, including new trees and setting branch addresses when necessary

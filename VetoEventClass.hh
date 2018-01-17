@@ -95,7 +95,7 @@ class cVetoEvent : public TObject {
 	digi_phot_parents(digitsparentsin),
 	/* information calculated: initialize to default */
 	layers_hit() {
-		eDepsInLayers.assign(numpanels, 0.);	// can't assign the size in the class def. 
+		eDepsInLayers.assign(MRDSpecs::numpanels, 0.);	// can't assign the size in the class def. 
 		// we receive a set of pointers to truth tracks: to store them in the VetoEventClass
 		// we need to clone them into a vector of objects here:
 		for( WCSimRootTrack* atrack : truetracksin){
@@ -143,7 +143,7 @@ class cVetoEvent : public TObject {
 		digi_phot_parents.clear();
 		truetracks.clear();
 		layers_hit.clear();
-		eDepsInLayers.assign(numpanels,0.);
+		eDepsInLayers.assign(MRDSpecs::numpanels,0.);
 	}
 	
 	// End class definition

@@ -1,10 +1,10 @@
 /* vim:set noexpandtab tabstop=4 wrap */
+#ifndef _MRDSubEvent_Class_
+#define _MRDSubEvent_Class_ 1
+
 #ifndef _MRDSubEvent_VERBOSE_
 //#define _MRDSubEvent_VERBOSE_ 1
 #endif
-
-#ifndef _MRDSubEvent_Class_
-#define _MRDSubEvent_Class_ 1
 
 #include <TObject.h>
 #include "Math/Vector3D.h"
@@ -14,12 +14,14 @@
 #include "TText.h"
 #include "TLine.h"
 #include "TArrow.h"
+#include "TColor.h"
 #include "Math/GenVector/PxPyPzE4D.h"
 #include "Math/GenVector/LorentzVector.h"
 #include <exception>	// for stdexcept
 #include <vector>
 #include <algorithm>
 #include <map>
+#include "WCSimRootEvent.hh"
 #include "MRDspecs.hh"
 #include "MRDSubEvent_ReconstructionClasses.hh"	// defines classes used in DoReconstruction() function
 #include "MRDTrackClass.hh"
@@ -45,6 +47,7 @@ class cMRDSubEvent : public TObject {
 	std::vector<Int_t> digi_phot_parents;	// wcsim track IDs of parents that provided photons for a digit
 //	std::vector<WCSimRootCherenkovDigiHit> digits;
 	std::vector<WCSimRootTrack> truetracks;	// true WCSim tracks within this event time window
+	// XXX FIXME XXX we could also use digi_phot_parents to sort hits in a track by their parent for truth comp!
 	
 	// Calculated/Reconstructed Info
 	std::vector<cMRDTrack> tracksthissubevent;	// tracks created this SubEvent
@@ -61,6 +64,7 @@ class cMRDSubEvent : public TObject {
 	// SubEvent Level Getters
 	// ======================
 	// Locate the subevent in file>run>event>trigger hierarchy
+	Int_t GetSubEventID(){return mrdsubevent_id;}
 	std::string GetFile(){return wcsimfile;}
 	Int_t GetRunID(){return run_id;}
 	Int_t GetEventID(){return event_id;}
@@ -71,6 +75,11 @@ class cMRDSubEvent : public TObject {
 	Int_t GetNumLayersHit(){return layers_hit.size();}
 	Int_t GetNumPMTsHit(){return pmts_hit.size();}
 	std::vector<Int_t> GetDigitIds(){return digi_ids;}
+	std::vector<Double_t> GetDigitQs(){return digi_qs;}
+	std::vector<Double_t> GetDigitTs(){return digi_ts;}
+	std::vector<Int_t> GetDigiNumPhots(){return digi_numphots;}
+	std::vector<Double_t> GetDigiPhotTs(){return digi_phot_ts;}
+	std::vector<Int_t> GetDigiPhotParents(){return digi_phot_parents;}
 	std::vector<Int_t> GetLayersHit(){return layers_hit;}
 	std::vector<Int_t> GetPMTsHit(){return pmts_hit;}
 	std::vector<WCSimRootTrack> GetTrueTracks(){return truetracks;}
@@ -78,7 +87,7 @@ class cMRDSubEvent : public TObject {
 	// Reconstructed Variables
 	std::vector<cMRDTrack>* GetTracks(){ return &tracksthissubevent;}
 	std::vector<Double_t> GetEdeps(){return eDepsInLayers;}
-	std::vector<TArrow*> GetCATrackArrows(){return trackarrows;}
+	std::vector<TArrow*> GetTrackArrows(){return trackarrows;}
 	std::vector<TArrow*> GetTrueTrackArrows(){return truetrackarrows;}
 	std::vector<TArrow*> GetTrackFitArrows(){return trackfitarrows;}
 	
@@ -171,7 +180,7 @@ class cMRDSubEvent : public TObject {
 	digi_phot_parents(digitsparentsin),
 	/* information calculated: initialize to default */
 	layers_hit(), tracksthissubevent(), trackarrows(), truetrackarrows(), trackfitarrows() {
-		eDepsInLayers.assign(numpanels, 0.);	// can't assign the size in the class def. 
+		eDepsInLayers.assign(MRDSpecs::numpanels, 0.);	// can't assign the size in the class def. 
 		// we receive a set of pointers to truth tracks: to store them in the MRDSubEventClass
 		// we need to clone them into a vector of objects here:
 		for( WCSimRootTrack* atrack : truetracksin){
@@ -252,7 +261,7 @@ class cMRDSubEvent : public TObject {
 		digi_phot_parents.clear();
 //		digits.clear();
 		layers_hit.clear();
-		eDepsInLayers.assign(numpanels,0.);
+		eDepsInLayers.assign(MRDSpecs::numpanels,0.);
 		truetracks.clear();
 		// heap allocated objects for drawing the event on a canvas
 		RemoveArrows();
@@ -268,7 +277,7 @@ TCanvas* cMRDSubEvent::imgcanvas=0;
 TText* cMRDSubEvent::titleleft=0;
 TText* cMRDSubEvent::titleright=0;
 // allocate paddle vector now: they'll be filled in first call to DrawMrdCanvases
-std::vector<TBox*> cMRDSubEvent::paddlepointers(nummrdpmts+(2*numpanels));
+std::vector<TBox*> cMRDSubEvent::paddlepointers(MRDSpecs::nummrdpmts+(2*MRDSpecs::numpanels));
 //std::vector<Int_t> cMRDSubEvent::aspectrumv(19);
 //std::vector<Int_t> cMRDSubEvent::aspectrumv = ( []()->std::vector<Int_t> { std::vector<Int_t> temp {kYellow, kOrange, (kOrange-3), (kOrange+8), (kOrange+10), kRed, (kRed+1), (kPink+4), (kMagenta+2), (kMagenta+1), kMagenta, (kViolet-2), (kViolet-3), (kViolet+7), (kViolet+9), (kBlue+2), (kBlue+1), kAzure, (kAzure+7)}; return temp; }() );
 //std::vector<Int_t> cMRDSubEvent::aspectrumv{kYellow, kOrange, (kOrange-3), (kOrange+8), (kOrange+10), kRed, (kRed+1), (kPink+4), (kMagenta+2), (kMagenta+1), kMagenta, (kViolet-2), (kViolet-3), (kViolet+7), (kViolet+9), (kBlue+2), (kBlue+1), kAzure, (kAzure+7)};
