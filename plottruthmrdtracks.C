@@ -1537,14 +1537,18 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			Float_t   GetM()                mass
 			Float_t   GetP()                momentum magnitude
 			Float_t   GetE()                energy (inc rest mass^2)
+			Float_t   GetEndE()             energy on stopping of particle tracking
+			Float_t   GetEndP()             momentum on stopping of particle tracking
 			Int_t     GetStartvol()         starting volume: 10 is tank, 20 is facc, 30 is mrd
 			Int_t     GetStopvol()          stopping volume: but these may not be set.
 			Float_t   GetDir(Int_t i=0)     momentum unit vector
 			Float_t   GetPdir(Int_t i=0)    momentum vector
+			Float_t   GetPdirEnd(Int_t i=0) direction vector on stop tracking
 			Float_t   GetStop(Int_t i=0)    stopping vertex x,y,z for i=0-2, in cm
 			Float_t   GetStart(Int_t i=0)   starting vertex x,y,z for i=0-2, in cm
 			Int_t     GetParenttype()       parent pdg, 0 for primary.
 			Float_t   GetTime()             trj->GetGlobalTime(); starting time of particle
+			Float_t   GetStopTime()
 			Int_t     GetId()               wcsim trackid
 			GetFlag=-1; neutrino or... first(?) primary?. This should be the neutrino. Only stop vertex is stored. 
 			GetFlag=-2; primary target. This may or may not be set? ???? what info stored?

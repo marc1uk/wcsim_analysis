@@ -175,6 +175,8 @@ class WCSimAnalysis : public TObject {
 	const double ADC_INPUT_RESISTANCE = 50.;  // Ohm
 	const double ADC_TO_VOLT = 2.415 / std::pow(2., 12);// * by this constant converts ADC counts to Volts
 	const double PULSE_HEIGHT_FUDGE_FACTOR = (1./300.); // WHAT UNITS ARE DIGIT Q's IN?!?
+	//const int RWM_CHANNEL=
+	//void AddRWMPulse();  FIXME FIXME FIXME FIXME FIXME
 	
 	// PMT MAP VARIABLES
 	// needed for drawing tank histograms
