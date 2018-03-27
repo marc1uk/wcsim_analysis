@@ -1,6 +1,7 @@
 {
 //TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/10k_1000_photons_bomb_423nm_23-04-17.root");
-TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17/wcsim_0.1000.root");
+//TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17/wcsim_0.1000.root");
+TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/out/ANNIEtest_10MeV_e-_Uni_Iso_annie_f717ff7d765d00225801751243aad1027d7924df_0.root");
 TTree* t = (TTree*)f->Get("wcsimT");
 TTree* t2= (TTree*)f->Get("wcsimGeoT");
 WCSimRootGeom* geo =0;
@@ -21,7 +22,8 @@ TH1D hnumphotsperdigit=TH1D("hnumphotsperdigit","Number Of Photons per Digit",10
 TH1D htotalchargeperdigit=TH1D("htotalchargeperdigit","Amount of Charge per Digit",100,0,30);
 TH1D htotalchargeinevent=TH1D("htotalchargeinevent","Total Charge of All Digits in Event",100,0,100);
 //TH1D hnumpesperevent=TH1D("hnumpesperevent","Number Of PEs per Event",100,0,200);
-for(int i=0; i<100/*t->GetEntries()*/; i++){
+long long int maxentriestoplot=10000;
+for(int i=0; i<std::min(t->GetEntries(),maxentriestoplot); i++){
 evb->GetEntry(i);
   tr=ev->GetTrigger(0);
   Int_t numphots=tr->GetNcherenkovhittimes();

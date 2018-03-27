@@ -193,9 +193,9 @@ class cMRDSubEvent : public TObject {
 		if(fillstaticmembers) FillStaticMembers();
 		
 		Bool_t printtracks=false;
-		Bool_t drawcells=false;
-		Bool_t drawfit=false;
-		Bool_t drawtruetracks=false;
+		Bool_t drawcells=true;
+		Bool_t drawfit=true;
+		Bool_t drawtruetracks=true;
 		Bool_t saveimage=false;
 		
 		if(drawcells||drawfit||drawtruetracks) DrawMrdCanvases();  // creates the canvas with the digits
@@ -205,7 +205,7 @@ class cMRDSubEvent : public TObject {
 		//cout<<"sleeping for 5 seconds to analyse output"<<endl;
 		//if(tracksthissubevent.size()) std::this_thread::sleep_for (std::chrono::seconds(15));
 		//cout<<"moving to next event"<<endl;
-		//gPad->WaitPrimitive();
+		gPad->WaitPrimitive();
 		RemoveArrows();		// removes true and reco track arrows so the canvas can be re-used
 		//assert(false);
 	}

@@ -94,6 +94,7 @@ void WCSimAnalysis::LoadInputFiles(){
 		cout<<"Loaded "<<t->GetEntriesFast()<<" entries"<<endl;	// fast doesn't work with a tchain
 	} else {
 		// path passed is just a file
+		cout<<"loading single file "<<inputdir<<endl;
 		t->Add(inputdir);
 	}
 	
@@ -185,15 +186,22 @@ int WCSimAnalysis::LoadTchainEntry(Int_t &eventnum){
 			std::regex_match (currentfilestring, submatches, theexpression);
 			// match 0 is 'whole match' or smthg
 			std::string submatch = (submatches.size()) ? (std::string)submatches[0] : "";
-			if(submatch==""){ cout<<"unrecognised input file pattern: "<<currentfilestring<<endl; return -1; }
-			submatch = (std::string)submatches[1];
-			cout<<"extracted submatch is "<<submatch<<endl;
-			wcsimfilenum = atoi(submatch.c_str());
-			
-			if(wcsimfilenum<firstfilenum){
-				cout<<"skipping file "<<wcsimfilenum<<endl;
-				eventnum+=bp->GetEntries(); 
-				continue; 
+			if(submatch==""){
+				cout<<"unrecognised input file pattern: "<<currentfilestring
+					<<", will set wcsimfilenum=0"<<endl;
+					wcsimfilenum=0;
+				//return -1;
+			} else {
+				submatch = (std::string)submatches[1];
+				cout<<"extracted submatch is "<<submatch<<endl;
+				wcsimfilenum = atoi(submatch.c_str());
+				
+				// check if we're to skip this file
+				if(wcsimfilenum<firstfilenum){
+					cout<<"skipping file "<<wcsimfilenum<<endl;
+					eventnum+=bp->GetEntries(); 
+					continue; 
+				}
 			}
 			
 			// do need to re-set branch addresses

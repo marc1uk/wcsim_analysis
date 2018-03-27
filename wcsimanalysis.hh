@@ -153,6 +153,9 @@ class WCSimAnalysis : public TObject {
 	Int_t sequence_id;
 	Int_t minibuffer_id;
 	// switches to allow turning this conversion on/off:
+	bool create_emulated_output=false;     // turn off all raw conversion
+	// it could be that the above requires minimum of pmt and maybe also triggerdata?
+	// at the moment at least ccdata is optional (not yet implemented)
 	bool add_emulated_ccdata=false, add_emulated_triggerdata=true, add_emulated_pmtdata=true;
 	int full_buffer_size;                  // = CardData::FullBufferSize; read in utilityfuncs from options
 	int minibuffer_datapoints_per_channel; // = CardData::BufferSize / CardData::TriggerNumber;

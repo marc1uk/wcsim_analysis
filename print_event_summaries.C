@@ -1,6 +1,8 @@
 {
-TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in_ratpac_comps/wcsim_1k_photon_bomb_0.root");
+//TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in_ratpac_comps/wcsim_1k_photon_bomb_0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_photon_bomb_next_to_wall_0.root");
+//TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/out/ANNIEtest_10MeV_e-_Uni_Iso_annie_f717ff7d765d00225801751243aad1027d7924df_0.root");
+TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/MRD_muon_sample/ANNIEtest_MRD_muon_sample_1a0f480.root");
 TTree* t = (TTree*)f->Get("wcsimT");
 WCSimRootEvent* e=0;
 TBranch* b=0;

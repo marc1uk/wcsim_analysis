@@ -5,9 +5,13 @@
 //TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/wcsim_10MeV_iso_e_wDN_13-04-17.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_photon_bomb_0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_thermal_neutron_test_0.root");
-TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_thermal_neutron_test_scat_0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_5MeV_electron_test_0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_photon_bomb_test_0.root");
+//TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_thermal_neutron_test_scat_0.root");
+TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/Bonsai/validation/Mahdi_Bonsaifiles/e5d1000PMT3.root");
+
+#define FILE_VERSION 0
+
 TTree* t = (TTree*)f->Get("wcsimT");
 WCSimRootEvent* ev;
 TBranch* evb =0;
@@ -63,6 +67,7 @@ for(int eventi=0; eventi<t->GetEntries(); eventi++){
     std::vector<int> truephotonindices = digihit->GetPhotonIds();
     pdhist.Fill(truephotonindices.size());
     
+#if FILE_VERSION>2
     int photoni=0;
     for( auto hittimeindex : truephotonindices){
       WCSimRootCherenkovHitTime* hittime = 
@@ -84,6 +89,7 @@ for(int eventi=0; eventi<t->GetEntries(); eventi++){
       }
       photoni++;
     }
+#endif
   }
   
   std::map<int,int> hitsperpmt{};

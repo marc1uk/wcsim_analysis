@@ -365,7 +365,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 	// some of these are c-style arrays of all hits in the event, some are vectors of same.
 	// for c-style arrays, avoid re-allocations of memory by just setting one array big enough for all events
 	int lappd_evtnum;
-	int lappd_numhitsthisevt;
+	int lappd_numtileshitthisevt;
 	int LAPPDHITSMAX=1000;
 	int lappd_hittile[LAPPDHITSMAX];            // "lappdhit_objnum"
 	double lappd_hittilesposx[LAPPDHITSMAX];    // "lappdhit_x"
@@ -1147,7 +1147,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			int branchesok=0;
 			branchesok =lappdtree->SetBranchAddress("lappdevt",       &lappd_evtnum);
 			if(branchesok<0) cerr<<"lappdevt branch error "<<branchesok<<endl;
-			branchesok =lappdtree->SetBranchAddress("lappd_numhits",  &lappd_numhitsthisevt);
+			branchesok =lappdtree->SetBranchAddress("lappd_numhits",  &lappd_numtileshitthisevt);
 			if(branchesok<0) cerr<<"lappd_numhits="<<branchesok<<endl;
 			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoorx",    &lappd_hitpeposxp);
 			if(branchesok<0) cerr<<"lappd_stripcoorx="<<branchesok<<endl;
@@ -1177,7 +1177,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			if(branchesok<0) cerr<<"lappd_edep="<<branchesok<<endl;
 			// lappdhit_edep is an c-style array of doubles of #true photon hits on each LAPPD in an event
 			branchesok =lappdtree->SetBranchAddress("lappdhit_totalpes_perlappd2", &lappd_hitchargep);
-			// lappdhit_totalpes_perlappd2 is the same thing in a vector, retrieved from the digits not SD hits
+			// lappdhit_totalpes_perlappd2 is the same as lappdhit_edep in a vector. It's retrieved from the "digits" rather than SD hits, but only after each "digit" has it's time smeared and randpe generated. This is before digitizer integration, so still photon hits, but is LAPPD event-wide (ie not the rand num pe per hit, just total number of photon hits on this lappd). For PMTs (including MRD etc) this may also include dark noise hits, but for LAPPDs this isn't implemented.
 			// FIXME should store the charges
 			if(branchesok<0) cerr<<"lappd_hitcharge="<<branchesok<<endl;
 			
@@ -1353,7 +1353,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			int branchesok=0;
 			branchesok =lappdtree->SetBranchAddress("lappdevt",                    &lappd_evtnum);
 			if(branchesok<0) cerr<<"lappdevt branch error "<<branchesok<<endl;
-			branchesok =lappdtree->SetBranchAddress("lappd_numhits",               &lappd_numhitsthisevt);
+			branchesok =lappdtree->SetBranchAddress("lappd_numhits",               &lappd_numtileshitthisevt);
 			if(branchesok<0) cerr<<"lappd_numhits="<<branchesok<<endl;
 			branchesok =lappdtree->SetBranchAddress("lappdhit_stripcoorx",         &lappd_hitpeposxp);
 			if(branchesok<0) cerr<<"lappd_stripcoorx="<<branchesok<<endl;
@@ -2244,7 +2244,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			// the trigger window.
 			
 			int runningcount=0;
-			for(int lappdi=0; lappdi<lappd_numhitsthisevt; lappdi++){
+			for(int lappdi=0; lappdi<lappd_numtileshitthisevt; lappdi++){
 				// loop over LAPPDs that had at least one hit
 				int LAPPDID = lappd_hittile[lappdi];
 				double tileposx = lappd_hittilesposx[lappdi];  // position of LAPPD in global coords

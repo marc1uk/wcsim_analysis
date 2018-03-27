@@ -23,8 +23,15 @@ Version 4:
 // ===============================
 void WCSimAnalysis::DoAnalysis(){
 
+	if(!create_emulated_output){  // ensure all other elements are turned off
+		add_emulated_ccdata=false;
+		add_emulated_triggerdata=false;
+		add_emulated_pmtdata=false;
+	}
+
 	InitEnvironment();			// things like loading the libraries and class header locations
 	LoadInputFiles();			// open input tchain
+	if(create_emulated_output)	// if raw emulation
 	LoadOutputFiles();			// create and open output files - must go after loading first entry
 	MakePMTmap(); 				// map pmt positions from geometry file (only uses geotree)
 	GetTreeData(); 				// get branches from tree, get triggers from the first entry
@@ -51,7 +58,7 @@ void WCSimAnalysis::DoAnalysis(){
 #endif
 	DoVetoPreEventLoop();
 	
-	if(add_emulated_pmtdata) FillEmulatedRunInformation();
+	if(create_emulated_output) FillEmulatedRunInformation();
 	
 	// Loop over events
 	// ================
@@ -156,16 +163,16 @@ void WCSimAnalysis::DoAnalysis(){
 			// post hit loop actions
 			DoVetoPostHitLoop();
 			
-			if(add_emulated_pmtdata){
+			if(create_emulated_output){
 				// advance the counter of triggers (minibuffers)
 				minibuffer_id++;
 				if(minibuffer_id==minibuffers_per_fullbuffer){
 #ifdef VERBOSE
 					cout<<"#########################"<<endl;
-					cout<<"Filling Emulated PMT Data"<<endl;
+					cout<<"Filling Emulated Data"<<endl;
 #endif
-					FillEmulatedPMTData();
-					FillEmulatedTrigData();
+					if(add_emulated_pmtdata) FillEmulatedPMTData();
+					if(add_emulated_triggerdata) FillEmulatedTrigData();
 					sequence_id++;
 					minibuffer_id=0;
 				}

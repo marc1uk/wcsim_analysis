@@ -18,13 +18,22 @@ void WCSimAnalysis::LoadOutputFiles(){
 	//cout<<"matching regex for filename "<<wcsimfilename<<endl;
 	std::regex_match (wcsimfilename, submatches, theexpression);
 	std::string submatch = (std::string)submatches[0]; // match 0 is whole match
-	if(submatch==""){ cerr<<"unrecognised input file pattern: "<<wcsimfilename<<endl; return; }
-	submatch = (std::string)submatches[1];
-	//cout<<"extracted submatch is "<<submatch<<endl;
-	int rawfilerun = atoi(submatch.c_str());
-	submatch = (std::string)submatches[2];
-	int rawfilesubrun = atoi(submatch.c_str());
-	int rawfilepart = 0;
+	int rawfilerun, rawfilesubrun, rawfilepart;
+	if(submatch==""){ 
+		cerr<<"unrecognised input file pattern: "<<wcsimfilename
+			<<", will set rawfilerun=0, rawfilesubrun=0, rawfilepart=0"<<endl;
+		//return;
+		rawfilerun=0;
+		rawfilesubrun=0;
+		rawfilepart = 0;
+	} else {
+		submatch = (std::string)submatches[1];
+		//cout<<"extracted submatch is "<<submatch<<endl;
+		rawfilerun = atoi(submatch.c_str());
+		submatch = (std::string)submatches[2];
+		rawfilesubrun = atoi(submatch.c_str());
+		rawfilepart = 0;
+	}
 	placeholder_date_ns = 1511965741;
 	
 	std::string rawfilename="RAWDataR"+to_string(rawfilerun)+"S"+to_string(rawfilesubrun)+"p"+to_string(rawfilepart)+".root";
