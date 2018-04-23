@@ -4,7 +4,7 @@
 // XXX XXX          and Git source file COMMIT               XXX XXX
 // XXX XXX          MUST BE SET BEFORE CALLING               XXX XXX
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#define FILE_VERSION 2
+#define FILE_VERSION 3
 /*
 Version 1:
 wcsim_wdirt_07-02-17, 200 PMTs + 200 LAPPDs, including dirt intx.
@@ -13,7 +13,10 @@ Version 2:
 wcsim_tankonly_03-05-17, 200 PMTs + 200 LAPPDs, tank only, with bug fixes, bad lappd pulse timing resoln
 
 Version 3:
-wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8inHQE), no LAPPDs.
+wcsim_tankonly_17-06-17, 120 PMTs of 3 different types (LUX, Watchboy, LBNE, 8inHQE), no LAPPDs, endpoint energy and mom, no vector of names from WCSimRootGeom
+
+Version 4:
+wcsim ..., 200 PMTs + 200 LAPPDs, global position of LAPPD hits, vector of PMT names from WCSimRootGeom
 */
 
 #ifndef USE_GRID
@@ -202,13 +205,20 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 	//const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim";  // first 1M sample, various issues
 	// is the implementation of this the same as VERSION_1? not sure...
 #elif FILE_VERSION==1
-	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim_wdirt_07-02-17_rhatcher";
+	//const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim/wcsim_wdirt_07-02-17_rhatcher";
+	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim/lappd/wdirt/wcsim_lappd_wdirt_07-02-17_rhatcher";
 #elif FILE_VERSION==2 // lappd branch commit: 744169e224cc9d8573ea269132104c84b459466c
-	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_rhatcher";
-	//const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_BNB_World_10k_29-06-17";
-#elif FILE_VERSION==3
-	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_rhatcher";
-#else // if FILE_VERSION >3
+	//const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim/wcsim_tankonly_03-05-17_rhatcher";
+	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim/lappd/wcsim_lappd_tankonly_03-05-17_rhatcher";
+	
+	//const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim/wcsim_tankonly_03-05-17_BNB_World_10k_29-06-17";
+	//const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_03-05-17_BNB_World_10k_29-06-17";
+#elif FILE_VERSION==3 // add multiple PMT types
+	//const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim/wcsim_tankonly_17-06-17_rhatcher";
+	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim/multipmt/tankonly/wcsim_multipmt_tankonly_17-06-17_rhatcher";
+#elif FILE_VERSION==4 // add global position of LAPPD hits
+	const char awcsimpath[]="/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17";
+#else // if FILE_VERSION >4
 	const char awcsimpath="";
 #endif // FILE_VERSION switch
 	// generic paths not tied to a specific file version
@@ -1268,7 +1278,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 		eventq2=thegenieinfo.Q2;
 		eventEnu=thegenieinfo.probeenergy;
 		neutrinopdg=thegenieinfo.probepdg;
-		muonangle=thegenieinfo.fslanglegenie;
+		muonangle=thegenieinfo.fslangle;
 		if(eventtypes.at("IsWeakCC")) numCCneutrinoeventsintank++;
 		else if(eventtypes.at("IsWeakNC")) numNCneutrinoeventsintank++;
 		if(eventtypes.at("IsWeakCC")&&eventtypes.at("IsQuasiElastic")){ numCCQEneutrinoeventsintank++; }
@@ -1278,24 +1288,24 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #endif // VERBOSE
 		incidentneutrinoenergiesall->Fill(thegenieinfo.probeenergy);
 		//incidentneutrinoanglesall->Fill(thegenieinfo.probeangle);
-		fslanglesall->Fill(thegenieinfo.fslanglegenie);
+		fslanglesall->Fill(thegenieinfo.fslangle);
 		fslenergiesall->Fill(thegenieinfo.fsleptonenergy);
 		eventq2all->Fill(thegenieinfo.Q2);
-		neutrinovertex->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
+		neutrinovertex->Fill(thegenieinfo.Intx_x, thegenieinfo.Intx_y, thegenieinfo.Intx_z);
 		if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic"))
-			neutrinovertexQE->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
+			neutrinovertexQE->Fill(thegenieinfo.Intx_x, thegenieinfo.Intx_y, thegenieinfo.Intx_z);
 		
 		/* 4.5 Do fiducial volume cut: */
 		//====================================================================================================
 		//====================================================================================================
 		isinfiducialvol=false;
-		if( (TMath::Sqrt(TMath::Power(thegenieinfo.genie_x, 2) 
-			+ TMath::Power(thegenieinfo.genie_z-tank_start-tank_radius,2)) < fidcutradius) && 
-			(TMath::Abs(thegenieinfo.genie_y-tank_yoffset) < fidcuty) && 
-			((thegenieinfo.genie_z-tank_start-tank_radius) < fidcutz) ){
+		if( (TMath::Sqrt(TMath::Power(thegenieinfo.Intx_x, 2) 
+			+ TMath::Power(thegenieinfo.Intx_z-tank_start-tank_radius,2)) < fidcutradius) && 
+			(TMath::Abs(thegenieinfo.Intx_y-tank_yoffset) < fidcuty) && 
+			((thegenieinfo.Intx_z-tank_start-tank_radius) < fidcutz) ){
 			isinfiducialvol=true;
 			incidentneutrinoenergiesallfidcut->Fill(thegenieinfo.probeenergy);
-			fslanglesallfidcut->Fill(thegenieinfo.fslanglegenie);
+			fslanglesallfidcut->Fill(thegenieinfo.fslangle);
 			fslenergiesallfidcut->Fill(thegenieinfo.fsleptonenergy);
 			eventq2allfidcut->Fill(thegenieinfo.Q2);
 			if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic")) numCCQEneutrinoeventsinfidvol++;
@@ -1641,11 +1651,11 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			}
 #endif // defined NOGENIE || defined PARTICLEGUNEVENTS
 			// sanity check for correct synchronization between dirt and wcsim files.
-			if(!(abs(primarystartvertex.X()-thegenieinfo.genie_x)<1 &&
-				 abs(primarystartvertex.Y()-thegenieinfo.genie_y)<1 &&
-				 abs(primarystartvertex.Z()-thegenieinfo.genie_z)<1) ){
+			if(!(abs(primarystartvertex.X()-thegenieinfo.Intx_x)<1 &&
+				 abs(primarystartvertex.Y()-thegenieinfo.Intx_y)<1 &&
+				 abs(primarystartvertex.Z()-thegenieinfo.Intx_z)<1) ){
 				cerr<<"GENIE VERTEX IS IN FIDUCIAL VOLUME BUT PRIMARY MUON VERTEX ISN'T?!"<<endl
-					<<"Genie vertex: ("<<thegenieinfo.genie_x<<", "<<thegenieinfo.genie_y<<", "<<thegenieinfo.genie_z<<")"<<endl
+					<<"Genie vertex: ("<<thegenieinfo.Intx_x<<", "<<thegenieinfo.Intx_y<<", "<<thegenieinfo.Intx_z<<")"<<endl
 					<<"Muon vertex: ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()<<", "<<primarystartvertex.Z()<<")"<<endl
 					<<"Trigger vertex: ("<<atrigt->GetVtx(0)<<", "<<atrigt->GetVtx(1)<<", "<<atrigt->GetVtx(2)<<")"<<endl
 					<<"dirt file is "<<dirtfilestring<<", genie file is "<<geniefilestring<<", wcsim file is "<<wcsimfilepath<<endl
@@ -1826,7 +1836,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			Float_t starttrackangley = TMath::ATan(primarymomentumdir.Y()/primarymomentumdir.Y());
 			Float_t starttrackangle = TMath::Max(starttrackanglex,starttrackangley);
 #ifndef NOGENIE
-			//Double_t scatteringangle = thegenieinfo.k1->Angle(primarymomentumdir);    // same as fslanglegenie, by def
+			//Double_t scatteringangle = thegenieinfo.k1->Angle(primarymomentumdir);    // same as fslangle, by def
 			//Double_t scatteringangle = thegenieinfo.k1->Angle(differencevector);
 			Double_t scatteringangle = muonangle;
 			Double_t neutrinoenergyguess = thegenieinfo.probeenergy;
@@ -2195,7 +2205,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 				poserrx.push_back(0);
 				poserry.push_back(0);
 				poserrz.push_back(0);
-#endif // FILE_VERSION<=3
+#endif // FILE_VERSION<=4
 				tileorient.push_back(0);
 				octagonside.push_back(0);
 #endif // defined LAPPD_DEBUG
@@ -2556,7 +2566,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			}
 #ifndef NOGENIE
 			cout<<"compare to:"<<endl;
-			cout<<"genie lepton angle = "<<thegenieinfo.fslanglegenie<<endl;
+			cout<<"genie lepton angle = "<<thegenieinfo.fslangle<<endl;
 			cout<<"genie lepton energy = "<<thegenieinfo.fsleptonenergy<<endl;
 #endif // !defined NOGENIE
 			
@@ -2595,7 +2605,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			cout<<"wcsim lepton trackid = "<<acceptedtrackids.at(0)<<endl;
 #ifndef NOGENIE
 			cout<<"compare to:"<<endl;
-			cout<<"genie lepton angle = "<<thegenieinfo.fslanglegenie<<endl;
+			cout<<"genie lepton angle = "<<thegenieinfo.fslangle<<endl;
 			cout<<"genie lepton energy = "<<thegenieinfo.fsleptonenergy<<endl;
 #endif // !defined NOGENIE
 #endif // VERBOSE
@@ -2613,18 +2623,18 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			// fill genie 'accepted' histograms.
 			incidentneutrinoenergiesaccepted->Fill(thegenieinfo.probeenergy);
 			//incidentneutrinoanglesaccepted->Fill(thegenieinfo.probeangle);
-			fslanglesaccepted->Fill(thegenieinfo.fslanglegenie);
+			fslanglesaccepted->Fill(thegenieinfo.fslangle);
 			fslenergiesaccepted->Fill(thegenieinfo.fsleptonenergy);
 			eventq2accepted->Fill(thegenieinfo.Q2);
 			if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic"))
-				neutrinovertexQEaccepted->Fill(thegenieinfo.genie_x, thegenieinfo.genie_y, thegenieinfo.genie_z);
+				neutrinovertexQEaccepted->Fill(thegenieinfo.Intx_x, thegenieinfo.Intx_y, thegenieinfo.Intx_z);
 			// if it passes the fiducial cut, we've also accepted it, fill.
 #endif // !defined NOGENIE
 			if(isinfiducialvol){
 #ifndef NOGENIE
 				// genie values
 				incidentneutrinoenergiesacceptedfidcut->Fill(thegenieinfo.probeenergy);
-				fslanglesacceptedfidcut->Fill(thegenieinfo.fslanglegenie);
+				fslanglesacceptedfidcut->Fill(thegenieinfo.fslangle);
 				fslenergiesacceptedfidcut->Fill(thegenieinfo.fsleptonenergy);
 				eventq2acceptedfidcut->Fill(thegenieinfo.Q2);
 				if(eventtypes.at("IsWeakCC") && eventtypes.at("IsQuasiElastic")) numCCQEneutrinoeventsinfidvolmrd++;
@@ -3280,11 +3290,11 @@ void GetGenieEntryInfo(genie::EventRecord* gevtRec, genie::Interaction* genieint
 	*/
 	/*Int_t*/ thegenieinfo.neutinteractioncode = genie::utils::ghep::NeutReactionCode(gevtRec);
 	/*Int_t*/ thegenieinfo.nuanceinteractioncode  = genie::utils::ghep::NuanceReactionCode(gevtRec);
-	/*TLorentzVector**/ thegenieinfo.genieVtx = gevtRec->Vertex();
-	/*Double_t*/ thegenieinfo.genie_x = thegenieinfo.genieVtx->X() * 100.;         // same info as nuvtx in g4dirt file
-	/*Double_t*/ thegenieinfo.genie_y = thegenieinfo.genieVtx->Y() * 100.;         // GENIE uses meters
-	/*Double_t*/ thegenieinfo.genie_z = thegenieinfo.genieVtx->Z() * 100.;         // GENIE uses meters
-	/*Double_t*/ thegenieinfo.genie_t = thegenieinfo.genieVtx->T() * 1000000000;   // GENIE uses seconds
+	/*TLorentzVector**/ thegenieinfo.IntxVtx = gevtRec->Vertex();
+	/*Double_t*/ thegenieinfo.Intx_x = thegenieinfo.IntxVtx->X() * 100.;         // same info as nuvtx in g4dirt file
+	/*Double_t*/ thegenieinfo.Intx_y = thegenieinfo.IntxVtx->Y() * 100.;         // GENIE uses meters
+	/*Double_t*/ thegenieinfo.Intx_z = thegenieinfo.IntxVtx->Z() * 100.;         // GENIE uses meters
+	/*Double_t*/ thegenieinfo.Intx_t = thegenieinfo.IntxVtx->T() * 1000000000;   // GENIE uses seconds
 	
 	// neutrino information:
 	/*Double_t*/ thegenieinfo.probeenergy = genieint->InitState().ProbeE(genie::kRfLab);  // GeV
@@ -3359,7 +3369,7 @@ void GetGenieEntryInfo(genie::EventRecord* gevtRec, genie::Interaction* genieint
 	/*TLorentzVector**/ thegenieinfo.k1 = gevtRec->Probe()->P4();
 	/*TLorentzVector**/ thegenieinfo.k2 = gevtRec->FinalStatePrimaryLepton()->P4();
 	/*Double_t*/ thegenieinfo.costhfsl = TMath::Cos( thegenieinfo.k2->Vect().Angle(thegenieinfo.k1->Vect()) );
-	/*Double_t*/ thegenieinfo.fslanglegenie = thegenieinfo.k2->Vect().Angle(thegenieinfo.k1->Vect());
+	/*Double_t*/ thegenieinfo.fslangle = thegenieinfo.k2->Vect().Angle(thegenieinfo.k1->Vect());
 	// q=k1-k2, 4-p transfer
 	/*TLorentzVector*/ thegenieinfo.q  = (*(thegenieinfo.k1))-(*(thegenieinfo.k2));
 //	/*Double_t*/ thegenieinfo.Q2 = genieint->Kine().Q2();    // not set in our GENIE files!
