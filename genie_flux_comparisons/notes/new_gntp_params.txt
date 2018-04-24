@@ -1,0 +1,53 @@
+$ root
+ TFile* f = TFile::Open("/pnfs/annie/persistent/users/moflaher/genie/BNB_World_10k_11-03-18_gsimpleflux/gntp.1000.ghep.root")
+ TTree* t=(TTree*)f->Get("gtree")
+ t->Show(0)
+===============================================
+
+ gmcrec          = (genie::NtpMCEventRecord*)0x98498
+	event           = (genie::EventRecord*)1cd5820
+		all the genie interaction information
+	hdr             = (genie::NtpMCRecHeader)
+		unsigned int	ievent   // that's literally it! 
+
+// everything seems to be straight copied from input gsimple file!  <<<
+ simple          = (genie::flux::GSimpleNtpEntry*)0x3fa7710
+	wgt             = 1
+	vtxx            = -0.251458
+	vtxy            = 0.178847
+	vtxz            = -20
+	dist            = 52.109
+	px              = -0.00477932
+	py              = 0.0113202
+	pz              = 1.41742
+	E               = 1.41748
+	pdg             = 14
+	metakey         = 2251227477
+ numi            = (genie::flux::GSimpleNtpNuMI*)0x4003420
+	(all parameters also in old gnumi format)
+	tpx             = -0.0334161
+	tpy             = -0.260891
+	tpz             = 3.96279
+	vx              = -7.57618
+	vy              = -23.7304
+	vz              = 2824.3
+	pdpx            = -0.0116356
+	pdpy            = -0.0268031
+	pdpz            = 3.89038
+	pppx            = -0.0334161
+	pppy            = -0.260891
+	pppz            = 3.96279
+	ndecay          = 13
+	ptype           = 211
+	ppmedium        = 0
+	tptype          = 211
+	run             = 4
+	evtno           = 24567
+	entryno         = 2493
+ aux             = (genie::flux::GSimpleNtpAux*)0x41cd830
+	auxint          = (vector<int>*)0x41cd838
+	auxdbl          = (vector<double>*)0x41cd850
+
+===============================================
+
+also contains a LINK to meta chain? - literally tries to open local_flux/gsimple_beammc_annie_0000#.root

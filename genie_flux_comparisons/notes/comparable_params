@@ -1,0 +1,34 @@
+comparable parameters:
+in genie::flux::GSimpleNtpNuMI* and in gnumi:
+//	run		4
+//	evtno		24567
+//	entryno		2493
+	ptype		Parent GEANT code particle ID
+	ndecay		Decay mode that produced neutrino: Pi+, K+, etc.
+	vx		position of hadron/muon decay
+	vy		
+	vz		
+	pdpx		Parent momentum at decay point
+	pdpy		
+	pdpz		
+	pppx		Parent momentum at production (ONLY IF NOT MUON)
+	pppy		
+	pppz		
+	ppmedium	Tracking medium number where parent was produced - can use to tell target from horn?
+	tptype		Parent particle ID exiting the target (GEANT code) - can this be different to ptype?
+	tpx		Parent momentum exiting the target - can this be different to pdpx?
+	tpy		
+	tpz		
+
+// what we do not have:
+primary proton mom, vtx
+intermediate particle that created the parent: type, mom
+generation of parent in cascade
+parent production vertex, vertex where the parent left the target
+weight of parent <<<<<<<?
+parent momentum & energy in case of muon?!? <<<<<
+neutrino flavour, energy, momentum, dir and weight <<< but relevent for our vertex in genie event record  (including weight???)
+
+
+
+gmcrec = (genie::NtpMCEventRecord*)0x98498 -> event = (genie::EventRecord*)1cd5820

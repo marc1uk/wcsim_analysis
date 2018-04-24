@@ -139,7 +139,7 @@ int inline InBox( TVector3 Hit, TVector3 B1, TVector3 B2, const int Axis);
 int inline GetIntersection( float fDst1, float fDst2, TVector3 P1, TVector3 P2, TVector3 &Hit);
 
 #ifndef NOGENIE
-#include "genieinfo_struct.cxx"           // definition of a struct to hold genie info
+#include "genieinfo_struct.cpp"           // definition of a struct to hold genie info
 // function to fill the into
 void GetGenieEntryInfo(genie::EventRecord* gevtRec, genie::Interaction* genieint, GenieInfo& thegenieinfo);
 #endif // !defined NOGENIE

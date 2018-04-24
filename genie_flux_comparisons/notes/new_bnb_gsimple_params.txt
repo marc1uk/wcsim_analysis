@@ -1,0 +1,63 @@
+$ root
+ TFile* f = TFile::Open("/annie/data/flux/gsimple_bnb/gsimple_beammc_annie_0000.root")
+ TTree* t = (TTree*)f->Get("flux")
+ t->Show(0)
+===============================================
+
+ entry           = (genie::flux::GSimpleNtpEntry*)0x548ca70
+	 wgt             = 1
+	 vtxx            = -1.01788
+	 vtxy            = 0.0369896
+	 vtxz            = -20
+	 dist            = 77.069
+	 px              = -0.00905812    // neutrino 4-momentum
+	 py              = 0.000537826
+	 pz              = 0.579207
+	 E               = 0.579278
+	 pdg             = 14
+	 metakey         = 109664493
+ numi            = (genie::flux::GSimpleNtpNuMI*)0x5498cd0
+	 tpx             = 0.302901
+	 tpy             = -0.0562474
+	 tpz             = 2.24835
+	 vx              = 18.7244
+	 vy              = -3.45646
+	 vz              = 329.046
+	 pdpx            = 0.0769253
+	 pdpy            = -0.0142925
+	 pdpz            = 2.24844
+	 pppx            = 0.302901
+	 pppy            = -0.0562474
+	 pppz            = 2.24835
+	 ndecay          = 13
+	 ptype           = 211
+	 ppmedium        = 0
+	 tptype          = 211
+	 run             = 0
+	 evtno           = 0
+	 entryno         = 0
+ aux             = (genie::flux::GSimpleNtpAux*)0x549a420
+	 auxint          = (vector<int>*)0x549a428
+	 auxdbl          = (vector<double>*)0x549a440
+
+-------------------------------------------------------
+
+ TTree* t2 = (TTree*)f->Get("meta")
+ t2->Show(0)
+===============================================
+
+ meta            = (genie::flux::GSimpleNtpMeta*)0x2354e20
+	 pdglist         = (vector<int>*)0x2354e30
+	 maxEnergy       = 6.0228
+	 minWgt          = 1
+	 maxWgt          = 1
+	 protons         = 1.00001e+06
+	 windowBase[3]   = 1000 , 1000 , -2000 
+	 windowDir1[3]   = 0 , -2000 , 0 
+	 windowDir2[3]   = -2000 , 0 , 0 
+	 auxintname      = (vector<string>*)0x2354eb0
+	 auxdblname      = (vector<string>*)0x2354ec8
+	 infiles         = (vector<string>*)0x2354ee0
+	 seed            = -510067746
+	 metakey         = 109664493
+

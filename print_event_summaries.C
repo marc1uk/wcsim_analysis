@@ -1,5 +1,6 @@
 {
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in_ratpac_comps/wcsim_1k_photon_bomb_0.root");
+//TFile* f= TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim_lappd_24-09-17_BNB_Water_10k_22-05-17/wcsim_0.0.0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_photon_bomb_next_to_wall_0.root");
 //TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/out/ANNIEtest_10MeV_e-_Uni_Iso_annie_f717ff7d765d00225801751243aad1027d7924df_0.root");
 TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/MRD_muon_sample/ANNIEtest_MRD_muon_sample_1a0f480.root");
@@ -12,10 +13,10 @@ WCSimRootTrigger* r=e->GetTrigger(0);
 WCSimRootEventHeader* h=r->GetHeader();
 h->GetDate();
 
-int maxentriestoprint=50;
+int maxentriestoprint=20;
 int maxtriggerstoprint=1;
 int maxprimariestoprint=1; // always 1
-int maxtrackstoprint=100;
+int maxtrackstoprint=10;
 int maxdigitstoprint=5;
 int maxphotonsperdigittoprint=5;
 int maxphotonstoprint=10;
@@ -74,12 +75,13 @@ for(int i=0; i<min(maxentriestoprint,(int)b->GetEntries()); i++){
           Primary_Vertex_Y=nextrack->GetStart(1);
           Primary_Vertex_Z=nextrack->GetStart(2);
         }
-        cout<<"  Track "<<track<<":"<<endl
+        cout<<"  Track "<<track<<"{"
             <<"    Flag: "<<nextrack->GetFlag()
             <<"    PDG: "<<nextrack->GetIpnu()
             <<"    ID: "<<nextrack->GetId()
             <<"    ParentPDG: "<<nextrack->GetParenttype()
-            <<"    Vertex: "<<Primary_Vertex_X<<", "<<Primary_Vertex_Y<<", "<<Primary_Vertex_Z<<")"<<endl;
+            <<"    Vertex: "<<Primary_Vertex_X<<", "<<Primary_Vertex_Y<<", "<<Primary_Vertex_Z<<")"
+            <<"    }"<<endl;
 //        if(nextrack->GetParenttype()==0&&nextrack->GetFlag()!=-1){
 //          primarycount++;
 //          cout<<"event "<<i<<" trigger "<<j<<" primary "<<primarytrack<<", PDG:"<<nextrack->GetIpnu()

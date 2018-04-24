@@ -1,3 +1,8 @@
+#include <GHEP/GHepParticle.h>
+#include <EVGCore/EventRecord.h>
+#include <TParticlePDG.h>
+#include <Interaction/Interaction.h>
+#include <Ntuple/NtpMCEventRecord.h>
 struct GenieInfo {
 	
 	GenieInfo(){ 
@@ -23,11 +28,11 @@ struct GenieInfo {
 	std::map<std::string,bool> eventtypes;
 	Int_t neutinteractioncode=-1;
 	Int_t nuanceinteractioncode=-1;
-	TLorentzVector* genieVtx=0;                        // [secs,m,m,m]
-	Double_t genie_x=0.;                               // cm
-	Double_t genie_y=0.;                               // cm
-	Double_t genie_z=0.;                               // cm
-	Double_t genie_t=0.;                               // ns
+	TLorentzVector* IntxVtx=0;                        // [secs,m,m,m]
+	Double_t Intx_x=0.;                               // cm
+	Double_t Intx_y=0.;                               // cm
+	Double_t Intx_z=0.;                               // cm
+	Double_t Intx_t=0.;                               // ns
 
 	// neutrino information:
 	Double_t probeenergy=0.;                           // GeV
@@ -74,7 +79,7 @@ struct GenieInfo {
 	TLorentzVector* k2=0;                               // GeV/c? Muon outgoign momentum vector
 	TLorentzVector q=TLorentzVector(0.,0.,0.,0.);       // GeV/c? 4-momentum transfer: k1-k2
 	Double_t costhfsl=0.;                               // 
-	Double_t fslanglegenie=0.;                          // rads?
+	Double_t fslangle=0.;                               // rads?
 	Double_t Q2=0.;                                     // GeV/c?
 	Double_t Etransf=0.;                                // Energy transferred to nucleus. -1 if not defined
 	Double_t x=0.;                                      // Bjorken x. -1 if target nucleon not defined
