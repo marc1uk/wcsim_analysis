@@ -510,44 +510,50 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 	TBranch* bNeutrinoPdg = treeout->Branch("NeutrinoPDG",&neutrinopdg);
 	bool hasmuon=false;
 	TBranch* bEventHasMuon = treeout->Branch("EventHasMuon",&hasmuon);
+	int primarypdg=-1;
+	TBranch* bMuonPdg = treeout->Branch("TrackPdgCode",&trackpdg);
+	bool trackiswcsimprimary=false;
+	TBranch* bTrackIsWCSimPrimary = treeout->Branch("TrackIsWCSimPrimary",&trackiswcsimprimary);
+	std::string trackstartvolstring="";
+	TBranch* bTrackStartVolString = treeout->Branch("TrackStartVolString",&trackstartvolstring);
 	TVector3 mustartvtx(0,0,0);
-	TBranch* bMuonStartVtx = treeout->Branch("MuonStartVertex",&mustartvtx);
+	TBranch* bMuonStartVtx = treeout->Branch("TrackStartVertex",&mustartvtx);
 	TVector3 mustopvtx(0,0,0);
-	TBranch* bMuonStopVtx = treeout->Branch("MuonStopVertex",&mustopvtx);
+	TBranch* bMuonStopVtx = treeout->Branch("TrackStopVertex",&mustopvtx);
 	double muonangle=-1;
-	TBranch* bMuonAngle = treeout->Branch("MuonAngle",&muonangle);
+	TBranch* bMuonAngle = treeout->Branch("TrackAngle",&muonangle);
 	double mustartE=-1;
-	TBranch* bMuonStartE = treeout->Branch("MuonStartEnergy",&mustartE);
-//	double muendE=0.;
-//	TBranch* bMuonEndE = treeout->Branch("MuonEndEnergy",&muendE);  // information not saved in WCSim
+	TBranch* bMuonStartE = treeout->Branch("TrackStartEnergy",&mustartE);
+	double muendE=-1;
+	TBranch* bMuonEndE = treeout->Branch("TrackEndEnergy",&muendE);
 	bool muonentersMRD=false;
-	TBranch* bMuonEntersMRD = treeout->Branch("MuonEntersMRD",&muonentersMRD);
+	TBranch* bMuonEntersMRD = treeout->Branch("TrackEntersMRD",&muonentersMRD);
 	bool muonstopsinMRD=false;
-	TBranch* bMuonStopsInMRD = treeout->Branch("MuonStopsInMRD",&muonstopsinMRD);
+	TBranch* bMuonStopsInMRD = treeout->Branch("TrackStopsInMRD",&muonstopsinMRD);
 	bool muonrangesoutMRD=false;
-	TBranch* bMuonRangesOutMRD = treeout->Branch("MuonRangesOutMRD",&muonrangesoutMRD);
+	TBranch* bMuonRangesOutMRD = treeout->Branch("TrackRangesOutMRD",&muonrangesoutMRD);
 	double mrdpenetrationcm=-1;
-	TBranch* bMuonMrdPenetrationInCm = treeout->Branch("MuonMrdPenetrationInCm",&mrdpenetrationcm);
+	TBranch* bMuonMrdPenetrationInCm = treeout->Branch("TrackMrdPenetrationInCm",&mrdpenetrationcm);
 	int mrdpenetrationlayers=-1;
-	TBranch* bMuonMrdPenetrationLayers = treeout->Branch("MuonMrdPenetrationLayers",&mrdpenetrationlayers);
+	TBranch* bMuonMrdPenetrationLayers = treeout->Branch("TrackMrdPenetrationLayers",&mrdpenetrationlayers);
 	double mutracklengthinMRD=-1;
-	TBranch* bMuonTrackLengthInMRD = treeout->Branch("MuonTrackLengthInMRD",&mutracklengthinMRD);
+	TBranch* bMuonTrackLengthInMRD = treeout->Branch("TrackTrackLengthInMRD",&mutracklengthinMRD);
 	double mutracklengthintank=-1;
-	TBranch* bMuonTrackLengthInTank = treeout->Branch("MuonTrackLengthInTank",&mutracklengthintank);
+	TBranch* bMuonTrackLengthInTank = treeout->Branch("TrackTrackLengthInTank",&mutracklengthintank);
 	// TODO: add LAPPD hit info
 	int numTankDigits=-1;
 	TBranch* bNumTankDigits = treeout->Branch("TotalTankDigits",&numTankDigits);
 	double totaltankcharge=-1;
 	TBranch* bTotalTankCharge = treeout->Branch("TotalTankCharge",&totaltankcharge);
 	int numtankdigitsfrommuon=-1;
-	TBranch* bNumTankDigitsFromMu = treeout->Branch("TankDigitsFromMuon",&numtankdigitsfrommuon);
+	TBranch* bNumTankDigitsFromMu = treeout->Branch("TankDigitsFromTrack",&numtankdigitsfrommuon);
 	double tankchargefrommuon=-1;
-	TBranch* bTankChargeFromMuon = treeout->Branch("TankChargeFromMuon",&tankchargefrommuon);
+	TBranch* bTankChargeFromMuon = treeout->Branch("TankChargeFromTrack",&tankchargefrommuon);
 	std::vector<int> tanktubeshitbymu;
-	TBranch* bTankTubesHitByMuon = treeout->Branch("TankTubesHitByMu",&tanktubeshitbymu);
+	TBranch* bTankTubesHitByMuon = treeout->Branch("TankTubesHitByTrack",&tanktubeshitbymu);
 	double fractionalchargeincone=-1;
 	TBranch* bFractionOfMuonChargeInCone = 
-		treeout->Branch("FractionOfMuonChargeInCone",&fractionalchargeincone);
+		treeout->Branch("FractionOfTrackChargeInCone",&fractionalchargeincone);
 	double upstreamcharge=-1;
 	TBranch* bTotalUpstreamCharge = treeout->Branch("TotalUpstreamCharge",&upstreamcharge);
 	double downstreamcharge=-1;
@@ -578,11 +584,11 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 	double totMRDcharge=-1;
 	TBranch* bTotalMrdCharge = treeout->Branch("TotalMrdCharge",&totMRDcharge);
 	int numMRDdigitsfrommu=-1;
-	TBranch* bMrdDigitsFromMuon = treeout->Branch("MrdDigitsFromMuon",&numMRDdigitsfrommu);
+	TBranch* bMrdDigitsFromMuon = treeout->Branch("MrdDigitsFromTrack",&numMRDdigitsfrommu);
 	double MRDchargefrommu=-1;
-	TBranch* bMrdChargeFromMuon = treeout->Branch("MrdChargeFromMuon",&MRDchargefrommu);
+	TBranch* bMrdChargeFromMuon = treeout->Branch("MrdChargeFromTrack",&MRDchargefrommu);
 	std::vector<int> mrdtubeshitbymu;
-	TBranch* bMrdTubesHitByMuon = treeout->Branch("MrdTubesHitByMuon",&mrdtubeshitbymu);
+	TBranch* bMrdTubesHitByMuon = treeout->Branch("MrdTubesHitByTrack",&mrdtubeshitbymu);
 	// store information about the other primary tracks in the event.
 	// this may be useful for extracting events that have something else going on, and what
 	std::vector<int> trackpdg;
@@ -1228,14 +1234,17 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #ifndef PARTICLEGUNEVENTS
 		nTankBranch->GetEntry(localEntry);
 		vertexmaterialbranch->GetEntry(localEntry);
-#ifdef TANKONLY
 		if(strcmp(vertexmaterial,"TankWater")!=0){
 #ifdef VERBOSE
 			cout<<"neutrino vtx not in tank"<<endl;
 #endif // VERBOSE
+#ifdef TANKONLY
 			continue;
-		}
 #endif // def TANKONLY
+		} else {
+			numneutrinoeventsintank++;
+			isintank=true;
+		}
 		if(nuprimarybranchval){delete[] nuprimarybranchval;}
 		nuprimarybranchval = new Int_t[ntankbranchval];
 		nuprimaryBranch->SetAddress(nuprimarybranchval);
@@ -1252,10 +1261,6 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #ifdef VERBOSE
 		//cout<<"INCREMENTED WCSIMTENTRYNUM TO "<<wcsimTentry<<endl;
 #endif // VERBOSE
-		if(primariesinthisentry){
-			numneutrinoeventsintank++;
-			isintank=true;
-		}
 		
 		/* 3. If so, load genie entry. */
 		//====================================================================================================
@@ -1499,7 +1504,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 		trackstoptime.clear();
 		for(int track=0; track<numtracks; track++){
 			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(track);
-			if(nextrack->GetFlag()!=0) continue; // flag s -1 and -2 are neutrino and target, or other special. don't double count.
+			if(nextrack->GetFlag()!=0) continue; // flags -1 and -2 are neutrino and target, or other special. don't double count.
 			Int_t primarypdg = nextrack->GetIpnu();
 			switch (primarypdg){
 				case 111: numpizerotracks++; break;
@@ -1524,9 +1529,9 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			trackparenttype.push_back(nextrack->GetParenttype());
 			trackstoptime.push_back(nextrack->GetTime());
 			
-			if(TMath::Abs(primarypdg)!=13) continue;                // not a muon
-			if(nextrack->GetParenttype()!=0) continue;              // not a primary
-			if(nextrack->GetStartvol()!=10) continue;               // track doesn't start in tank
+			if(TMath::Abs(primarypdg)!=13) continue;                  // not a muon
+			//if(nextrack->GetParenttype()!=0) continue;              // not a primary
+			//if(nextrack->GetStartvol()!=10) continue;               // track doesn't start in tank
 			Int_t primarystartvol;
 			if(nextrack->GetStart(2)<tank_start){
 				primarystartvol = 20;                               // start depth is facc or hall
@@ -1560,13 +1565,13 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 		}
 		if(mutrackindex<0){
 #ifdef VERBOSE
-			cout<<"no muons in this event"<<endl;
+			cerr<<"no recognised primary track in this event!"<<endl;
 #endif // VERBOSE
 			continue;                                  // there was no primary muon
 		}
 		//for(int track=0; track<numtracks; track++){                 // disable loop over tracks
 		for(int track=mutrackindex; track==mutrackindex; track++){    // just one iteration on highest E mu
-			hasmuon=true;                                             // we had at least one muon in the event
+			hasmuon=(abs(primarypdg)==13);                            // we had at least one muon in the event
 			WCSimRootTrack* nextrack = (WCSimRootTrack*)atrigt->GetTracks()->At(track);
 			/* a WCSimRootTrack has methods: 
 			Int_t     GetIpnu()             pdg
@@ -1600,19 +1605,20 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			// Check if it's a primary muon starting in the tank
 			// ----------------------------------------------------------------------------------------------
 			// is it a (anti)muon?
-			Int_t primarypdg = nextrack->GetIpnu();
+			primarypdg = nextrack->GetIpnu();
 #ifdef VERBOSE
 			cout<<"primarypdg is "<<primarypdg<<endl;
 #endif // VERBOSE
-			if(TMath::Abs(primarypdg)!=13) continue;       // not a muon
+			//if(TMath::Abs(primarypdg)!=13){ cout<<"primary muon not a muon?"; continue; }      // not a muon
 			
 			// for now we use truth information
 			// is it a primary?
 			Int_t primaryparentpdg = nextrack->GetParenttype();
+			trackiswcsimprimary = (primaryparentpdg==0);
 #ifdef VERBOSE
-			(primaryparentpdg==0) ? cout<<"a primary"<<endl : cout<<"not a primary"<<endl;
+			(primaryparentpdg==0) ? cout<<"a wcsim primary"<<endl : cout<<"not a wcsim primary"<<endl;
 #endif // VERBOSE
-			if(primaryparentpdg!=0) continue;
+			//if(primaryparentpdg!=0) continue;             // skip if not a wcsim primary
 			
 			// does it start in the tank?
 			Int_t primarystartvol;
@@ -1621,24 +1627,27 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #else // if FILE_VERSION<=1
 			if(nextrack->GetStart(2)<tank_start){
 				primarystartvol = 20;						// start depth is facc or hall
+				trackstartvolstring="FACC";
 			} else if(nextrack->GetStart(2)>(tank_start+(2.*tank_radius))){
 				primarystartvol = 30;						// start depth is mrd or hall
+				trackstartvolstring="MRD";
 			} else {
 				primarystartvol = 10;						// start depth is tank
+				trackstartvolstring="Tank";
 			}
 #endif // FILE_VERSION<=1
 			
 #ifdef VERBOSE
 			cout<<"primarystartvol is "<<primarystartvol<<endl;
 #endif // VERBOSE
-			if(primarystartvol!=10) continue;				// start volume is not the tank
+			//if(primarystartvol!=10) continue;				// start volume is not the tank
 			
 			// where does it stop?
 			Int_t primarystopvol;
 #if FILE_VERSION>1
 			primarystopvol = nextrack->GetStopvol();
 #else // if FILE_VERSION<=1
-			// Do we need to think about 'range-out' mrd events? Maybe this is preferable to using GetStopvol()?
+			// Do we need to think about 'range-out' mrd events? Maybe this is preferable to using GetStopVol()?
 			if(nextrack->GetStop(2)<tank_start){
 				primarystopvol = 20;						// start depth is facc or hall
 			} else if(nextrack->GetStop(2)>(tank_start+(2.*tank_radius))){
@@ -1678,9 +1687,10 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			}
 #endif // defined NOGENIE || defined PARTICLEGUNEVENTS
 			// sanity check for correct synchronization between dirt and wcsim files.
-			if(!(abs(primarystartvertex.X()-thegenieinfo.Intx_x)<1 &&
-				 abs(primarystartvertex.Y()-thegenieinfo.Intx_y)<1 &&
-				 abs(primarystartvertex.Z()-thegenieinfo.Intx_z)<1) ){
+			if(  (primaryparentpdg==0)                              &&  // only expect vertices to align for primaries
+				!(abs(primarystartvertex.X()-thegenieinfo.Intx_x)<1 &&
+				  abs(primarystartvertex.Y()-thegenieinfo.Intx_y)<1 &&
+				  abs(primarystartvertex.Z()-thegenieinfo.Intx_z)<1) ){
 				cerr<<"GENIE VERTEX IS IN FIDUCIAL VOLUME BUT PRIMARY MUON VERTEX ISN'T?!"<<endl
 					<<"Genie vertex: ("<<thegenieinfo.Intx_x<<", "<<thegenieinfo.Intx_y<<", "<<thegenieinfo.Intx_z<<")"<<endl
 					<<"Muon vertex: ("<<primarystartvertex.X()<<", "<<primarystartvertex.Y()<<", "<<primarystartvertex.Z()<<")"<<endl
@@ -1720,6 +1730,9 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			mustartvtx=primarystartvertex.Vect();
 			mustopvtx=primarystopvertex.Vect();
 			mustartE=nextrack->GetE();
+#if FILE_VERSION>2
+			muendE=nextrack->GetEndE();
+#endif
 			
 			Float_t oppx = primarystopvertex.X() - primarystartvertex.X();
 			Float_t adj = primarystopvertex.Z() - primarystartvertex.Z();
@@ -2159,7 +2172,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #if FILE_VERSION<3
 				digitspst = "PMT8inch";
 #else // if FILE_VERSION>=3
-				int tubetypeindex = geo->GetTubeIndex(digitstubeid);
+				int tubetypeindex = geo->GetTubeIndex(digitstubeid+1); // add back to get to ids from 1
 				digitspst = geo->GetWCPMTNameAt(tubetypeindex);
 #endif // FILE_VERSION>=3
 				filedigitsensortypes.push_back(digitspst);
@@ -2280,7 +2293,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			// FIXME: the vectors store all digits in the event regardless of which trigger they are in. 
 			// we should scan through and only retrieve / fill jingbo file vectors with events within
 			// the trigger window.
-			
+			cout<<"Analysing LAPPD digits"<<endl;
 			int runningcount=0;
 			for(int lappdi=0; lappdi<lappd_numtileshitthisevt; lappdi++){
 				// loop over LAPPDs that had at least one hit
