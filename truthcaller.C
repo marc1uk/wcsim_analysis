@@ -1,4 +1,4 @@
-{
+void truthcaller(const char* wcsimpathin="", const char* dirtpathin="", const char* geniepathin="", const char* outpathin=""){
 /* vim:set noexpandtab tabstop=4 wrap */
 #ifndef PARTICLEGUNEVENTS
 //#define PARTICLEGUNEVENTS
@@ -30,5 +30,7 @@
 	gROOT->ProcessLine(linetoprocess.c_str());
 	//gROOT->ProcessLine(".L /annie/app/users/moflaher/wcsim/root_work/plottruthmrdtracks.C++g");
 	// double + is required in case a compilation fails due to bad linking
-	truthtracks()
+	TString runprogram = TString::Format("truthtracks(\"%s\",\"%s\",\"%s\",\"%s\")", 
+								wcsimpathin, dirtpathin, geniepathin, outpathin);
+	gROOT->ProcessLine(runprogram);
 }

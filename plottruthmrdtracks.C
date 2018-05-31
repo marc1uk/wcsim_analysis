@@ -26,11 +26,19 @@ wcsim ..., 200 PMTs + 200 LAPPDs, global position of LAPPD hits, vector of PMT n
 // For wcsim processing of vincent's genie files, each genie file of 10k events had to be split up into 10 WCSim files.
 // Since we have 10 wcsim files per dirt/genie file, we'll need to use a chain to load the wcsim files.
 #ifndef SPLITWCSIMFILES
-#define SPLITWCSIMFILES
+//#define SPLITWCSIMFILES
+#endif
+
+#ifndef NOLAPPDS
+#define NOLAPPDS // no LAPPD files
+#endif
+
+#ifndef TANKONLY
+//#define TANKONLY
 #endif
 
 #ifndef VERBOSE
-//#define VERBOSE
+#define VERBOSE
 #endif
 #ifndef WCSIMDEBUG
 //#define WCSIMDEBUG
@@ -248,8 +256,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 	const char* geniepath = (strcmp(geniepathin,"")!=0) ? geniepathin : &ageniepath[0];
 	const char* outpath = (strcmp(outpathin,"")!=0) ? outpathin : &aoutpath[0];
 #else // if defined USE_GRID
-	// FIXME need to pass arguments from caller script to truthtracks.
-	// cannot mount root files from pnfs directly.
+	// FIXME cannot mount root files from pnfs directly. Always use PWD
 //	const char* wcsimpath = gSystem->Getenv("WCSIMDIR");
 //	const char* dirtpath = gSystem->Getenv("DIRTDIR");
 //	const char* geniepath = gSystem->Getenv("GENIEDIR");
@@ -914,7 +921,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 	// as in WCSim's PrimaryGeneratorAction, we can select the dirt files, and then just pull the next 
 	// wcsim entry
 	Int_t inputEntry=0;
-#ifdef USE_GRID
+#ifdef SPLITWCSIMFILES
 	const char* inputoffsetchars = gSystem->Getenv("INFILE_OFFSET");
 	if(inputoffsetchars==nullptr||strcmp(inputoffsetchars,"")==0){
 		cerr<<"INPUTOFFSET NOT DEFINED!!"<<endl; assert(false);
@@ -1059,13 +1066,14 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #if FILE_VERSION>2
 				//TODO: save these
 				PMTNames = geo->GetPMTNames();
-				NumPMTsByType = geo->GetPmtCounts();
+				NumPMTsByType = geo->GetWCNumPmts();
 #else // if FILE_VERSION<=2
 				PMTNames=std::vector<std::string>{"PMT8inch"};
 				NumPMTsByType = std::vector<int>{numpmts};
 #endif // FILE_VERSION<=2
 			}
 			
+#ifndef NOLAPPDS
 			// use the filenum to open the corresponding lappd file
 #ifndef SPLITWCSIMFILES
 #ifndef PARTICLEGUNEVENTS
@@ -1111,6 +1119,9 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 				break;
 			}
 			if(numlappdentries<1){cerr<<"lappdtree has no entries!"<<endl; break;}
+#else
+			lappdfilepath="";
+#endif // ndefined NOLAPPDS
 			
 #ifndef PARTICLEGUNEVENTS
 			// =========================
@@ -1153,6 +1164,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			vp->SetAutoDelete(kTRUE);
 			if(bp==0||mp==0||vp==0){ cerr<<"branches are zombies!"<<endl; break; }
 			
+#ifndef NOLAPPDS
 			// lappdtree:
 			int branchesok=0;
 			branchesok =lappdtree->SetBranchAddress("lappdevt",       &lappd_evtnum);
@@ -1190,6 +1202,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			// lappdhit_totalpes_perlappd2 is the same as lappdhit_edep in a vector. It's retrieved from the "digits" rather than SD hits, but only after each "digit" has it's time smeared and randpe generated. This is before digitizer integration, so still photon hits, but is LAPPD event-wide (ie not the rand num pe per hit, just total number of photon hits on this lappd). For PMTs (including MRD etc) this may also include dark noise hits, but for LAPPDs this isn't implemented.
 			// FIXME should store the charges
 			if(branchesok<0) cerr<<"lappd_hitcharge="<<branchesok<<endl;
+#endif // ndef NOLAPPDS
 			
 			treeNumber=nextTreeNumber;
 		}
@@ -1215,12 +1228,14 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #ifndef PARTICLEGUNEVENTS
 		nTankBranch->GetEntry(localEntry);
 		vertexmaterialbranch->GetEntry(localEntry);
+#ifdef TANKONLY
 		if(strcmp(vertexmaterial,"TankWater")!=0){
 #ifdef VERBOSE
 			cout<<"neutrino vtx not in tank"<<endl;
 #endif // VERBOSE
 			continue;
 		}
+#endif // def TANKONLY
 		if(nuprimarybranchval){delete[] nuprimarybranchval;}
 		nuprimarybranchval = new Int_t[ntankbranchval];
 		nuprimaryBranch->SetAddress(nuprimarybranchval);
@@ -1237,8 +1252,10 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #ifdef VERBOSE
 		//cout<<"INCREMENTED WCSIMTENTRYNUM TO "<<wcsimTentry<<endl;
 #endif // VERBOSE
-		numneutrinoeventsintank++;
-		isintank=true;
+		if(primariesinthisentry){
+			numneutrinoeventsintank++;
+			isintank=true;
+		}
 		
 		/* 3. If so, load genie entry. */
 		//====================================================================================================
@@ -1325,7 +1342,9 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 		// For split wcsim files, we may need to reset branches if this wcsimTentry goes beyond the current wcsim file
 #ifdef SPLITWCSIMFILES
 		Long64_t localwcsimTentry = wcsimchain->LoadTree(wcsimTentry);
+#ifndef NOLAPPDS
 		lappdchain->LoadTree(wcsimTentry);
+#endif // ndef NOLAPPDS
 		if( localwcsimTentry<0){
 			cerr<<"end of wcsimchain!! should have reloaded before this"<<endl;
 			inputEntry += (numentswcsimchain-thistreesentries);
@@ -1342,12 +1361,16 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			cout<<"wcsimT has "<<numwcsimentries<<" entries in this file"<<endl;
 			if(numwcsimentries<1){cerr<<"wcsimT has no entries!"<<endl; break; }
 			
+#ifndef NOLAPPDS
 			lappdtree = lappdchain->GetTree();
 			lappdfile = lappdtree->GetCurrentFile();
 			lappdfilepath = lappdfile->GetName();
 			numlappdentries = lappdtree->GetEntries();
 			cout<<"lappdtree has "<<numlappdentries<<" entries in this file"<<endl;
 			if(numlappdentries<1){cerr<<"lappdtree has no entries!"<<endl; break; }
+#else
+			lappdfilepath = "";
+#endif // ndef NOLAPPDS
 			
 			// SET NEW BRANCH ADDRESSES
 			// wcsimT:
@@ -1359,6 +1382,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			vp->SetAutoDelete(kTRUE);
 			if(bp==0||mp==0||vp==0){ cerr<<"branches are zombies!"<<endl; break; }
 			
+#ifndef NOLAPPDS
 			// lappdtree:
 			int branchesok=0;
 			branchesok =lappdtree->SetBranchAddress("lappdevt",                    &lappd_evtnum);
@@ -1393,6 +1417,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			if(branchesok<0) cerr<<"lappd_edep="<<branchesok<<endl;
 			branchesok =lappdtree->SetBranchAddress("lappdhit_totalpes_perlappd2", &lappd_hitchargep);
 			if(branchesok<0) cerr<<"lappd_hitcharge="<<branchesok<<endl;
+#endif // ndef NOLAPPDS
 			
 			wcsimtreeNumber=nextwcsimTreeNumber;
 			// when loading a new file, we need to re-synchronize dirt/genie event num = wcsim event num
@@ -1415,6 +1440,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 		
 		int eventnumcheck=atrigt->GetHeader()->GetEvtNum();
 		
+#ifndef NOLAPPDS
 		// Get LAPPD entries as well:
 		// first we need to allocate necessary dynamic arrays
 #ifdef VERBOSE
@@ -1431,6 +1457,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			cerr<<"mismatch between lappd_evtnum="<<lappd_evtnum<<", and wcsim header event num, "
 			<<"eventnumcheck="<<eventnumcheck<<". For ref: wcsimTentry="<<wcsimTentry<<endl;
 		}
+#endif // ndef NOLAPPDS
 		
 		// process WCSim truth tracks
 		Int_t numtracks = atrigt->GetNtrack();
@@ -1611,7 +1638,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #if FILE_VERSION>1
 			primarystopvol = nextrack->GetStopvol();
 #else // if FILE_VERSION<=1
-			// Do we need to think about 'range-out' mrd events? Maybe this is preferable to using GetStopVol()?
+			// Do we need to think about 'range-out' mrd events? Maybe this is preferable to using GetStopvol()?
 			if(nextrack->GetStop(2)<tank_start){
 				primarystopvol = 20;						// start depth is facc or hall
 			} else if(nextrack->GetStop(2)>(tank_start+(2.*tank_radius))){
@@ -2197,7 +2224,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 				digitstpmthist->Fill(absolutedigitst);
 				digittsmearpmthist->Fill(filedigittsmeared);
 				pmttimesmearvsqhist->Fill(filedigittsmeared,digitsq);
-
+				
 #ifdef LAPPD_DEBUG
 				intileposx.push_back(0);
 				intileposy.push_back(0);
@@ -2246,6 +2273,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			// end of digit analysis
 			////////////////////////////////////////////////
 			
+#ifndef NOLAPPDS
 			// ----------------------------------------------------------------------------------------------
 			// lappd digit analysis
 			// ----------------------------------------------------------------------------------------------
@@ -2427,6 +2455,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			
 			// end of lappd digit analysis
 			////////////////////////////////////////////////
+#endif // ndef NOLAPPDS
 			
 			// Fill simplified file for reconstruction dev
 			///////////////////////////////////////////////
@@ -3199,8 +3228,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 	cout<<"closing lappdfile"<<endl;
 	if(lappdfile) lappdfile->Close();
 #else // if defined SPLITWCSIMFILES
-	lappdchain->ResetBranchAddresses();
-	delete lappdchain;
+	if(lappdchain){ lappdchain->ResetBranchAddresses(); delete lappdchain; }
 #endif // defined SPLITWCSIMFILES
 	
 	// The chain... this could either be tankflux (normal) or wcsimT (particle gun).
