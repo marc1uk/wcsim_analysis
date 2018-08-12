@@ -181,10 +181,10 @@ void WCSimAnalysis::DoAnalysis(){
 			// ====================
 #ifdef VERBOSE
 			cout<<"Looping to next trigger"<<endl;
+#endif
 			b->ReInitialize();
 			m->ReInitialize();
 			v->ReInitialize();
-#endif
 		}
 		
 #ifdef VERBOSE

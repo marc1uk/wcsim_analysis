@@ -504,14 +504,15 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 	std::map<std::string,bool> eventtypes;
 	std::map<std::string,bool>* eventtypesp=&eventtypes;
 	TBranch* bEventType = treeout->Branch("TypesMap",&eventtypesp);
-	// using a map is a bad idea! It means you can't use the event type in tree->Draw calls!!! 
-	// plus you need to load a CollectionProxy by putting the following code:
+	// using a map is a bad idea! It means you can't use the event type in tree->Draw calls!!!
+	// NOR CAN YOU EVEN DO tree->Show() or tree/Branch->GetEntry() calls. 
+	// To be able to do these, you first need to load a CollectionProxy by putting the following code
+	// into a file and calling '.L thefile.C+' 
 	//		#include <map>
 	//		#ifdef __MAKECINT__
 	//		#pragma link C++ class std::map<std::string,bool>+;
 	//		#endif
-	// into a file and calling '.L thefile.C+' before you can even read that tree with Tree/Branch->GetEntry!
-	// so use the genie method, and save a bunch of bools, and a string
+	// Instead, use the genie method, and save a bunch of bools, and a string
 	std::string interactiontypestring;
 	TBranch* bIntxTypeString = treeout->Branch("InteractionTypeString",&interactiontypestring);
 	bool IsQuasiElastic=false;
@@ -2914,10 +2915,10 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 				cout<<"Getting info for LAPPDID="<<LAPPDID<<endl;
 #endif
 				double tileposx = lappd_hittilesposx[lappdi];  // position of LAPPD in global coords
-				double tileposy = lappd_hittilesposy[lappdi];
+				double tileposy = lappd_hittilesposy[lappdi];  // IN MM
 				double tileposz = lappd_hittilesposz[lappdi];
 				WCSimRootPMT pmt = geo->GetLAPPD(LAPPDID-1);
-				double pmtx = pmt.GetPosition(0);              // verified these are equivalent ^
+				double pmtx = pmt.GetPosition(0);              // verified these are equivalent ^, BUT IN CM
 				double pmty = pmt.GetPosition(1);
 				double pmtz = pmt.GetPosition(2);
 				int thepmtsloc = pmt.GetCylLoc();
@@ -2932,6 +2933,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 					case 1: // wall
 						// we need to account for the angle of the LAPPD within the tank
 						// determine the angle based on it's position
+						// use pmtx (in cm) to compare to Rthresh (in cm)
 						double octangle1=TMath::Pi()*(3./8.);
 						double octangle2=TMath::Pi()*(1./8.);
 						pmtz+=-tank_start-tank_radius;
@@ -2958,6 +2960,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 					double digitsx, digitsy, digitsz;
 					switch (thepmtsloc){
 						case 0: // top cap
+							// use tileposx (in mm) to add to peposx (in mm)
 							digitsx  = tileposx - peposx;  // perfect
 							digitsy  = tileposy;           // mostly error +9.2? but some down to -9.2?
 							digitsz  = tileposz - peposy;  // perfect

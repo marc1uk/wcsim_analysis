@@ -30,11 +30,11 @@ void WCSimAnalysis::FillEmulatedCCData(){
 	if(fileout_Value.size()==0) return; // no hits, no entries.
 	
 	// Timestamp is applied by the PC post-readout so is actually delayed from the trigger!
-	unsigned long long timestamp_ns = static_cast<unsigned long long>(header->GetDate()) 
-		+ placeholder_date_ns + MRD_TIMESTAMP_DELAY;
+	unsigned long long timestamp_ms = (static_cast<unsigned long long>(header->GetDate()) 
+		+ placeholder_date_ns + MRD_TIMESTAMP_DELAY) / 1000000.;
 	
 	fileout_Trigger = eventnum+triggernum; // TDC readout number
-	fileout_TimeStamp = timestamp_ns; // UTC ns
+	fileout_TimeStamp = timestamp_ms; // UTC MS since unix epoch
 	fileout_OutNumber = fileout_Value.size();  //number of hits in this event
 	fileout_Type.assign(fileout_OutNumber,"TDC"); // all cards are TDC cards for now.
 	tCCData->Fill();

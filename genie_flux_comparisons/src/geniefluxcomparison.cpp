@@ -1012,7 +1012,7 @@ std::map<int,std::string>* GeneratePdgMap(){
 	pdgcodetoname.emplace(-11,"Positron");
 	pdgcodetoname.emplace(12,"Electron Neutrino");
 	pdgcodetoname.emplace(-12,"Anti Electron Neutrino");
-	pdgcodetoname.emplace(22,"Photon");
+	pdgcodetoname.emplace(22,"Gamma");
 	pdgcodetoname.emplace(2112,"Neutron");
 	pdgcodetoname.emplace(-2112,"Anti Neutron");
 	pdgcodetoname.emplace(-13,"Muon+");
@@ -1044,6 +1044,33 @@ std::map<int,std::string>* GeneratePdgMap(){
 	pdgcodetoname.emplace(-3334,"Omega+");
 	pdgcodetoname.emplace(-15,"Tau+");
 	pdgcodetoname.emplace(15,"Tau-");
+	pdgcodetoname.emplace(100,"OpticalPhoton");
+	pdgcodetoname.emplace(3328,"Alpha");
+	pdgcodetoname.emplace(3329,"Deuteron");
+	pdgcodetoname.emplace(3330,"Triton");
+	pdgcodetoname.emplace(3351,"Li7");
+	pdgcodetoname.emplace(3331,"C10");
+	pdgcodetoname.emplace(3345,"B11");
+	pdgcodetoname.emplace(3332,"C12");
+	pdgcodetoname.emplace(3350,"C13");
+	pdgcodetoname.emplace(3349,"N13");
+	pdgcodetoname.emplace(3340,"N14");
+	pdgcodetoname.emplace(3333,"N15");
+	pdgcodetoname.emplace(3334,"N16");
+	pdgcodetoname.emplace(3335,"O16");
+	pdgcodetoname.emplace(3346,"Al27");
+	pdgcodetoname.emplace(3341,"Fe54");
+	pdgcodetoname.emplace(3348,"Mn54");
+	pdgcodetoname.emplace(3342,"Mn55");
+	pdgcodetoname.emplace(3352,"Mn56");
+	pdgcodetoname.emplace(3343,"Fe56");
+	pdgcodetoname.emplace(3344,"Fe57");
+	pdgcodetoname.emplace(3347,"Fe58");
+	pdgcodetoname.emplace(3353,"Eu154");
+	pdgcodetoname.emplace(3336,"Gd158");
+	pdgcodetoname.emplace(3337,"Gd156");
+	pdgcodetoname.emplace(3338,"Gd157");
+	pdgcodetoname.emplace(3339,"Gd155");
 	return &pdgcodetoname;
 }
 

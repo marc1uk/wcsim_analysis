@@ -108,9 +108,10 @@ void WCSimAnalysis::LoadOutputFiles(){
 		5. Channels with a hit will have an entry created with 'Value' = clock ticks between the common
 		   start and when the hit arrived. Channels that timed out have no entry.
 	
-	Timestamp is a UTC [ns] timestamp of when the readout ended. To correctly map Value to an actual time
-	one would need to match the MRD timestamp to the trigger card timestamp (which will be more accurate)
-	then add Value * MRD_CLOCK_TICK_NS to the Trigger time. 
+	Timestamp is a UTC [MILLISECONDS] timestamp of when the readout ended. 
+	To correctly map Value to an actual time one would need to match the MRD timestamp 
+	to the trigger card timestamp (which will be more accurate)
+	then add Value * MRD_NS_PER_SAMPLE to the Trigger time. 
 	
 	Only the first pulse will be recorded .... IS THIS OK? XXX
 	What about pre-trigger? - common start issued by trigger is from Beam not on NDigits, so always pre-beam...?
