@@ -3,7 +3,9 @@
 //TFile* f= TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim_lappd_24-09-17_BNB_Water_10k_22-05-17/wcsim_0.0.0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_photon_bomb_next_to_wall_0.root");
 //TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/out/ANNIEtest_10MeV_e-_Uni_Iso_annie_f717ff7d765d00225801751243aad1027d7924df_0.root");
-TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/MRD_muon_sample/ANNIEtest_MRD_muon_sample_1a0f480.root");
+//TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/MRD_muon_sample/ANNIEtest_MRD_muon_sample_1a0f480.root");
+//TFile* f=TFile::Open("/annie/app/users/moflaher/wcsim/build/wcsim_photon_bomb_0.root");
+TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17/wcsim_0.0.0.root");
 TTree* t = (TTree*)f->Get("wcsimT");
 WCSimRootEvent* e=0;
 TBranch* b=0;

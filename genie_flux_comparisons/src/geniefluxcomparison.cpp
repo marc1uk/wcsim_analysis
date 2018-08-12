@@ -576,6 +576,7 @@ int main(int argc, char* argv[]){
 				// when we ask for one new bin to be created, the num bins is doubled.
 				// this means we end up with many empty bins that we need to trim by deflating the axis:
 				temphist->LabelsDeflate("X");
+				temphist->GetXaxis()->LabelsOption("v"); // makes labels be drawn straight down not at a whack angle, much more compact
 				
 				if(verbose){
 					for(int bini=1; bini<temphist->GetNbinsX()+1; bini++){

@@ -8,7 +8,8 @@
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_5MeV_electron_test_0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_photon_bomb_test_0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_thermal_neutron_test_scat_0.root");
-TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/Bonsai/validation/Mahdi_Bonsaifiles/e5d1000PMT3.root");
+//TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/Bonsai/validation/Mahdi_Bonsaifiles/e5d1000PMT3.root");
+TFile* f= TFile::Open("/annie/app/users/moflaher/wcsim/build/wcsim_photon_bomb_0.root");
 
 #define FILE_VERSION 0
 
@@ -68,6 +69,7 @@ for(int eventi=0; eventi<t->GetEntries(); eventi++){
     pdhist.Fill(truephotonindices.size());
     
 #if FILE_VERSION>2
+    std::cout<<"scanning for scattered photons"<<std::endl;
     int photoni=0;
     for( auto hittimeindex : truephotonindices){
       WCSimRootCherenkovHitTime* hittime = 
@@ -89,6 +91,8 @@ for(int eventi=0; eventi<t->GetEntries(); eventi++){
       }
       photoni++;
     }
+#else
+  std::cout<<"Skipping plots of scattered & direct photons as FILE_VERSION<2"<<std::endl;
 #endif
   }
   
