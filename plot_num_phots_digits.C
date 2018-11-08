@@ -9,7 +9,9 @@
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_photon_bomb_test_0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_1k_thermal_neutron_test_scat_0.root");
 //TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/Bonsai/validation/Mahdi_Bonsaifiles/e5d1000PMT3.root");
-TFile* f= TFile::Open("/annie/app/users/moflaher/wcsim/build/wcsim_photon_bomb_0.root");
+//TFile* f= TFile::Open("/annie/app/users/moflaher/wcsim/build/wcsim_photon_bomb_0.root");
+//TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0_rindex15.root");
+TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.root");
 
 #define FILE_VERSION 0
 
@@ -28,9 +30,9 @@ geotree->GetEntry(0);
 int numpmts = geo->GetWCNumPMT();
 
 gStyle->SetOptTitle(1);
-TH1D phhist=TH1D("phhist","Number Of Photon Hits per Event;Num Photon Hits;Events",100,0,100);
-TH1D dhhist=TH1D("dhhist","Number Of Digits per Event;Number of Digits;Events",100,0,100);
-TH1D qhist = TH1D("qhist","Total Charge per Event;Total Charge;Events",100,0,100);
+TH1D phhist=TH1D("phhist","Number Of Photon Hits per Event;Num Photon Hits;Events",100,0,1000);
+TH1D dhhist=TH1D("dhhist","Number Of Digits per Event;Number of Digits;Events",100,0,300);
+TH1D qhist = TH1D("qhist","Total Charge per Event;Total Charge;Events",100,0,1000);
 TH1D pdhist=TH1D("pdhist","Number Of Photons per Digit;Photons per Digit;Digits",20,0,10);
 TH1D pehist=TH1D("pehist","Charge per Digit;Charge;Digits",100,0,10);
 TH1D tchist=TH1D("tchist","Num PMTs Hit per Event;Num PMTs Hit;Events",250,0,250);
@@ -49,11 +51,26 @@ for(int eventi=0; eventi<t->GetEntries(); eventi++){
   if(numphots!=numphottimes){
     //cerr<<"NUM PHOTON TIMES ("<<numphottimes<<") != NUM PHOTON HITS ("<<numphots<<")?!"<<endl;
     //cerr<<"c.f. Num digits: "<<numdigs<<endl;
+    // WCRawPMTSignalCollection, containing all true photon hits in the entire event, plus noise,
+    // is saved in the WCSimRootEvent::CherenkovHitTimes collection. This represents every photon on
+    // every PMT, signal and noise, before any rejection.
+    // the WCRawPMTSignalCollection is also used to fill the WCSimRootEvent::CherenkovHits collection.
+    // This represents the compression of the CherenkovHitTimes down to one entry per unique PMT hit.
+    // The 'WCSimRootTrigger->NumTubesHit therefore represents the number of unique PMTs with at least one
+    // photon, real or noise, before any rejection.
+    // CherenkovHitTimes store a flattened array of photon hit times and parent ids, 
+    // CherenkovHits stores a compressed array of tube ids and number of photons on that tube.
+    // CherenkovDigiHits stores an array of all digits (multiple photon hits combined via digitizer integration)
+    // that pass a series of rejections - digitizer deadtime, pe threshold, and trigger window.
+    //
+    // this means:
     // hits collection does not store all hits in hittimes collection: numphottimes > numphots
-    // hits collection doesn't store... rejected digits in deadtime of integration window? dark noise? other?
+    // ^ because there are as many hittimes entries as photons on that unique pmt
+    //
     // There are also sometimes fewer digits than unique PMTs with a 'CherenkovHit'. 
-    // -> not all CherenkovHitTimes generate a CherenkovHit, and not all CherenkovHits generate a digit!
-    // maybe hits that lie outside trigger windows?
+    // ^ because not all PMTs with a CherenkovHit (one or more photons) generate a digit.
+    // Either the Hit may generate a digit, but the digit is not stored as it's outside any trigger window
+    // Or the Hit was rejected, because it fell in the digitizer deadtime, or it was rejected by pe threshold.
   }
   
   //int numpmtshit = tr->GetNumTubesHit(); << THIS VARIABLE IS NOT WHAT IT SAYS IT IS.
@@ -92,7 +109,9 @@ for(int eventi=0; eventi<t->GetEntries(); eventi++){
       photoni++;
     }
 #else
-  std::cout<<"Skipping plots of scattered & direct photons as FILE_VERSION<2"<<std::endl;
+  if(eventi==0&&digiti==0){
+    std::cout<<"Skipping plots of scattered & direct photons as FILE_VERSION<2"<<std::endl;
+  }
 #endif
   }
   
@@ -135,8 +154,10 @@ TCanvas c6;
 tchist.Draw();
 TCanvas c7;
 tdhist.Draw();
+#if FILE_VERSION>2
 TCanvas c8;
 dphist.Draw();
 TCanvas c9;
 dshist.Draw();
+#endif
 }

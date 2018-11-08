@@ -621,7 +621,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 			std::string arrowdir = (!trackisbackwardgoing) ? ">" : "<";
 			TArrow* myarrow = 
 				new TArrow(zstartsx.at(i), xstarts.at(i), zstopsx.at(i), xstops.at(i), 0.005, arrowdir.c_str());
-			myarrow->SetLineWidth(1.5);
+			myarrow->SetLineWidth(1);
 			myarrow->SetLineColor(kRed);
 			imgcanvas->cd(2);  // top view for x positions
 			myarrow->Draw();
@@ -636,7 +636,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 				myarrow = 
 					new TArrow(zstopsx.at(i), xstops.at(i), zstartsx.at(i+1), xstarts.at(i+1),0.0,">");
 					// an arrow size of 0.0 gives no arrow head (just a line)
-				myarrow->SetLineWidth(1.5);
+				myarrow->SetLineWidth(1);
 				myarrow->SetLineColor(kRed);
 				myarrow->SetLineStyle(7);  //dashed
 				myarrow->Draw();
@@ -667,7 +667,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 			std::string arrowdir = (!trackisbackwardgoing) ? ">" : "<";
 			TArrow* myarrow = 
 				new TArrow(zstartsy.at(i), ystarts.at(i), zstopsy.at(i), ystops.at(i), 0.005, arrowdir.c_str());
-			myarrow->SetLineWidth(1.5);
+			myarrow->SetLineWidth(1);
 			myarrow->SetLineColor(kRed);
 			imgcanvas->cd(1);  // side view for y positions
 			myarrow->Draw();
@@ -682,7 +682,7 @@ void cMRDSubEvent::DrawTrueTracks(){
 				myarrow = 
 					new TArrow(zstopsy.at(i), ystops.at(i), zstartsy.at(i+1), ystarts.at(i+1),0.0,">");
 					// an arrow size of 0.0 gives no arrow head (just a line)
-				myarrow->SetLineWidth(1.5);
+				myarrow->SetLineWidth(1);
 				myarrow->SetLineColor(kRed);
 				myarrow->SetLineStyle(7);  //dashed
 				myarrow->Draw();
