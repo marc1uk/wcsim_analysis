@@ -20,7 +20,7 @@ wcsim ..., 200 PMTs + 200 LAPPDs, global position of LAPPD hits, vector of PMT n
 */
 
 #ifndef USE_GRID
-#define USE_GRID
+//#define USE_GRID
 #endif
 
 // For wcsim processing of vincent's genie files, each genie file of 10k events had to be split up into 10 WCSim files.
@@ -45,6 +45,10 @@ wcsim ..., 200 PMTs + 200 LAPPDs, global position of LAPPD hits, vector of PMT n
 //#define TIME_EVENTS
 #endif
 
+#ifndef SUPERVERBOSE
+//#define SUPERVERBOSE
+#endif
+
 #ifndef WCSIMDEBUG
 //#define WCSIMDEBUG
 #endif
@@ -58,8 +62,8 @@ wcsim ..., 200 PMTs + 200 LAPPDs, global position of LAPPD hits, vector of PMT n
 #endif
 
 #ifndef PARTICLEGUNEVENTS
-//#define PARTICLEGUNEVENTS // currently setup to match files of format wcsim_####.root and wcsim_lappd_####.root
-//#define NOGENIE           // this needs to be changed in several places! search for "_####.root"
+#define PARTICLEGUNEVENTS // currently setup to match files of format wcsim_####.root and wcsim_lappd_####.root
+#define NOGENIE           // this needs to be changed in several places! search for "_####.root"
 #endif
 
 #ifndef NOGENIE
@@ -1042,7 +1046,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 	inputEntry = atoi(inputoffsetchars);
 	// we could set the num entries to process based on SPLITFACTOR, but this shouldn't be necessary
 	// as the loop will exit normally once we reach the end of the wcsimfile.
-#endif // defined USE_GRID
+#endif // defined SPLITWCSIMFILES
 	for(; inputEntry<numents; inputEntry++){
 #ifdef TIME_EVENTS
 		timer->Start();
@@ -1112,6 +1116,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 			wcsimfile = TFile::Open(wcsimfilepath);
 			if(!wcsimfile){
 				cerr<<"this wcsimfile doesn't exist!"<<endl; 
+				break;
 				inputEntry += thistreesentries;	// skip iterator forward by all the entries in this file
 				continue; 
 			}
@@ -2100,7 +2105,18 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #ifdef VERBOSE
 				cout<<"Analysing tank digits for track level info"<<endl;
 #endif // VERBOSE
-				int numdigitsthisevent=atrigt->GetCherenkovDigiHits()->GetEntries();
+				
+				int numdigitsthisevent=0;
+				//cout<<"getting digihits collection"<<endl;
+				auto digihits = atrigt->GetCherenkovDigiHits();
+				//cout<<"got digihits collection"<<endl;
+				if(digihits==nullptr)
+					cerr<<"GetCherenkovDigiHits returned null!"<<endl;
+				else 
+					numdigitsthisevent = atrigt->GetCherenkovDigiHits()->GetEntries();
+#ifdef SUPERVERBOSE
+				cout<<"this event has "<<numdigitsthisevent<<" digits"<<endl;
+#endif // SUPERVERBOSE
 				
 				// clear counters for this track
 				int numtankdigitsfromthistrack=0;
@@ -2122,6 +2138,8 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 				// Loop over digits
 				// ================
 				for(Int_t i=0; i<numdigitsthisevent; i++){
+					// retrieve the digit information
+					/////////////////////////////////
 					WCSimRootCherenkovDigiHit* thedigihit = 
 						(WCSimRootCherenkovDigiHit*)atrigt->GetCherenkovDigiHits()->At(i);
 					if(thedigihit==nullptr) cerr<<"DIGIT IS NULL!"<<endl;
@@ -2171,15 +2189,20 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 					// we therefore need we need to correct these indices with the start of the pmt's subarray
 					// This may be found by scanning the CherenkovHits array (over PMTs), in which the offset we need is stored as the 'GetTotalPe(0)' member
 					int timeArrayOffset=-1;
+					bool foundOffset=false;
 					for(int ihit = 0; ihit < ncherenkovhits; ihit++) {
 						WCSimRootCherenkovHit* hitobject = 
 							(WCSimRootCherenkovHit*)b->GetTrigger(0)->GetCherenkovHits()->At(ihit);
+						if(hitobject==nullptr) cerr<<"HITOBJECT IS NULL!"<<endl;
 						int tubeNumber = hitobject->GetTubeID()-1;
 						if(tubeNumber==digitstubeid) {
 							timeArrayOffset = hitobject->GetTotalPe(0);
+							foundOffset=true;
 							break;
 						}
 					}
+					if(not foundOffset)
+						cerr<<"timeArrayOffset scan failed to find first hit on pmt"<<digitstubeid<<endl;
 #endif // FILE_VERSION<2
 					
 					std::vector<int> truephotonindices = thedigihit->GetPhotonIds();
@@ -2496,7 +2519,8 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #endif // FILE_VERSION<2
 						WCSimRootCherenkovHitTime *thehittimeobject = 
 							(WCSimRootCherenkovHitTime*)m->GetTrigger(0)->GetCherenkovHitTimes()->At(thephotonsid);
-						Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
+						if(thehittimeobject==nullptr) cerr<<"HITTIME IS NULL"<<endl;
+						Int_t thephotonsparenttrackid = (thehittimeobject) ? thehittimeobject->GetParentID() : -1;
 						if(thephotonsparenttrackid==nextrack->GetId()) {
 							numphotonsfromthismuon++;
 						}
@@ -2718,11 +2742,16 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 				// add the digit charge to the counters of upstream/downstream/cap charge
 				double digitsq = thedigihit->GetQ();
 				WCSimRootPMT pmt = geo->GetPMT(digitstubeid);
+				double digitsx = pmt.GetPosition(0);
+				double digitsy = pmt.GetPosition(1);
+				double digitsz = pmt.GetPosition(2);
+				if(digitsx==0.&&digitsy==0.&&digitsz==0.&&pmt.GetTubeNo()==0)
+					cerr<<"failed to get PMT "<<digitstubeid<<" from geometry!"<<endl;
 				int thepmtsloc = pmt.GetCylLoc();
 				switch (thepmtsloc){
 					case 0: topcapcharge+=digitsq; break;
 					case 2: bottomcapcharge+=digitsq; break;
-					case 1: ((pmt.GetPosition(2)-tank_start-tank_radius)<0) ? upstreamcharge+=digitsq : downstreamcharge+=digitsq; break;
+					case 1: ((digitsz-tank_start-tank_radius)<0) ? upstreamcharge+=digitsq : downstreamcharge+=digitsq; break;
 				}
 				
 				// map of all digit hits
@@ -2807,6 +2836,11 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 						timingResConstant=0.33;
 						timingResMinimum=0.58;                // TTS: 3.2ns;
 				}
+				else if(digitspst=="R7081HQE"){               // 10" HQE (copied from 10")
+						timingConstant = 1.890;
+						timingResConstant=0.33;
+						timingResMinimum=0.58;                // TTS: 3.2ns;
+				}
 				else if(digitspst=="D784KFLB"){               // 11" HQE LBNE
 						timingConstant = 1.890;
 						timingResConstant=0.33;
@@ -2827,6 +2861,9 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 						timingResConstant=0.001;
 						timingResMinimum=0.05;                // TTS: 50ps;
 						timingResPower=-0.7;
+				} else {
+						std::cerr<<"Unrecognized PMT type!! No timing values!"<<std::endl;
+						assert(false);
 				}
 				double digitqforsmearing = (digitsq > 0.5) ? digitsq : 0.5;
 				double filedigittsmeared;
@@ -3130,6 +3167,7 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 				fileneutrinoE=thegenieinfo.probeenergy;
 				fileinteractiontypestring=thegenieinfo.procinfostring;
 				// thegenieinfo.procinfostring gives format "<DIS - Weak[CC]>" for which symbols might not be ideal. Strip them.
+				if(fileinteractiontypestring!="")
 				fileinteractiontypestring=fileinteractiontypestring.substr(1,fileinteractiontypestring.length() - 2);
 				fileneutcode=thegenieinfo.neutinteractioncode;
 				filemomtrans=thegenieinfo.Q2;
