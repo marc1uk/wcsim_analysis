@@ -4,6 +4,7 @@
 #include <sys/types.h> // for stat() test to see if file or folder
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fstream>
 
 // INITIALISE ENVIRONMENT
 // ======================
@@ -123,14 +124,72 @@ void WCSimAnalysis::LoadInputFiles(){
 	opttree->SetBranchAddress("wcsimrootoptions", &opt);
 	if (opttree->GetEntries() == 0) { cout<<"opttree has no entries!"<<endl; exit(9); }
 	opttree->GetEntry(0);
-	opt->Print();
+	//opt->Print();
 	pre_trigger_window_ns = -1.*opt->GetNDigitsPreTriggerWindow(); // NOTE: OPTIONS STORE AS NEGATIVE. 
 	post_trigger_window_ns = opt->GetNDigitsPostTriggerWindow();
 	
-	//total trigger time is 1350ns (950+400) / 2ns -> 675 samples/ minibuffer / channel
-	//-> 675*40 = 27,000 samples / channel = 108,000 points per full buffer.
+	// Load in configuration options for WCSimAnalysis
+	cout<<"Loading WCSimAnalysis options from "<<optionsfile<<endl;
+	std::ifstream file(optionsfile.c_str());
+	std::string line;
+	if(file.is_open()){
+		while (getline(file,line)){
+			if (line.size()>0){
+				if (line.at(0)=='#')continue;
+				std::string key;
+				std::string value="";
+				std::stringstream stream(line);
+				if(stream>>key){
+					std::string valuetemp; // combine everything after the key - allow spaces in values
+					while(stream>>valuetemp){ value+=valuetemp; value+=" "; }
+					//m_variables[key]=value;  // put into a map? must all be same type.
+					if(key=="startDate") startDate = value;
+					if(key=="triggerOffset") triggeroffset = stoi(value);
+				}
+			}
+		}
+	}
+	file.close();
+	
+	// ***********************************
+	// TIME TO SET THE CONSTANTS
+	// ***********************************	
+	
+	// geometry constants
+	numtankpmts=geo->GetWCNumPMT();
+	nummrdpmts=geo->GetWCNumMRDPMT();
+	numvetopmts=geo->GetWCNumFACCPMT();
+	// FIXME DO NOT HARD CODE THESE FIXME
+	caparraysize=8;             // pmts on the cap form an nxn grid where caparraysize=n FIXME wrong! Not square!
+	pmtsperring=16;             // pmts around each ring of the main walls
+	numpmtrings=6;              // num rings around the main walls
+	
+	// MRD track finding constants
+	MAXTRACKSPEREVENT=50;       //
+	maxsubeventduration=30.;    // in ns?
+	
+	
+	// RAW file DAQ constants
+	ADC_NS_PER_SAMPLE=2;
+	MRD_NS_PER_SAMPLE=4;
+	MRD_TIMEOUT_NS=4200;
+	MRD_TIMESTAMP_DELAY = static_cast<unsigned long long>(MRD_TIMEOUT_NS);
+	ADC_INPUT_RESISTANCE = 50.;  // Ohm
+	ADC_TO_VOLT = 2.415 / std::pow(2., 12);// * by this constant converts ADC counts to Volts
+	PULSE_HEIGHT_FUDGE_FACTOR = (1./300.); // WHAT UNITS ARE DIGIT Q's IN?!?
+	MAXEVENTSIZE=10;
+	MAXTRIGGERSIZE=10;
+	channels_per_tdc_card = 32;
+	channels_per_adc_card = 4;
+	num_adc_cards = (numtankpmts-1)/channels_per_adc_card + 1; // round up, requiring numtankpmts!=0
+	// n.b. variant that doesn't require !=0, but could overflow:
+	// num_adc_cards = (numtankpmts + channels_per_adc_card - 1) / channels_per_adc_card;
+	
+	// WCSim Note: EventSize = (datapoints per chan per minibuf / 4) => event duration must be a multiple of 8
+	minibuffers_per_fullbuffer = 40;
 	minibuffer_datapoints_per_channel = (pre_trigger_window_ns+post_trigger_window_ns) / ADC_NS_PER_SAMPLE;
-	full_buffer_size = minibuffer_datapoints_per_channel * channels_per_adc_card * minibuffers_per_fullbuffer;
+	buffer_size = minibuffer_datapoints_per_channel * minibuffers_per_fullbuffer;
+	full_buffer_size = buffer_size * channels_per_adc_card;
 	emulated_event_size = minibuffer_datapoints_per_channel / 4.; // the 4 comes from ADC firmware stuff.
 }
 

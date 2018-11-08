@@ -38,17 +38,20 @@ TString analyzecommand = "WCSimAnalysis* theana = analysiscaller";
 //TString filestoanalyze = pwd+"/in/MRD_muon_sample";
 //TString filestoanalyze = pwd+"/in/temp";
 //TString filestoanalyze = "/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_03-05-17_BNB_World_10k_29-06-17/wcsim_0.400*.root";
-TString filestoanalyze = "/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/MRD_muon_sample/ANNIEtest_MRD_muon_sample_1a0f480.root";
+//TString filestoanalyze = "/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/MRD_muon_sample/ANNIEtest_MRD_muon_sample_1a0f480.root";
+//TString filestoanalyze = "/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/muongaus_24-09-18";
+TString filestoanalyze = "/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.root";
 //TString filestoanalyze="/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/temp";
 //TString filestoanalyze = "/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17";
 //TString outputdir = "/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/temp";
-TString outputdir = pwd+"/out/testmrdtrackreco";
+TString outputdir = pwd+"/out/anniep2v6";
 //TString outputdir = "/pnfs/annie/persistent/users/moflaher/wcsim_tankonly_17-06-17_ana";
 // XXX: to limit files added to the chain, edit the pattern in utilityfuncs.cxx line 64 marked by the XXX
+TString configfile="WCSimAnalysisConfig";
 
 // call analysiscaller() method with the file path. 
 // This constructs the WCSimAnalysis and calls DoAnalysis() on it. 
-TString fullcall = analyzecommand+"(\""+filestoanalyze+"\", \""+outputdir+"\")";
+TString fullcall = analyzecommand+"(\""+filestoanalyze+"\", \""+configfile+"\", \""+outputdir+"\")";
 gROOT->ProcessLine(fullcall.Data());
 }
 

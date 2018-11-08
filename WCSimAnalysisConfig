@@ -1,0 +1,3 @@
+#startDate is date of start of run, DD/MM/YYYY HH:MM:SS
+startDate 01/02/2019 16:32:02
+triggerOffset 0   # 950 for FILE_VERSION < 4?

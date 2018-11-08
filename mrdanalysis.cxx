@@ -85,9 +85,9 @@ void WCSimAnalysis::DoMRDdigitHits(){
 // MRD POST-HIT-LOOP ACTIONS
 // ===============================
 void WCSimAnalysis::DoMRDpostHitLoop(){
-	FindMRDtracksInEvent(); 
-	// ensure CCData hits are written to raw file. Currently unneeded.
-	if(add_emulated_ccdata) FillEmulatedCCData(); 
+	//FindMRDtracksInEvent(); 
+	// ensure CCData hits are written to raw file
+	if(add_emulated_ccdata) FillEmulatedCCData();
 }
 
 //############################################################################################

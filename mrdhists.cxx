@@ -45,7 +45,7 @@ void WCSimAnalysis::FillMRDtrueHitsHist(WCSimRootCherenkovHit* hit, WCSimRootChe
 	PMThitfrequencymrd->Fill(hit->GetTubeID());
 	PEdistmrd->Fill(hit->GetTotalPe(1));	//(num 'pe's = number of true photon hits after QE)
 	
-	hitTimeDistmrd->Fill(((hittime->GetTruetime())/500)+950);
+	hitTimeDistmrd->Fill(((hittime->GetTruetime())/500)+triggeroffset);
 }
 
 // #######################################################################

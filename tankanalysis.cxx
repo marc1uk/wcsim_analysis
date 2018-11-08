@@ -18,14 +18,14 @@ void WCSimAnalysis::DoTankPreTriggerLoop(){
 
 // TANK TRIGGER ACTIONS
 // ====================
-void WCSimAnalysis::DoTankTrigger(Int_t &numtruehits, Int_t &numdigits){
+void WCSimAnalysis::DoTankTrigger(Int_t &numtruehits, Int_t &numdigits, bool droppingremainingsubtriggers){
 	numtruehits += atrigt->GetCherenkovHits()->GetEntries();
 	numdigits += atrigt->GetCherenkovDigiHits()->GetEntries();
 	
 	if(add_emulated_pmtdata){
 		// if starting a fresh readout, set the top level (non-minibuffer level) readout details
 		if(minibuffer_id==0) ConstructEmulatedPmtDataReadout();
-		AddMinibufferStartTime();
+		AddMinibufferStartTime(droppingremainingsubtriggers);
 	}
 	//cout<<endl<<"ok"<<endl;
 }

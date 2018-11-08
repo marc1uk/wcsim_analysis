@@ -7,6 +7,8 @@ root analysiscaller.cxx+g
 WCSimAnalysis* theana = analysiscaller("/annie/app/users/moflaher/wcsim/root_work/in/MRD_muon_sample")
 // This performs the analaysis as `DoAnalysis()` is called in the constructor.
 delete theana;
+UPDATE:
+or just run `root dotheanalysis.C`
 */
 #include <thread>         // std::this_thread::sleep_for
 #include <chrono>         // std::chrono::seconds
@@ -17,11 +19,11 @@ delete theana;
 #include "TROOT.h"
 #include "wcsimanalysis.hh"
 
-WCSimAnalysis* analysiscaller(TString directoryin, TString directoryout){
+WCSimAnalysis* analysiscaller(TString directoryin, TString configfilein, TString directoryout){
 
 	//TString theincludepath = gSystem->Getenv("ROOT_INCLUDE_PATH");
 	//gInterpreter->AddIncludePath(theincludepath);
-	WCSimAnalysis* theanalysis = new WCSimAnalysis(directoryin.Data(), directoryout.Data());
+	WCSimAnalysis* theanalysis = new WCSimAnalysis(directoryin.Data(), configfilein.Data(), directoryout.Data());
 	//WCSimAnalysis* theanalysis = new WCSimAnalysis("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in");
 	// no trailing slash in directory
 	cout<<"calling DoAnalysis()"<<endl;

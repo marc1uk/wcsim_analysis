@@ -63,7 +63,7 @@ void WCSimAnalysis::DoAnalysis(){
 	// Loop over events
 	// ================
 	cout<<"Looping over entries"<<endl;
-	int breakearlyat=-1;
+	int breakearlyat=1;
 	int breakearlysequenceid=-1;
 	int maxdigits=0;
 	do {
@@ -75,8 +75,11 @@ void WCSimAnalysis::DoAnalysis(){
 #ifdef VERBOSE
 		cout<<"analyzing event "<<eventnum<<endl;
 #endif
-		if( (entryvalid==0) || (eventnum>=breakearlyat&&breakearlyat>0)
-			|| (sequence_id>breakearlysequenceid&&breakearlysequenceid>0) ){ break; }
+		if( (entryvalid==0) || 
+			(eventnum>=breakearlyat&&breakearlyat>0) ||
+			(sequence_id>breakearlysequenceid&&breakearlysequenceid>0) ){
+			break;
+		}
 		
 #ifdef VERBOSE
 		cout<<"Doing PreTriggerLoops"<<endl;
@@ -112,7 +115,10 @@ void WCSimAnalysis::DoAnalysis(){
 #ifdef VERBOSE
 			cout<<"Doing Tank Trigger Analaysis"<<endl;
 #endif
-			DoTankTrigger(numtankhits, numtankdigits);
+			bool droppingremainingsubtriggers = 
+				((minibuffer_id+1)==minibuffers_per_fullbuffer) &&  // we're filling last minibuffer
+				((triggernum+1)!=(b->GetNumberOfEvents()));             // but there are more subtriggers
+			DoTankTrigger(numtankhits, numtankdigits, droppingremainingsubtriggers);
 			// pre hit loop actions
 #ifdef VERBOSE
 			cout<<"Doing Tank PreHitLoop Analaysis"<<endl;
@@ -168,7 +174,6 @@ void WCSimAnalysis::DoAnalysis(){
 				minibuffer_id++;
 				if(minibuffer_id==minibuffers_per_fullbuffer){
 #ifdef VERBOSE
-					cout<<"#########################"<<endl;
 					cout<<"Filling Emulated Data"<<endl;
 #endif
 					if(add_emulated_pmtdata) FillEmulatedPMTData();
@@ -179,12 +184,14 @@ void WCSimAnalysis::DoAnalysis(){
 			}
 			// LOOP TO NEXT TRIGGER
 			// ====================
-#ifdef VERBOSE
-			cout<<"Looping to next trigger"<<endl;
-#endif
 			b->ReInitialize();
 			m->ReInitialize();
 			v->ReInitialize();
+			// raw file emulation: remaining sub-triggers after the last minibuffer fall in DAQ deadtime
+			if(create_emulated_output&&minibuffer_id==0) break;
+#ifdef VERBOSE
+			if((triggernum+1)<(b->GetNumberOfEvents())) cout<<"Looping to next trigger"<<endl;
+#endif
 		}
 		
 #ifdef VERBOSE
@@ -197,12 +204,22 @@ void WCSimAnalysis::DoAnalysis(){
 		//std::this_thread::sleep_for (std::chrono::seconds(5));	// a little wait so we can look at histos
 		eventnum++;
 		
-		cout<<"minibuffer_id="<<minibuffer_id<<", sequence_id="<<sequence_id<<endl;
+		cout<<"minibuffer_id="<<((minibuffer_id==0) ? 40 : (minibuffer_id-1))
+			<<", sequence_id="<<sequence_id<<endl;
 		
 		// LOOP TO NEXT EVENT
 		// ==================
 	} while (1);
 	cout<<"Reached end of TChain: analysed "<<eventnum<<" events"<<endl;
+	
+	if(create_emulated_output && (minibuffer_id!=0)){
+		// since we only write out full buffers, write out one last time any partial buffers
+#ifdef VERBOSE
+		cout<<"Filling Partial Emulated Data"<<endl;
+#endif
+		if(add_emulated_pmtdata) FillEmulatedPMTData();
+		if(add_emulated_triggerdata) FillEmulatedTrigData();
+	}
 	
 #ifdef VERBOSE
 	cout<<"doing PostEventLoops"<<endl;
@@ -211,7 +228,7 @@ void WCSimAnalysis::DoAnalysis(){
 	DoMRDpostEventLoop();
 	DoVetoPostEventLoop();
 	
-	if(rawfileout) rawfileout->Write();
+	if(rawfileout){ rawfileout->Write(); timingfileout->Write(); }
 	
 //	DrawGlobalHistos(); 	// doesn't fall into any other category.... 
 }

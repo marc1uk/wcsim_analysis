@@ -4,6 +4,8 @@
 
 #define FILE_VERSION 2
 
+constexpr uint64_t SEC_TO_NS = 1000000000;
+
 #include "TROOT.h"
 #include "TRint.h"
 #include "TSystem.h"
@@ -24,6 +26,7 @@
 #include "TColor.h"
 #include "TStyle.h"
 #include "TF1.h"
+#include "TRandom3.h"
 #include <exception>	// for stdexcept
 #include <vector>
 #include <map>
@@ -34,6 +37,7 @@
 #include <fstream> 		//std::ofstream
 #include <stdlib.h>
 #include <regex>
+//#include <cstdlib>      // std::getenv
 // #######################################################################
 // we need to #include all the WCSim headers.
 // we need to have the path to these headers exported to $ROOT_INCLUDE_PATH
@@ -64,18 +68,18 @@
 class WCSimAnalysis : public TObject {
 	private:
 	// CONSTS - put in a namespace not the class. combine with MRDspecs.hh. Pull from geo/opts if possible.
-	const Int_t numtankpmts=128+2*(26);     // 26 pmts and lappds on each cap
-	const Int_t nummrdpmts=307;             //
-	const Int_t numvetopmts=26;             //
-	const Int_t caparraysize=8;             // pmts on the cap form an nxn grid where caparraysize=n
-	const Int_t pmtsperring=16;             // pmts around each ring of the main walls
-	const Int_t numpmtrings=8;              // num rings around the main walls
-	const Int_t MAXTRACKSPEREVENT=50;       //
+	Int_t numtankpmts;                      // 26 pmts and lappds on each cap
+	Int_t nummrdpmts;                       //
+	Int_t numvetopmts;                      //
+	Int_t caparraysize;                     // pmts on the cap form an nxn grid where caparraysize=n
+	Int_t pmtsperring;                      // pmts around each ring of the main walls
+	Int_t numpmtrings;                      // num rings around the main walls
+	Int_t MAXTRACKSPEREVENT;                //
 	int pre_trigger_window_ns;              // read from options file
 	int post_trigger_window_ns;             // read from options file
 	
 	int treeNumber=-1;
-	Double_t maxsubeventduration=30.;  // in ns?
+	Double_t maxsubeventduration;           // in ns?
 	// canvas sizes
 	float win_scale;
 	int n_wide;
@@ -102,9 +106,18 @@ class WCSimAnalysis : public TObject {
 	Int_t runnum;
 	Int_t triggernum;
 	
+	// Variables for options file for processing options
+	std::string optionsfile;
+	std::string startDate;   // will be put into StartCountSecs
+	int triggeroffset;       // legacy 950 offset, if applicable
+	
+	// needed generally for adding noise and timing
+	TRandom3 R;
+	
 	// Variables for output files replicating ANNIE Raw data format
 	std::string rawfilename;
 	TFile* rawfileout=nullptr;
+	TFile* timingfileout=nullptr;
 	// pmt data tree
 	// ~~~~~~~~~~~~~
 	TTree* tPMTData;
@@ -126,7 +139,8 @@ class WCSimAnalysis : public TObject {
 	UShort_t* fileout_EventIDs=nullptr;
 	ULong64_t* fileout_EventTimes=nullptr;
 	UInt_t* fileout_TriggerMasks=nullptr, *fileout_TriggerCounters=nullptr;
-	int MAXEVENTSIZE=10, MAXTRIGGERSIZE=10;
+	int MAXEVENTSIZE;
+	int MAXTRIGGERSIZE;
 	// mrd data tree
 	// ~~~~~~~~~~~~~
 	TTree* tCCData;
@@ -134,6 +148,22 @@ class WCSimAnalysis : public TObject {
 	ULong64_t fileout_TimeStamp;
 	std::vector<string> fileout_Type;
 	std::vector<unsigned int> fileout_Value, fileout_Slot, fileout_Channel;
+	// timing heftydb tree
+	// ~~~~~~~~~~~~~~~~~~~
+	TTree* theftydb;
+	ULong_t* timefileout_Time;
+	Int_t* timefileout_Label;
+	Long_t* timefileout_TSinceBeam;
+	Int_t* timefileout_More;
+	uint64_t runningeventtime; // generated beam timing, ns from the start of the run to the beam spill
+	double currenteventtime;   // time from start of the beam spill to first trigger of this event
+	
+	// for the calculation of timing values to go into PMTData Tree
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	std::vector<int64_t> StartCountVals;
+	std::vector<uint64_t> StartTimeNSecVals;
+	uint64_t runningsteps=0; // running total of steps in LastSync
+	
 	// filling the output file
 	// ~~~~~~~~~~~~~~~~~~~~~~~
 	// methods
@@ -145,39 +175,36 @@ class WCSimAnalysis : public TObject {
 	void AddCCDataEntry(WCSimRootCherenkovDigiHit* digihit);
 	void AddPMTDataEntry(WCSimRootCherenkovDigiHit* digihit);
 	void ConstructEmulatedPmtDataReadout();
-	void AddMinibufferStartTime();
+	void AddMinibufferStartTime(bool droppingremainingsubtriggers);
 	void GenerateMinibufferPulse(int digit_index, double adjusted_digit_q, std::vector<uint16_t> &pulsevector);
+	void AddNoiseToWaveforms();
 	void RiffleShuffle(bool do_shuffle=true);
 	std::vector<std::string>* GetTemplateRunInfo();
-	// variables: TODO put in a namespace rather than the WCSimAnalysis class?
+	
 	Int_t sequence_id;
 	Int_t minibuffer_id;
 	// switches to allow turning this conversion on/off:
-	bool create_emulated_output=false;     // turn off all raw conversion
-	// it could be that the above requires minimum of pmt and maybe also triggerdata?
-	// at the moment at least ccdata is optional (not yet implemented)
-	bool add_emulated_ccdata=false, add_emulated_triggerdata=true, add_emulated_pmtdata=true;
-	int full_buffer_size;                  // = CardData::FullBufferSize; read in utilityfuncs from options
+	bool create_emulated_output=true;     // turn off all raw conversion
+	bool add_emulated_ccdata=true, add_emulated_triggerdata=true, add_emulated_pmtdata=true;
+	int full_buffer_size;                  // = CardData::FullBufferSize;
+	int buffer_size;                       // = CardData::BufferSize;
 	int minibuffer_datapoints_per_channel; // = CardData::BufferSize / CardData::TriggerNumber;
-	int emulated_event_size;               // = CardData::Eventsize; 
-	const int minibuffers_per_fullbuffer = CardData::TriggerNumber;
-	const int channels_per_adc_card = CardData::Channels;
-	const int channels_per_tdc_card = 32;
-	const int num_adc_cards = (numtankpmts-1)/channels_per_adc_card + 1; // round up, requiring numtankpmts!=0
-	// n.b. variant that doesn't require !=0, but could overflow:
-	// num_adc_cards = (numtankpmts + channels_per_adc_card - 1) / channels_per_adc_card;
-	unsigned long long placeholder_date_ns;
+	int emulated_event_size;               // = CardData::Eventsize;
+	int minibuffers_per_fullbuffer;
+	int channels_per_adc_card;
+	int channels_per_tdc_card;
+	int num_adc_cards;
 	std::vector<CardData> emulated_pmtdata_readout;
 	std::vector<std::vector<uint16_t>> temporary_databuffers;
 	std::vector<uint16_t> pulsevector;
 	TF1* fLandau{nullptr};
-	const int ADC_NS_PER_SAMPLE=2;
-	const int MRD_NS_PER_SAMPLE=4;
-	const int MRD_TIMEOUT_NS=4200;
-	const unsigned long long MRD_TIMESTAMP_DELAY = static_cast<unsigned long long>(MRD_TIMEOUT_NS);
-	const double ADC_INPUT_RESISTANCE = 50.;  // Ohm
-	const double ADC_TO_VOLT = 2.415 / std::pow(2., 12);// * by this constant converts ADC counts to Volts
-	const double PULSE_HEIGHT_FUDGE_FACTOR = (1./300.); // WHAT UNITS ARE DIGIT Q's IN?!?
+	int ADC_NS_PER_SAMPLE;
+	int MRD_NS_PER_SAMPLE;
+	int MRD_TIMEOUT_NS;
+	unsigned long long MRD_TIMESTAMP_DELAY;
+	double ADC_INPUT_RESISTANCE;          // Ohm
+	double ADC_TO_VOLT;                   // * by this constant converts ADC counts to Volts
+	double PULSE_HEIGHT_FUDGE_FACTOR;     // WHAT UNITS ARE DIGIT Q's IN?!?
 	//const int RWM_CHANNEL=
 	//void AddRWMPulse();  FIXME FIXME FIXME FIXME FIXME
 	
@@ -279,7 +306,7 @@ class WCSimAnalysis : public TObject {
 	
 	public:
 	// constructor + destructor
-	WCSimAnalysis(const char* indir="/home/marc/anniegpvm/stats10k", const char* outdir=".");
+	WCSimAnalysis(const char* indir="/home/marc/anniegpvm/stats10k", const char* optsfile="WCSimAnalysisConfig", const char* outdir=".");
 	~WCSimAnalysis();
 	
 	// functions - initialization and utility
@@ -297,7 +324,7 @@ class WCSimAnalysis : public TObject {
 	// functions - event and hit wide loops
 	void DoTankPreHitLoop();
 	void DoTankPreTriggerLoop();
-	void DoTankTrigger(int &numtruehits, int &numdigits);
+	void DoTankTrigger(int &numtruehits, int &numdigits, bool droppingremainingsubtriggers);
 	void DoTankPostTriggerLoop(int &numtruehits, int &numdigits);
 	void DoTankTrueHits();
 	void DoTankDigitHits();
@@ -364,8 +391,7 @@ class WCSimAnalysis : public TObject {
 
 // CONSTRUCTOR
 // ===========
-WCSimAnalysis::WCSimAnalysis(const char* indir, const char* outdir) : inputdir(indir), outputdir(outdir) {
-
+WCSimAnalysis::WCSimAnalysis(const char* indir, const char* optsfile, const char* outdir) : inputdir(indir), outputdir(outdir), optionsfile(optsfile) {
 }
 
 // ########################################################################

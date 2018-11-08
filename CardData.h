@@ -20,16 +20,16 @@ class CardData{
   int StartTimeSec;                     // unix epoch timestamp at StartCount. FIXME corresponding to when?
   int StartTimeNSec;                    // above, ns part FIXME
   uint64_t StartCount;                  // ADC counts from powerup when ... FIXME
-  static int TriggerNumber;             // number of minibuffers. 40 for Hefty mode. 
   //uint64_t* triggerCounts;            // --
   std::vector<ULong64_t> TriggerCounts; // ADC ticks of the start of each minibuffer in the Full buffer? FIXME
   //uint32_t* Rates;                    // --
   std::vector<UInt_t> Rates;            // Avg pulse rate? units? size is number of channels.
   int CardID;                           // card position in VME crate
-  static int Channels;                  // num channels on card
-  static int BufferSize;                // datapoints per channel in a full buffer.
-  static int Eventsize;                 // samples per minibuffer per channel divided by 4.
-  static int FullBufferSize;            // Channels * BufferSize. corresponds to 80us. 
+  int TriggerNumber;                    // number of minibuffers. 40 for Hefty mode. 
+  int Channels;                         // num channels on card
+  int BufferSize;                       // datapoints per channel in a full buffer.
+  int Eventsize;                        // samples per minibuffer per channel divided by 4.
+  int FullBufferSize;                   // Channels * BufferSize. corresponds to 80us.
   //uint16_t* Data;                     // Concatenated data from all channels on card. Size FullBufferSize.
   std::vector<uint16_t> Data;
   // With a fullbuffer of 160k and 4 channels, there's 40k samples per channel, 
@@ -41,22 +41,16 @@ class CardData{
   
 };
 
-int CardData::TriggerNumber = 40;
-int CardData::Channels = 4;
-int CardData::BufferSize = 40000;      // UNUSED: calculated in utilityfuncs using trigger window
-int CardData::Eventsize = 250;         // UNUSED: as above
-int CardData::FullBufferSize = (CardData::Channels * CardData::BufferSize); // UNUSED: as above
-
 void CardData::Reset(){
-  LastSync = BOGUS_UINT64;
   SequenceID = BOGUS_INT;
+  CardID = BOGUS_INT;
+  LastSync = BOGUS_UINT64;
   StartTimeSec = BOGUS_INT;
   StartTimeNSec = BOGUS_INT;
   StartCount = BOGUS_UINT64;
-  CardID = BOGUS_INT;
   TriggerCounts.assign(TriggerNumber,BOGUS_UINT64);
   Rates.assign(Channels,BOGUS_UINT32);
-  Data.assign(FullBufferSize,BOGUS_UINT16);
+  Data.assign(FullBufferSize,0); //BOGUS_UINT16); // makes it awkward to view partially filled buffers
 }
 
 #endif

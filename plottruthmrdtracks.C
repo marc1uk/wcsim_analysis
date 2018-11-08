@@ -2570,7 +2570,8 @@ void truthtracks(const char* wcsimpathin="", const char* dirtpathin="", const ch
 #endif // FILE_VERSION<2
 						WCSimRootCherenkovHitTime *thehittimeobject = 
 							(WCSimRootCherenkovHitTime*)v->GetTrigger(0)->GetCherenkovHitTimes()->At(thephotonsid);
-						Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
+						if(thehittimeobject==nullptr) cerr<<"HITTIME IS NULL"<<endl;
+						Int_t thephotonsparenttrackid = (thehittimeobject) ? thehittimeobject->GetParentID() : -1;
 						if(thephotonsparenttrackid==nextrack->GetId()) {
 							numphotonsfromthismuon++;
 						}
