@@ -270,13 +270,6 @@
       <fraction n="0.02" ref="Fe"/>
       <fraction n="0.015" ref="K"/>
     </material>
-    <material name="Scinti0x1677cd0" state="solid">
-      <T unit="K" value="293.15"/>
-      <MEE unit="eV" value="65.9436601819466"/>
-      <D unit="g/cm3" value="1.021"/>
-      <fraction n="0.922427035330261" ref="Carbon"/>
-      <fraction n="0.0775729646697389" ref="Hydrogen"/>
-    </material>
     <material name="Glass" state="solid">
       <T unit="K" value="293.15"/>
       <MEE unit="eV" value="120.505737007499"/>

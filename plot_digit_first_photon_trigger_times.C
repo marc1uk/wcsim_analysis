@@ -1,7 +1,8 @@
 {
 //TFile* f= TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/wcsim_0.2000.root");
 //TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/out/ANNIEtest_10MeV_e-_Uni_Iso_annie_f717ff7d765d00225801751243aad1027d7924df_0.root");
-TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/Bonsai/validation/Mahdi_Bonsaifiles/e5d1000PMT3.root");
+//TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/Bonsai/validation/Mahdi_Bonsaifiles/e5d1000PMT3.root");
+TFile* f=TFile::Open("/annie/app/users/moflaher/wcsim/ANNIEp2v5_beamouts/wcsim_ANNIEp2v5_beam_0.root");
 TTree* t = (TTree*)f->Get("wcsimT");
 WCSimRootEvent* e=0;
 TBranch* b=0;
@@ -15,7 +16,7 @@ long long int MAX_EVENTS_TO_PLOT=10000;
 //int TRIGGER_OFFSET=0;
 int TRIGGER_OFFSET=950; // historic offset if not disabled
 
-TH1D hfirsttriggertime=TH1D("hfirsttriggertime","Time of event trigger",50,0,50);
+TH1D hfirsttriggertime=TH1D("hfirsttriggertime","Time of event trigger",100,6660,6720);
 TH1D hdigittimes=TH1D("hdigittimes","Times of digits within the first trigger",200,TRIGGER_OFFSET-50,TRIGGER_OFFSET+150);
 TH1D hfirstphotonindigittimes=TH1D("hfirstphotonindigittimes","Times of the first photon within each Digit",60,0,60);
 

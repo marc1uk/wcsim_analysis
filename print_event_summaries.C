@@ -6,7 +6,8 @@
 //TFile* f=TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/root_work/in/MRD_muon_sample/ANNIEtest_MRD_muon_sample_1a0f480.root");
 //TFile* f=TFile::Open("/annie/app/users/moflaher/wcsim/build/wcsim_photon_bomb_0.root");
 //TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17/wcsim_0.0.0.root");
-TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.root");
+//TFile* f= TFile::Open("/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.root");
+TFile* f=TFile::Open("/annie/app/users/moflaher/wcsim/ANNIEp2v5_beamouts/wcsim_ANNIEp2v5_beam_0.root");
 TTree* t = (TTree*)f->Get("wcsimT");
 WCSimRootEvent* e=0;
 TBranch* b=0;
@@ -20,21 +21,22 @@ int maxentriestoprint=20;
 int maxtriggerstoprint=3;
 int maxprimariestoprint=1; // always 1
 int maxtrackstoprint=10;
-int maxdigitstoprint=5;
+int maxdigitstoprint=0;
 int maxphotonsperdigittoprint=5;
-int maxphotonstoprint=10;
+int maxphotonstoprint=0;
 //neutrino vertices
 cout<<"This run has "<<b->GetEntries()<<" entries"<<endl;
 for(int i=0; i<min(maxentriestoprint,(int)b->GetEntries()); i++){
   //cout<<"NEW EVENT"<<endl<<"======="<<endl;
   b->GetEntry(i);
-  cout<<"This entry had "<<e->GetNumberOfEvents()<<" triggers"<<endl;
+  //cout<<"This entry had "<<e->GetNumberOfEvents()<<" triggers"<<endl;
   //cout<<"This entry had "<< ( (e->HasSubEvents()) ? "1 or more" : "no" ) <<" delayed triggers"<<endl;
   //cout<<"This entry had "<<e->GetNumberOfSubEvents()<<" delayed triggers"<<endl;
   for(int j=0; j<min(maxtriggerstoprint,(int)e->GetNumberOfEvents()); j++){
     //cout<<"NEXT TRIGGER"<<endl;
     r=e->GetTrigger(j);
     h=r->GetHeader();
+    //cout<<" >>> Trigger time was : "<<h->GetDate()<<endl; // TRIGGER TIME OF 0 MEANS NO NDIGITS TRIGGER
     int nprimaries = r->GetNvtxs();	// always 1
     //cout<<"This trigger had "<<nprimaries<<" vertex(es)"<<endl;
     for(int primaryi=0; primaryi<min(maxprimariestoprint,nprimaries); primaryi++){

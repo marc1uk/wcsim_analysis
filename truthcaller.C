@@ -1,5 +1,6 @@
 void truthcaller(const char* wcsimpathin="", const char* dirtpathin="", const char* geniepathin="", const char* outpathin=""){
 /* vim:set noexpandtab tabstop=4 wrap */
+// RUN FROM A DIRECTORY WITH SUITABLE DICTIONARIES/LIBRARIES, e.g. wcsim source directory
 #ifndef PARTICLEGUNEVENTS
 //#define PARTICLEGUNEVENTS
 //#define NOGENIE
@@ -25,6 +26,7 @@ void truthcaller(const char* wcsimpathin="", const char* dirtpathin="", const ch
 //	makeexe+=compileflags;
 //	gSystem->SetMakeExe(makeexe.c_str());
 	
+	curr_dir="/annie/app/users/moflaher/wcsim/root_work";
 	std::string linetoprocess = ".L " + std::string(curr_dir.Data()) + "/plottruthmrdtracks.C++g";
 	// seems you can combine strings with + only if one of them is a std::string.
 	gROOT->ProcessLine(linetoprocess.c_str());
