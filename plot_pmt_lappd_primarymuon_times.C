@@ -1,6 +1,9 @@
 {
+// make dictionaries with commit 1a0f48007100cc3d465f7b69029585b1c6ec993b
 //TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17/wcsim_0.0.0.root");
 //TFile* fl=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17/wcsim_lappd_0.0.0.root");
+
+// make dictionaries with commit 744169e224cc9d8573ea269132104c84b459466c
 TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_03-05-17_rhatcher/wcsim_0.1000.root");
 TFile* fl=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_03-05-17_rhatcher/wcsim_lappd_0.1000.root");
 
