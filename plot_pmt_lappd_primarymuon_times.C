@@ -1,21 +1,33 @@
 {
-TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17/wcsim_0.0.0.root");
-TFile* fl=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17/wcsim_lappd_0.0.0.root");
+//TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17/wcsim_0.0.0.root");
+//TFile* fl=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17/wcsim_lappd_0.0.0.root");
+TFile* f=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_03-05-17_rhatcher/wcsim_0.1000.root");
+TFile* fl=TFile::Open("/pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_03-05-17_rhatcher/wcsim_lappd_0.1000.root");
 
-int maxentriestoprint=20;
-int maxtriggerstoprint=3;
+
+int maxentriestoprint=200000000;
+int maxtriggerstoprint=200000000;
 int maxprimariestoprint=1; // always 1
-int maxtrackstoprint=10;
-int maxdigitstoprint=5;
-int maxphotonsperdigittoprint=5;
-int maxphotonstoprint=10;
+int maxtrackstoprint=200000000;
+int maxdigitstoprint=200000000;
+int maxphotonsperdigittoprint=200000000;
+int maxphotonstoprint=200000000;
 
 const int TRIGGER_OFFSET=950;
 const int LAPPDHITSMAX=1000;
 
-TH1D hdigittimes=TH1D("hdigittimes","Times of digits within the first trigger",200,TRIGGER_OFFSET-50,TRIGGER_OFFSET+150);
-TH1D hlappdtimes=TH1D("hlappdtimes","Times of primary muons",200,-50,+150);
-TH1D hmuontimes=TH1D("hmuontimes","Times of primary muons",200,-50,+150);
+// for /pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_24-09-17_BNB_Water_10k_22-05-17/wcsim_0.0.0.root
+//TH1D hdigittimes=TH1D("hdigittimes","Times of digits within the first trigger",150,-50,100);
+//TH1D hlappdtimes=TH1D("hlappdtimes","Times of lappd hits within the first trigger",150,-50,100);
+//TH1D hmuontimes=TH1D("hmuontimes","Times of primary muons",150,-50,100);
+
+// for /pnfs/annie/persistent/users/moflaher/wcsim/lappd/tankonly/wcsim_lappd_tankonly_03-05-17_rhatcher/wcsim_0.1000.root
+TH1D hdigittimes=TH1D("hdigittimes","Times of digits within the first trigger",150,6660,6720);
+TH1D hlappdtimes=TH1D("hlappdtimes","Times of lappd hits within the first trigger",150,6660,6720);
+TH1D hmuontimes=TH1D("hmuontimes","Times of primary muons",150,6660,6720);
+
+gStyle->SetOptTitle(1);
+gStyle->SetOptStat(1);
 
 TTree* t = (TTree*)f->Get("wcsimT");
 WCSimRootEvent* e=0;
@@ -34,6 +46,7 @@ double lappd_numphots[LAPPDHITSMAX];
 lappdtree->SetBranchStatus("*",0);
 lappdtree->SetBranchStatus("lappd_numhits",1);
 lappdtree->SetBranchStatus("lappdhit_stripcoort",1);
+lappdtree->SetBranchStatus("lappdhit_edep",1);
 lappdtree->SetBranchAddress("lappd_numhits", &numlappdshitthisevt);
 lappdtree->SetBranchAddress("lappdhit_stripcoort", &lappdhittimesp);
 lappdtree->SetBranchAddress("lappdhit_edep", &lappd_numphots);
@@ -106,12 +119,16 @@ for(int i=0; i<min(maxentriestoprint,numWCSimEntries); i++){
       }  // loop over tracks
       
       if(primarymuonindex<0){ continue; } // there was no primary muon in this event, skip it.
+      WCSimRootTrack* murack = (WCSimRootTrack*)r->GetTracks()->At(primarymuonindex);
+      hmuontimes.Fill(murack->GetTime());
+      std::cout<<"Track:"<<murack->GetTime();
       
       // Assuming we have a primary muon, get the PMT hit times.
       //cout<<"loop over digits:"<<endl;
       for(int digiti=0; digiti<min(maxdigitstoprint,(int)ndigits); digiti++){
         WCSimRootCherenkovDigiHit* digihit=(WCSimRootCherenkovDigiHit*)(r->GetCherenkovDigiHits()->At(digiti));
-        hdigittimes->Fill(digihit->GetT());
+        hdigittimes.Fill(digihit->GetT()-TRIGGER_OFFSET+triggertime);
+        if(digiti==0){ std::cout<<", digit: "<<(digihit->GetT()-TRIGGER_OFFSET+triggertime); }
         //cout<<"  digit "<<digiti<<" at time "<<digihit->GetT()<<"ns"<<endl;
       }
       
@@ -125,16 +142,29 @@ for(int i=0; i<min(maxentriestoprint,numWCSimEntries); i++){
   for(int lappdi=0; lappdi<numlappdshitthisevt; lappdi++){
     // loop over LAPPDs that had at least one hit
     int numhitsthislappd=lappd_numphots[lappdi];
+    //std::cout<<"lappd "<<lappdi<<" has "<<numhitsthislappd<<" hits"<<std::endl;
     int lastrunningcount=runningcount;
     
     // loop over all the hits on this lappd
     for(;runningcount<(lastrunningcount+numhitsthislappd); runningcount++){
-      double lappdhittime  = lappd_hittruetime.at(runningcount);
-      hlappdtimes->Fill(lappdhittime);
+      double lappdhittime  = lappdhittimes.at(runningcount);
+      hlappdtimes.Fill(lappdhittime);
+      if((lappdi==0)&&(runningcount==lastrunningcount)){ std::cout<<", lappd: "<<(lappdhittime); }
     } // end of loop over hits on this LAPPD
     //cout<<"Done looping over hits on this LAPPD"<<endl;
   } // end of loop over LAPPDs with a hit
+  std::cout<<std::endl;
   
 } // loop over events
+
+TCanvas c1;
+hdigittimes.Draw();
+c1.SaveAs("DigitTimesHist.png");
+TCanvas c2;
+hlappdtimes.Draw();
+c2.SaveAs("LAPPDTimesHist.png");
+TCanvas c3;
+hmuontimes.Draw();
+c3.SaveAs("MuonTimesHist.png");
 
 }
