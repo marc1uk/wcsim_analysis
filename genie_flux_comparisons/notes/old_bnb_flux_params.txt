@@ -1,0 +1,72 @@
+$ root
+ TFile* f = TFile::Open("/pnfs/annie/persistent/flux/bnb/bnb_annie_0000.root")
+ TTree* t = (TTree*)f->Get("h10")
+ t->Show(0)
+===============================================
+
+**** see 'bnb_annie_ntuple_params file for descriptions *****
+
+ run             = 0
+ evtno           = 1
+ Ndxdz           = -3.70823
+ Ndydz           = -3.2471
+ Npz             = 0.0372902
+ Nenergy         = 0.187547
+ Ndxdznea        = 0
+ Ndydznea        = 0
+ Nenergyn        = 0
+ Nwtnear         = 0
+ Ndxdzfar        = 0
+ Ndydzfar        = 0
+ Nenergyf        = 0
+ Nwtfar          = 0
+ Norig           = 0
+ Ndecay          = 5
+ Ntype           = 56
+ Vx              = -37.6229
+ Vy              = -14.5475
+ Vz              = 607.288
+ pdpx            = -0.0502978
+ pdpy            = -0.02263
+ pdpz            = 0.620866
+ ppdxdz          = 0.00321826
+ ppdydz          = 0.0153856
+ pppz            = 0.845111
+ ppenergy        = 0.978829
+ ppmedium        = 0
+ ptype           = 11
+ ppvx            = -0.242109
+ ppvy            = -0.179443
+ ppvz            = 23.6022
+ muparpx         = -9999
+ muparpy         = -9999
+ muparpz         = -9999
+ mupare          = -9999
+ Necm            = 0.235532
+ Nimpwt          = 0.0138403
+ xpoint          = 0
+ ypoint          = 0
+ zpoint          = 0
+ tvx             = 0.0557741
+ tvy             = -0.0242352
+ tvz             = 15.8274
+ tpx             = -0.198439
+ tpy             = -0.102623
+ tpz             = 5.04607
+ tptype          = 9
+ tgen            = 4
+ tgptype         = 0
+ tgppx           = 0
+ tgppy           = 0
+ tgppz           = 0
+ tprivx          = 0.0557741
+ tprivy          = -0.0242352
+ tprivz          = 15.8274
+ beamx           = 0.0530252
+ beamy           = -0.0244479
+ beamz           = -1
+ beampx          = -0.00206014
+ beampy          = 0.00115901
+ beampz          = 8.88889
+
+

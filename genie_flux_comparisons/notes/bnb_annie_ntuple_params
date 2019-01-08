@@ -1,0 +1,89 @@
+//run 		Run number
+//evtno 	Event number (proton on target)
+
+// primary proton details
+//beamx 	Primary proton origin  - what is 'origin' exactly?
+//beamy
+//beamz
+beampx 		Primary proton momentum
+beampy
+beampz
+tprivx 		Primary particle interaction vertex
+tprivy
+tprivz
+
+// info about the particle that created a particle that flies off the target, at the interaction point
+//tgptype 	Type of particle
+//tgppx 	Momentum of a particle
+//tgppy
+//tgppz
+
+// parent details
+tgen 		Parent generation in cascade: 1=primary proton, 2=particle produced by proton interaction...
+// ^^^ how is primary proton a neutrino parent??? TODO check there are none that are 1
+ptype 		Parent GEANT code particle ID
+Nimpwt 		Weight of neutrino parent
+ppvx 		Parent production vertex X,Y,Z (cm)
+ppvy
+ppvz
+ppmedium 	Tracking medium number where parent was produced - can use to tell target from horn?
+if(ptype!=muon){
+ppenergy 	Parent energy at production
+pppz 		Parent Z momentum at production
+ppdxdz 		Parent dxdz direction at production
+ppdydz 		Parent dydz direction at production
+} else {
+mupare 		Repeat of information above, but for muon neutrino parents
+muparpz
+muparpx
+muparpy
+}
+
+// parent details at exit point of target
+tptype 		Parent particle ID exiting the target (GEANT code)  // can this be different to ptype??
+tvx 		X exit point of parent particle at the target
+tvy 		Y exit point of parent particle at the target
+tvz 		Z exit point of parent particle at the target
+tpx 		Parent momentum exiting the target (X)
+tpy 		Parent momentum exiting the target (Y)
+tpz 		Parent momentum exiting the target (Z)
+
+// parent decay information
+Ndecay 		Decay mode that produced neutrino: Pi+, K+, etc.
+Vx 		X position of hadron/muon decay
+Vy 		Y position of hadron/muon decay
+Vz 		Z position of hadron/muon decay
+pdPx 		Parent X momentum at decay point
+pdPy 		Parent Y momentum at decay point
+pdPz 		Parent Z momentum at decay point
+
+// neutrino information
+Ntype 		Neutrno flavor: 56=numu, 55=numu-bar, 53=nue, 52=nue-bar
+Necm 		Neutrino energy in COM frame
+
+// neutrino decay parameters for a random decay: do we care?
+//Ndxdz 	Neutrino direction slope
+//Ndydz		Neutrino direction slope
+//Npz 		Neutrino momentum (GeV/c) along z direction (beam axis)  // also for random decay?
+//Nenergy 	Neutrino energy (GeV/c)
+
+// neutrino decay parameters for a decay forced at near detector centre: do we care? 
+//NdxdzNea 	Neutrino direction slope
+//NdydzNea	Neutrino direction slope
+//NenergyN 	Neutrino energy
+//NWtNear 	Neutrino weight
+
+// neutrino decay parameters for a decay forced at far detector centre: do we care?
+//NdxdzFar
+//NdydzFar
+//NenergyF
+//NWtFar
+
+from Genie Manual 6.3.2:
+----------------------
+GNuMIFlux provides an interface to the NuMI beam simulations used at MINOS, NOvA, MINERvA and ArgoNeut. This interface can handle all three of the formats used so far in simulating the NuMI beamline: Geant3-based gnumi, g4numi and flugg. It can also handle the FNAL booster flux when that is formatted into one of the standard ntuple layouts. These beam simulation files record hadron decays and suficient information to calculate new weights and energies for different positions relative to the beam orgin.
+
+The driver generates a flux to cover a user specified detector "window" after undergoing a coordinate transformation from the beam system to that of a particular detector. The detector specific windows and transformations are encapsulated in the ‘$GENIE/src/FluxDriver/GNuMINtuple/GNuMIFlux.xml’ file. 
+
+Users can extend what is available by modifying this file and putting a copy in a location specified byGXMLPATH="/path/to/location". Additional "param_set" sections allow new configurations and these can be based on modifications of select parameters of an existing "param_set" entry.
+Extensive documentation of the setable parameters can be found in the XML file itself.

@@ -1,0 +1,69 @@
+GSimple file contents:
+
+entry		(genie::flux::GSimpleNtpEntry*)
+//Small persistable C-struct-like classes that makes up the SimpleNtpFlux ntuple. This is only valid for a particular flux window (no reweighting, no coordinate transformation available).
+		wgt		nu weight
+		vtxx		x position in lab frame
+		vtxy		(Neutrino ray origin info (detector coordinates))
+		vtxz		z position in lab frame
+		dist		distance from hadron decay to ray origin
+		px		x momentum in lab frame
+		py		y momentum in lab frame
+		pz		z momentum in lab frame
+		E		energy in lab frame
+		pdg		nu pdg-code
+		metakey		uint hash key to meta data
+
+numi		(genie::flux::GSimpleNtpNuMI*)
+// Additional elements for NuMI (allow SKZP reweighting and reference back to original GNuMI flux entries) as "numi" branch 
+// THIS INFORMATION IS COMMON TO OLD GNUMI NTUPLES.
+		run		Run number 
+		evtno		Event number (proton on target)
+		entryno
+		tpx		Parent momentum exiting the target (X) 
+		tpy
+		tpz
+		vx		X position of hadron/muon decay
+		vy
+		vz
+		pdpx		nu parent momentum at time of decay
+		pdpy		Parent Y momentum at decay point 
+		pdpz
+		pppx		nu parent momentum at production point
+		pppy
+		pppz
+		ndecay		Decay mode that produced neutrino (K+, pi+...)
+		ptype		Parent GEANT code particle ID (pdg)
+		ppmedium	tracking medium number where parent was produced
+		tptype		Parent particle type at target exit (GEANT code)
+
+aux		(genie::flux::GSimpleNtpAux*)
+		auxint		(vector<int>*)
+		auxdbl		(vector<double>*)
+
+==================================
+
+meta		(genie::flux::GSimpleNtpMeta*)0x2354e20
+// stored in meta tree
+		seed		random seed used in generation
+		metakey		index key to tie to individual entries
+		maxEnergy	maximum energy
+		minWgt		minimum weight
+		maxWgt		maximum weight
+		protons		represented number of protons-on-target
+		windowBase[3]	x,y,z position of window base point
+		windowDir1[3]	dx,dy,dz of window direction 1
+		windowDir2[3]	dx,dy,dz of window direction 2
+		pdglist		list of neutrino flavors (int)
+		auxintname	list of tagnames of aux ints associated w/ entry
+		auxdblname	list of tagnames of aux doubles associated w/ entry
+		infiles		list of input files
+
+
+from genie MC manual
+--------------------
+The GSimpleNtpFlux is in use by some NuMI experiments as a means of factorizing the computation necessary for the evaluation of the GNuMIFlux from the actual event generation. Unlike the GNuMIFlux files, entries can not be positioned for new locations (which would change the entry’s weight and energy), but they also don’t require the computational burden of doing so. They are meant to be simple and fast. 
+
+When the GSimpleNtpFlux is invoked it needs to be configured by passing the method GSimpleNtpFlux::LoadBeamSimData() an input filename string (and a config name that is ignored).The input file name may include wildcards on the file name but not the directory path. Multiple gsimple flux files can also be combined into a larger file with the use of the ROOT hadd utility.
+
+* metakey: Reference back to meta-data. The "metadata" branch has an entry per file recording general info such as the list of neutrino flavors found in the entries, the number of protons-on-target represented by the file (in the case of accelerator based uxes), the maximum energy, the minimum and maximum weights, the flux window and a vector of strings for a record of the list of files used to generate the GSimpleNtp file.

@@ -1,0 +1,33 @@
+$ root
+ TFile* f = TFile::Open("/annie/data/flux/redecay_bnb/beammc_annie_0000.root")
+ TTree* t = (TTree*)f->Get("h201")
+ t->Show(0)
+===============================================
+
+  float beamwgt;          /// Weight
+  int ntp;                /// 1,2,3,4 : nue, nuebar, numu, numubar
+  int npart;              /// number of particles in the chain
+                          ///    npart-1 == proton
+                          ///    0 == neutrino
+  int id[20];             /// id of each particle in chain, array length 'npart'
+  float ini_pos[20][3];   /// 3-pos of particle in chain, array length 'npart'
+  float ini_mom[20][3];   /// 3-mom of particle in chain, array length 'npart'
+  float ini_eng[20];      /// E of particle in chain, array length 'npart'
+  float ini_t[20];        /// "decay" time of particle (starting from proton) 
+                          ///             in chain, array length 'npart'
+  float fin_mom[20][3];   /// final 3-mom of particle in chain, array length 'npart'
+  float fin_pol[20][3];   /// final 3-polarization of particle chain, array length 'npart'
+  mul_weight              /// 7x1000 array of weightings from each source of error, over 1000 universes
+
+-----------------------------------------------
+
+ TTree* tt = (TTree*)_file0->Get("h220")
+ tt->Show(0)
+===============================================
+
+ targ_pos_beam   = 0, 0, -10035
+ windowbase      = 1000, 1000, -2000
+ windowdir1      = 0, -2000, 0
+ windowdir2      = -2000, 0, 0
+ tank_pos_beam   = 0, 0, 10035
+ pot             = 200000

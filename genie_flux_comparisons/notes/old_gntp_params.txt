@@ -1,0 +1,79 @@
+$ root   // n.b must use genie 2.8 in order for t->Show to print out the parameters
+ TFile* f = TFile::Open("/pnfs/annie/persistent/users/vfischer/genie/BNB_Water_10k_22-05-17/gntp.1000.ghep.root")
+ TTree* t=(TTree*)f->Get("gtree")
+ t->Show(0)
+===============================================
+
+ gmcrec          = (genie::NtpMCEventRecord*)0x1b6c640
+	event           = (genie::EventRecord*)1cd5820
+		all the genie interaction information
+	hdr             = (genie::NtpMCRecHeader)
+		unsigned int	ievent   // that's literally it! 
+
+// <<< everything straight copied from input file <<< 
+ flux            = (genie::flux::GNuMIFluxPassThroughInfo*)0x1caf7a0
+ 	// all the gnumi parameters from bnb_annie_ntuple_params PLUS:
+	pcodes          = 1
+	units           = 0
+	fgPdgC          = 14
+	fgXYWgt         = 0.00265538
+	fgP4            = TLorentzVector
+	fgX4            = TLorentzVector
+	fgP4User        = TLorentzVector
+	fgX4User        = TLorentzVector
+	norig           = 0
+	xpoint          = 0
+	ypoint          = 0
+	zpoint          = 0
+	ntrajectory     = 0
+	overflow        = 0
+	pdgcode[10]     = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	trackId[10]     = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	parentId[10]    = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	startx[10]      = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	starty[10]      = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	startz[10]      = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	startpx[10]     = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	startpy[10]     = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	startpz[10]     = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	stopx[10]       = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	stopy[10]       = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	stopz[10]       = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	stoppx[10]      = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	stoppy[10]      = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	stoppz[10]      = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	pprodpx[10]     = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	pprodpy[10]     = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	pprodpz[10]     = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	proc[10]        = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	ivol[10]        = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 
+	fvol[10]        = 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0
+
+==============
+flux->Print();
+GNuMIFlux run 0 evtno 5085 (pcodes 1 units 0)
+ random dk: dx/dz 2.2116 dy/dz -2.51772 pz 0.00105085 E 0.003675
+ near00 dk: dx/dz 0 dy/dz 0 E 0 wgt 0
+ far00  dk: dx/dz 0 dy/dz 0 E 0 wgt 0
+ norig 0 ndecay 13 ntype 14
+ had vtx 0.7977 6.67607 430.65
+ parent p3 @ dk 0.00917558 0.0394196 1.54336
+ parent prod: dx/dz -0.0296391 dy/dz -0.0451215 pz 1.61693 E 1.62529
+ ppmedium 0 ptype 211 ppvtx 0.167713 0.0306614 7.0809
+ mu parent p4 -9999 -9999 -9999 -9999
+ necm 0.0297917 nimpwt 0.253624
+ point x,y,z 0 0 0
+ tv x,y,z 0.167713 0.0306614 7.0809
+ tptype 211 tgen 3 tgptype 0
+ tgp px,py,pz 0 0 0
+ tpriv x,y,z 0.167713 0.0306614 7.0809
+ beam x,y,z 0.1731 0.0327796 -1
+ beam px,py,pz -0.0067253 -0.00155399 8.88889
+Neutrino History : ntrajectories 0
+ (trkID, pdg) of nu parents: []
+Current: pdg 14 xywgt 0.0129118
+ p4 (beam): (E = 0.650445, px = 0.00889258, py = 0.0113403, pz = 0.650285)
+ x4 (beam): (t = 0, x = 132.136, y = 174.166, z = 10035)
+ p4 (user): (E = 0.650445, px = 0.00889258, py = 0.0113403, pz = 0.650285)
+ x4 (user): (t = 0, x = 1.32136, y = 1.74166, z = 1.42109e-14)
+

@@ -1,0 +1,30 @@
+// https://genie.hepforge.org/doxygen/html/GNuMIFlux_8h_source.html#l00131
+
+/// GNuMIFluxPassThroughInfo:
+/// =========================
+/// A small persistable C-struct -like class that mirrors (some of) the 
+/// structure of the gnumi ntuples.  This can then be stored as an extra 
+/// branch of the output event tree -alongside with the generated event 
+/// branch- for use further upstream in the analysis chain - e.g. beam 
+/// reweighting etc.
+/// To do future x-y reweighting users must retain the info found in:
+//     Ntype   Vx      Vy      Vz      
+//     pdPx    pdPy    pdPz    
+//     ppdxdz  ppdydz  pppz    ppenergy ptype
+//     muparpx muparpy muparpz mupare   Necm
+//     Nimpwt  
+
+
+ 
+// Values for GNuMIFlux chosen x-y-z position, not from flux ntuple
+int            fgPdgC;   ///< generated nu pdg-code
+double         fgXYWgt;  ///< generated nu x-y weight
+                    ///   not the same as GNuMIFlux::Weight()
+                    ///   which include importance wgt and deweighting
+TLorentzVector fgP4;     ///< generated nu 4-momentum beam coord
+TLorentzVector fgX4;     ///< generated nu 4-position beam coord
+TLorentzVector fgP4User; ///< generated nu 4-momentum user coord
+TLorentzVector fgX4User; ///< generated nu 4-position user coord
+
+// Values copied from gnumi ntuples (generally maintained variable names)
+// see http://www.hep.utexas.edu/~zarko/wwwgnumi/v19/[/v19/output_gnumi.html]

@@ -1,0 +1,44 @@
+#ignore build results
+in/
+in_unused/
+out/
+imgs/
+
+#ignore gedit backups
+*~
+
+#ignore build products
+*.d
+*.o
+
+#ignore images
+*.png
+*.pdf
+
+#ignore files that are specific to the location you're building in
+*.pcm
+*.so
+
+# ignore any 'old' versions of files
+*.old
+
+#ignore output files i guess
+*.root
+TruthHistos.root
+
+# files to ignore
+geniefilestuff
+todo notes
+
+# specific files
+allhistograms
+anoutput.txt
+plottruthtracks_outputstats.txt
+errorinfo.txt
+trutherrors.txt
+truthinfo_textout.txt
+#generic makeclass files used temporarily at some time
+treeout.C
+treeout.h
+# these files zipped up at one point?
+wcsimanalysis.zip
