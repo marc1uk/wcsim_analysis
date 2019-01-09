@@ -4,13 +4,13 @@
 // PRODUCE MAP OF PMT POSITIONS
 // ============================
 // these maps, of wall, topcap and bottomcap, are used for 2D histograms for SK-style hit mapping
-void MakePMTmap(WCSimRootGeom* geo, std::map<int, std::pair<int,int> > &topcappositionmap, std::map<int, std::pair<int,int> > &bottomcappositionmap, std::map<int, std::pair<int,int> > &wallpositionmap){
+void MakePMTmap(WCSimRootGeom* geo, std::map<int, std::pair<int,int> > &topcappositionmap, std::map<int, std::pair<int,int> > &bottomcappositionmap, std::map<int, std::pair<int,int> > &wallpositionmap, std::pair<int,int> &nbinswall, std::pair<int,int> &nbinstopcap, std::pair<int,int> &nbinsbottomcap){
 	// get the extent of z,x for the caps and x,y,z for the walls. 
 	// Use the array of x,y,z values to produce a mapping of tubeID vs x-y for an unrolled view of the tank.
 	std::vector<double> topcapxvalsall, topcapzvalsall, bottomcapxvalsall, bottomcapzvalsall, wallyvalsall, wallthetavalsall;
 	std::vector<double> topcapxvals, topcapzvals, bottomcapxvals, bottomcapzvals, wallyvals, wallthetavals;
 	std::vector<int> topcaptubeids, bottomcaptubeids, walltubeids;
-
+	
 	cout<<"Producing map of tank PMT positions"<<endl;
 	cout<<geo->GetWCNumPMT()<<" total PMTs in geofile"<<endl;
 	for(int i=0; i<geo->GetWCNumPMT();i++){
@@ -68,6 +68,11 @@ void MakePMTmap(WCSimRootGeom* geo, std::map<int, std::pair<int,int> > &topcappo
 			<<topcapzvals.size()<<" unique z values"<<endl
 			<<"    bottom cap PMTs have "<<bottomcapxvals.size()<<" unique x values and "
 			<<bottomcapzvals.size()<<" unique z values"<<endl;
+	
+	nbinswall=std::pair<int,int>(wallthetavals.size(),wallyvals.size());
+	nbinstopcap=std::pair<int,int>(topcapxvals.size(),topcapzvals.size());
+	nbinsbottomcap=std::pair<int,int>(bottomcapxvals.size(),bottomcapzvals.size());
+	
 	// sort the unique positions into ascending order
 	std::sort(topcapxvals.begin(),topcapxvals.end());
 	std::sort(topcapzvals.begin(),topcapzvals.end());
@@ -77,7 +82,7 @@ void MakePMTmap(WCSimRootGeom* geo, std::map<int, std::pair<int,int> > &topcappo
 	std::sort(wallthetavals.begin(),wallthetavals.end());
 
 	std::ofstream mapfile;
-	mapfile.open("out/mapfile.txt", std::ios::out);
+	mapfile.open("mapfile.txt", std::ios::out);
 	//mapfile<<"wall map ordering:\n"<<endl;
 	//for(int i=0; i<wallthetavals.size(); i++){
 	//	mapfile<<wallthetavals.at(i)<<endl;
