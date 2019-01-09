@@ -22,6 +22,7 @@
 #include <map>
 #include <string>
 #include <iostream>
+#include <limits>
 
 // WCSim headers
 #include "../wcsim/include/WCSimRootEvent.hh"
@@ -52,7 +53,7 @@ std::pair<int,int> nbinstopcap;
 std::pair<int,int> nbinsbottomcap;
 
 const double SPEED_OF_LIGHT=29.9792458; // cm/ns - match time and position units of PMT
-const double REF_INDEX_WATER=1.33;
+const double REF_INDEX_WATER=1.42535;   // maximum Rindex gives maximum travel time
 
 int print_event_summaries(TString filepathin=""){
   
@@ -62,8 +63,9 @@ int print_event_summaries(TString filepathin=""){
   
   std::string filepath="";
   if(filepathin==""){
-    //filepath = "/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.root";
-    filepath = "/annie/app/users/moflaher/wcsim/build/wcsim_0.root";
+    filepath = "/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.root";
+    //filepath = "/home/marc/LinuxSystemFiles/WCSim/gitver/build/wcsim_0.isomus.root";
+    //filepath = "/annie/app/users/moflaher/wcsim/build/wcsim_0.root";
     //filepath = "/annie/app/users/moflaher/wcsim/build/wcsim_0.nosmearisoes.root";
     //filepath = "/annie/app/users/moflaher/wcsim/build/wcsim_0.nosmearphotonbomb.root";
     //filepath = "/annie/app/users/moflaher/wcsim/build/wcsim_0.beames.root";
@@ -106,9 +108,9 @@ int print_event_summaries(TString filepathin=""){
   //////////////////////////////
   
   int maxentriestoprint=100000;
-  int maxtriggerstoprint=10;
+  int maxtriggerstoprint=1;
   int maxprimariestoprint=1; // should be always 1.
-  int maxtrackstoprint=10;
+  int maxtrackstoprint=0;
   int maxdigitstoprint=0;
   int maxphotonsperdigittoprint=0;
   int maxphotonstoprint=0;
@@ -121,18 +123,27 @@ int print_event_summaries(TString filepathin=""){
   int digit_historic_offset=0;  // subtract from digit times
   TH1D* digittimes = new TH1D("digittimes","Digit Times",200,-20,50);
   TH1D* digittimes2 = new TH1D("digittimes2","Digit Times2",200,-5,100000); // extended trigger digits
-  TH1D* photontimes = new TH1D("photontimes","Digit Times",500,-5,30); // -5,50); -10,10
+  TH1D* photontimes = new TH1D("photontimes","Digit Times",100,-5,50); //-10,10
   TH1D* hcharge = new TH1D("hcharge","Charge",100,0,30);
   TH2D* hqvst = new TH2D("hqvst","charge vs digit time",60,-10,50,100,0,300);
   TH1D* htrigt = new TH1D("htrigt","delayed trigger times",200,0,100000);
   TH1D* hmuontimes = new TH1D("hmuontimes","primary muon times",200,0,100);
+  TH1D* hphotindigits = new TH1D("hphotindigits","Times of photon hits in digit",500,-5,30);
+  TH1D* hphotrelfirstphot = new TH1D("hphotrelfirstphot","Photon Times Rel to First Photon in Digit",300,-5,30);
+  TH1D* hdigitrelfirstphot = new TH1D("hdigitrelfirstphot","Digit Times Rel to First Photon in Digit",300,-15,35);
   TH2D* htvstdiff = new TH2D("htvstdiff","digit time vs diff",100,-5,50,100,-20,20);
   TH2D* hqvstdiff = new TH2D("hqvstdiff","digit Q vs t diff",100,-5,50,100,-20,20);
-  TH1D* htimeresid = new TH1D("htimeresid","Digit Time residual",300,-5,25);
+  TH2D* hnphotvstdiff = new TH2D("hnphotvstdiff","Num Phots vs digit delay",100,-15,35,50,0,50);
+  TH2D* hddelayvstdiff = new TH2D("hddelayvstdiff","digit delay vs t diff",100,-10,10,100,-5,10);
+  TH1D* htimeresid = new TH1D("htimeresid","Digit Time residual",300,-500,2500);
+  TH2D* htimeresidvsnsteps = new TH2D("htimeresidvsnsteps","time residual vs # Steps",100,-5,30,12,0,22);
+  TH2D* htimeresidvsq = new TH2D("htimeresidvsq","time residual vs charge",100,-10,10,100,-1,10);
+  TH1D* hnumsteps = new TH1D("hnumsteps","Number of Tracking Steps",100,-1,50);
+  TH1D* hsmearing = new TH1D("hsmearing","Time Smearing",300,-30,30);
 //  std::vector<TPointSet3D> timeresidsets;  // how to set the point colours?
 //  TGraph2D axishack = TGraph2D();          // can use z coordinate as colour with colz, but 2D only
-  gStyle->SetMarkerStyle(20); // critical, we won't be able to change the sizes/styles after the fact. 
-  gStyle->SetPalette(112);    // colour gradient, something more sensible than rainbow - viridis
+  gStyle->SetMarkerStyle(7); // critical, we won't be able to change the sizes/styles after the fact. 
+  gStyle->SetPalette(84);    // colour gradient, something more sensible than rainbow - viridis
   // must call this BEFORE making tree
   TTree* pointsetree = new TTree("pointsettree","Time Residuals"); // easiest (only?) way to make coloured 3D plot
   double pointsetx, pointsety, pointsetz, pointsett;
@@ -168,10 +179,10 @@ int print_event_summaries(TString filepathin=""){
     // XXX XXX XXX cherenkov hits for ALL triggers are stored in trigger 0! XXX XXX XXX 
     WCSimRootTrigger* firsttrig=e->GetTrigger(0);
     for(int j=0; j<min(maxtriggerstoprint,static_cast<int>(e->GetNumberOfEvents())); j++){
-      if(j>0) break;
       cout<<"  TRIGGER "<<j<<endl;
       WCSimRootTrigger* r=e->GetTrigger(j);
       WCSimRootEventHeader* h=r->GetHeader();
+      if(h->GetDate()>0) break;  // if no light in prompt window but a delayed Ndigits trigger....
       cout<<"  >>> Trigger time was : "<<h->GetDate()<<endl; // TRIGGER TIME OF 0 MEANS NO NDIGITS TRIGGER
       // only for old file versions: prompt trigger means time is 0
       if(j>0){ htrigt->Fill(h->GetDate()); }
@@ -214,14 +225,18 @@ int print_event_summaries(TString filepathin=""){
         //Float_t   GetM()                mass
         //Float_t   GetP()                momentum magnitude
         //Float_t   GetE()                energy (inc rest mass^2)
+        //Float_t   GetEndE()             energy on stopping of particle tracking
+        //Float_t   GetEndP()             momentum on stopping of particle tracking
         //Int_t     GetStartvol()         starting volume: 10 is tank, 20 is facc, 30 is mrd
         //Int_t     GetStopvol()          stopping volume: but these may not be set.
         //Float_t   GetDir(Int_t i=0)     momentum unit vector
         //Float_t   GetPdir(Int_t i=0)    momentum vector
+        //Float_t   GetPdirEnd(Int_t i=0) direction vector on stop tracking
         //Float_t   GetStop(Int_t i=0)    stopping vertex x,y,z for i=0-2, in cm
         //Float_t   GetStart(Int_t i=0)   starting vertex x,y,z for i=0-2, in cm
         //Int_t     GetParenttype()       parent pdg, 0 for primary.
-        //Float_t   GetTime()             trj->GetGlobalTime(); stopping(?) time of particle
+        //Float_t   GetTime()             trj->GetGlobalTime(); starting time of particle
+        //Float_t   GetStopTime()
         //Int_t     GetId()               wcsim trackid
         
         Float_t Primary_Vertex_X, Primary_Vertex_Y, Primary_Vertex_Z;
@@ -239,7 +254,7 @@ int print_event_summaries(TString filepathin=""){
             <<" | PDG: "<<nextrack->GetIpnu()
             <<" | ID: "<<nextrack->GetId()
             <<" | ParentPDG: "<<nextrack->GetParenttype()
-            <<" | Vtx: ("<<Primary_Vertex_X<<", "<<Primary_Vertex_Y<<", "<<Primary_Vertex_Z<<")"
+            <<" | Vtx: ("<<nextrack->GetTime()<<", "<<Primary_Vertex_X<<", "<<Primary_Vertex_Y<<", "<<Primary_Vertex_Z<<")"
 #if FILE_VER>5
             <<" | sProc: "<<nextrack->GetStartProcess()
             <<" | eProc: "<<nextrack->GetEndProcess()
@@ -265,10 +280,9 @@ int print_event_summaries(TString filepathin=""){
 //        }
 //        if(primarymuonindex<0){ continue; } // there was no primary muon in this event, skip it.
 //        WCSimRootTrack* mutrack = (WCSimRootTrack*)r->GetTracks()->At(primarymuonindex);
-//        cout<<"PRIMARY MUON AT "<<mutrack->GetTime()<<endl;
+//        cout<<"PRIMARY MUON AT "<<mutrack->GetTime()<<" TO "<<mutrack->GetStopTime()<<endl;
 //        hmuontimes->Fill(mutrack->GetTime());
 //        /////////////// end histogram
-      
       
       //////////////////////////////
       // DIGIT LOOP
@@ -293,7 +307,17 @@ int print_event_summaries(TString filepathin=""){
       //////////////////////////////
       // DIGIT HISTOGRAM LOOP
       //////////////////////////////
+      // first loop to find the earliest digit on this PMT
+      int earliestdigit=-1;
+      float earliestdigittime = std::numeric_limits<float>::max();
       for(int digiti=0; digiti<ndigits; digiti++){
+        WCSimRootCherenkovDigiHit* digihit=(WCSimRootCherenkovDigiHit*)(r->GetCherenkovDigiHits()->At(digiti));
+        float adigittime = digihit->GetT() - digit_historic_offset + h->GetDate();
+        if(adigittime<earliestdigittime){ earliestdigittime=adigittime; earliestdigit=digiti; }
+      }
+      
+      for(int digiti=0; digiti<ndigits; digiti++){
+      //for(int digiti=earliestdigit; (earliestdigit>0&&digiti<(earliestdigit+1)); digiti++){
         //if(j==0) break;
         //if(digiti>4) break;
         WCSimRootCherenkovDigiHit* digihit=(WCSimRootCherenkovDigiHit*)(r->GetCherenkovDigiHits()->At(digiti));
@@ -329,35 +353,72 @@ int print_event_summaries(TString filepathin=""){
           tdiffforthistype =  new TH1D(hname.c_str(),hname.c_str(),200, -10,10);
           timediffvspmttype.emplace(pmt_type,tdiffforthistype);
         }
-        // distance to pmt
-//        double distx = thepmt.GetPosition(0) /*- geo->GetWCOffset(0)*/ - True_Vertex_X; // includes offset
-//        double disty = thepmt.GetPosition(1) /*- geo->GetWCOffset(1)*/ - True_Vertex_Y;
-//        double distz = thepmt.GetPosition(2) /*- geo->GetWCOffset(2)*/ - True_Vertex_Z;
-//        double distancefromorigin = sqrt(pow(distx,2.)+pow(disty,2.)+pow(distz,2.));
-//        //htimeresid->Fill(adigittime-((distancefromorigin*REF_INDEX_WATER)/SPEED_OF_LIGHT));
-        
         /////////////////////
+        
+        // distance to pmt
+        double distx = thepmt.GetPosition(0) /*- geo->GetWCOffset(0)*/ - True_Vertex_X; // includes offset
+        double disty = thepmt.GetPosition(1) /*- geo->GetWCOffset(1)*/ - True_Vertex_Y;
+        double distz = thepmt.GetPosition(2) /*- geo->GetWCOffset(2)*/ - True_Vertex_Z;
+        double distancefromvertex = sqrt(pow(distx,2.)+pow(disty,2.)+pow(distz,2.));
+        double htres = adigittime-((distancefromvertex*REF_INDEX_WATER)/SPEED_OF_LIGHT);
+        htimeresid->Fill(htres);
+        
+        auto thephotonids = digihit->GetPhotonIds();
+        int ndigitphots = thephotonids.size();
+        
+        // quick loop to find and note the time of the earliest photon in the digit
+        double firstphotontime=999999;
+//        std::cout<<"digit on tube "<<digihit->GetTubeId()<<" at time "<<adigittime<<" with photons {";
+        for(auto aphotonid : thephotonids){
+          WCSimRootCherenkovHitTime *thehittimeobject = 
+            (WCSimRootCherenkovHitTime*)firsttrig->GetCherenkovHitTimes()->At(aphotonid);
+          Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
+          if(thephotonsparenttrackid==-1){ continue; } // NOISE HIT
+          double ahittime = thehittimeobject->GetTruetime();
+          //double ahittime = thehittimeobject->GetSmeartime();
+          hsmearing->Fill(thehittimeobject->GetSmeartime() - thehittimeobject->GetTruetime());
+          if(ahittime<firstphotontime) firstphotontime=ahittime;
+//          std::cout<<ahittime<<", ";
+        }
+//        std::cout<<"}"<<std::endl;
+        hdigitrelfirstphot->Fill(adigittime-firstphotontime);
+        hnphotvstdiff->Fill(adigittime-firstphotontime,ndigitphots);
         
         // fill photon times only for photons that were in a digit
         //if(adigittime==0){
-          auto thephotonids = digihit->GetPhotonIds();
           int loopi=0;
-          
+          bool good_digit=true;
           for(auto aphotonid : thephotonids){
             //if(thephotonids.size()>1) break;
             //if(loopi>0) break;        // only the first photon in the digit
             //if(loopi==0){ continue; } // only delayed photons
-            
             WCSimRootCherenkovHitTime *thehittimeobject = 
               (WCSimRootCherenkovHitTime*)firsttrig->GetCherenkovHitTimes()->At(aphotonid);
-            double ahittime = thehittimeobject->GetTruetime();
+            Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
+            if(thephotonsparenttrackid==-1){ good_digit=false; continue; } // NOISE HIT
+            double ahittime = thehittimeobject->GetTruetime();  // XXX XXX XXX
+            //double ahittime = thehittimeobject->GetSmeartime();
+            hddelayvstdiff->Fill(adigittime-firstphotontime,ahittime-adigittime,1./ndigitphots);
             tdiffforthistype->Fill(adigittime-ahittime);
-            photontimes->Fill(ahittime-adigittime);
-            htvstdiff->Fill(adigittime,ahittime-adigittime);
+            //hphotindigits->Fill(ahittime-adigittime);
+            //htvstdiff->Fill(adigittime,ahittime-adigittime);
             hqvstdiff->Fill(digihit->GetQ(),ahittime-adigittime);
-            if(thehittimeobject->GetNumScatterings()==0){
+//            auto thescatters = thehittimeobject->GetScatterings();
+//            for(auto&& aprocess : thescatters){
+//              std::cerr<<aprocess.first<<":"<<aprocess.second<<std::endl;
+//            }
+            if( (thehittimeobject->GetScatterings().size()==2) &&
+                (thehittimeobject->GetScatterings().begin()->first=="FresnelReflection_WCBarrel_WCPMT") &&
+                (thehittimeobject->GetScatterings().begin()->second==1) &&
+                (thehittimeobject->GetScatterings().rbegin()->first.find("FresnelReflection_WCPMT_ANNIEp2v6-glassFaceWCPMT")!=std::string::npos) &&
+                (thehittimeobject->GetScatterings().rbegin()->second==1)
+              ){ // nothing but transportation, detection seems to involve reflection
               // calculate time residual
-              Int_t thephotonsparenttrackid = thehittimeobject->GetParentID();
+              hphotindigits->Fill(ahittime-adigittime);
+              hphotrelfirstphot->Fill(ahittime-firstphotontime);
+              htvstdiff->Fill(adigittime,ahittime-adigittime);
+              //hqvstdiff->Fill(digihit->GetQ(),ahittime-adigittime);
+              //hddelayvstdiff->Fill(adigittime-firstphotontime,ahittime-adigittime,1./ndigitphots);
               float trackendx, trackendy, trackendz;
               bool trackfound=false;
               for(int track=0; track<numtracks; track++){
@@ -367,56 +428,71 @@ int print_event_summaries(TString filepathin=""){
                   trackendx=nextrack->GetStop(0);
                   trackendy=nextrack->GetStop(1);
                   trackendz=nextrack->GetStop(2);
-                  if((abs(nextrack->GetStart(0)- geo->GetWCOffset(0))>0.01) ||
-                     (abs(nextrack->GetStart(1)- geo->GetWCOffset(1))>0.01) ||
-                     (abs(nextrack->GetStart(2)- geo->GetWCOffset(2))>0.01)){
-                      std::cerr<<"TRACK WITH NON-ORIGIN START AT ("
-                               <<(nextrack->GetStart(0)- geo->GetWCOffset(0))<<", "
-                               <<(nextrack->GetStart(1)- geo->GetWCOffset(1))<<", "
-                               <<(nextrack->GetStart(2)- geo->GetWCOffset(2))<<")"<<std::endl;
-                  }
-                  double distx = trackendx - True_Vertex_X; // includes offset
-                  double disty = trackendy - True_Vertex_Y;
-                  double distz = trackendz - True_Vertex_Z;
-                  double distancefromorigin = sqrt(pow(distx,2.)+pow(disty,2.)+pow(distz,2.));
-                  double traveltime=((distancefromorigin*REF_INDEX_WATER)/SPEED_OF_LIGHT);
-                  double htres = ahittime-traveltime;
-                  htimeresid->Fill(htres);
-                  if(htres<-5||htres>30){
-                    std::cerr<<"VERY BAD HIT TIME RES: "<<htres<<std::endl;
-                  } else {
+//                  if((abs(nextrack->GetStart(0)- geo->GetWCOffset(0))>0.01) ||
+//                     (abs(nextrack->GetStart(1)- geo->GetWCOffset(1))>0.01) ||
+//                     (abs(nextrack->GetStart(2)- geo->GetWCOffset(2))>0.01)){
+//                      std::cerr<<"TRACK WITH NON-ORIGIN START AT ("
+//                               <<(nextrack->GetStart(0)- geo->GetWCOffset(0))<<", "
+//                               <<(nextrack->GetStart(1)- geo->GetWCOffset(1))<<", "
+//                               <<(nextrack->GetStart(2)- geo->GetWCOffset(2))<<")"<<std::endl;
+//                  }
+                  double distxphot = trackendx - True_Vertex_X; // includes offset
+                  double distyphot = trackendy - True_Vertex_Y;
+                  double distzphot = trackendz - True_Vertex_Z;
+                  double distancefromvertexphot = sqrt(pow(distxphot,2.)+pow(distyphot,2.)+pow(distzphot,2.));
+                  double traveltime= (distancefromvertexphot*REF_INDEX_WATER)/SPEED_OF_LIGHT;
+                  double htresphot = ahittime-nextrack->GetTime()-traveltime;
+                  //htimeresid->Fill(htresphot);
+                  int nsteps = thehittimeobject->GetNumScatterings();
+                  hnumsteps->Fill(nsteps);
+                  if(not (nsteps==2&&htresphot<1)) htimeresidvsnsteps->Fill(htresphot,nsteps);
+                  //if(htresphot<-5||htresphot>30){
+                  //  std::cerr<<"VERY BAD HIT TIME RES: "<<htresphot<<std::endl;
+                  //} else {
                     pointsetx=trackendx;
                     pointsety=trackendy;
                     pointsetz=trackendz;
-                    pointsett=htres;
+                    pointsett=htresphot;
                     pointsetree->Fill();
-                  }
-                  if(htres>5){
+                  //}
+                  if(htresphot>5){
                     std::cerr<<"Bad hit time residual! Photon begins at ("
                                <<(nextrack->GetStart(0)- geo->GetWCOffset(0))<<", "
                                <<(nextrack->GetStart(1)- geo->GetWCOffset(1))<<", "
                                <<(nextrack->GetStart(2)- geo->GetWCOffset(2))<<")"
                                <<" and ends at ("
-                               <<nextrack->GetStop(0)<<", "
-                               <<nextrack->GetStop(1)<<", "
-                               <<nextrack->GetStop(2)<<")"
+                               <<(nextrack->GetStop(0)- geo->GetWCOffset(0))<<", "<<", "
+                               <<(nextrack->GetStop(1)- geo->GetWCOffset(1))<<", "<<", "
+                               <<(nextrack->GetStop(2)- geo->GetWCOffset(2))<<", "<<")"
                                <<" on PMT "<<digihit->GetTubeId()<<" at ("
-                               <<thepmt.GetPosition(0) - geo->GetWCOffset(0)<<", "
-                               <<thepmt.GetPosition(1) - geo->GetWCOffset(1)<<", "
-                               <<thepmt.GetPosition(2) - geo->GetWCOffset(2)<<")"
-                               <<", travel time is "<<traveltime<<", hit time is "<<ahittime<<"ns"
+                               <<(thepmt.GetPosition(0) - geo->GetWCOffset(0))<<", "
+                               <<(thepmt.GetPosition(1) - geo->GetWCOffset(1))<<", "
+                               <<(thepmt.GetPosition(2) - geo->GetWCOffset(2))<<")"
+                               <<", expected time is "<<traveltime+h->GetDate()
+                               <<", hit time is "<<ahittime<<"ns"
+                               <<", digit time is "<<digihit->GetT()
+                               <<", trigger time is "<<h->GetDate()
+                               <<", parent is "<<thephotonsparenttrackid
+                               <<" which starts at "<<nextrack->GetTime()
                                <<std::endl;
                   }
                   break;
                 }
               }
-              if(trackfound==false){ std::cerr<<"COULD NOT FIND TRACK FOR PHOTON "<<thehittimeobject->GetParentID()<<"!!!!!"<<std::endl;}
+//              if(trackfound==false){
+//                std::cerr<<"COULD NOT FIND TRACK FOR PHOTON "<<thehittimeobject->GetParentID()<<"!!!"<<std::endl;
+//              }
             } else {
-              std::cout<<"photon with non-transportation process(es): ";
-              std::map<std::string,int> procmap = thehittimeobject->GetScatterings();
-              for(auto&& aproc : procmap) std::cout<<(aproc.first)<<":"<<aproc.second<<", ";
-              std::cout<<endl;
+              good_digit=false;
             }
+//            if(thehittimeobject->GetScatterings().size()>0){
+//              std::cout<<"photon with non-transportation process(es): ";
+//              std::map<std::string,int> procmap = thehittimeobject->GetScatterings();
+//              for(auto&& aproc : procmap) std::cout<<(aproc.first)<<":"<<aproc.second<<", ";
+//              std::cout<<endl;
+//            } else {
+//              std::cout<<"photon with no processes!"<<std::endl;
+//            }
             
             TH1D* tdiffforthisphoti = nullptr;
             if(timediffvsphotnum.count(loopi)!=0){
@@ -448,6 +524,11 @@ int print_event_summaries(TString filepathin=""){
             
             ++loopi;
           }
+          
+          if(good_digit){
+            //htimeresid->Fill(htres);
+            htimeresidvsq->Fill(htres,digihit->GetQ());
+          }
         //}
       }
       /////////////// end digit histogram
@@ -464,13 +545,17 @@ int print_event_summaries(TString filepathin=""){
         cout<<"      photon "<<photoni<<" has parent "<<thephotonsparenttrackid<<endl;
       }
       
-        /////////////// photon histogram
+//        /////////////// photon histogram
         for(int photoni=0; photoni<numphotons; photoni++){
           WCSimRootCherenkovHitTime *thehittimeobject = 
             (WCSimRootCherenkovHitTime*)firsttrig->GetCherenkovHitTimes()->At(photoni);
-          //photontimes->Fill(thehittimeobject->GetTruetime());
+//          hphotindigits->Fill(thehittimeobject->GetTruetime());
+            auto thescatters = thehittimeobject->GetScatterings();
+            for(auto&& aprocess : thescatters){
+              std::cerr<<aprocess.first<<":"<<aprocess.second<<std::endl;
+            }
         }
-        /////////////// end histogram
+//        /////////////// end histogram
       
     } // loop over subevents
     e->ReInitialize();
@@ -497,20 +582,33 @@ int print_event_summaries(TString filepathin=""){
   /////////////////////////
   TCanvas* c1 = new TCanvas("c1");
   //digittimes->Draw();
+  //htvstdiff->Draw("colz");
   //hqvstdiff->Draw("colz");
+  hnphotvstdiff->Draw("colz");
+  //hphotindigits->Draw();
+  //hdigitrelfirstphot->Draw();
   //digittimes2->Draw();
   //hcharge->Draw();
   //hqvst->Draw("colz");
   //hmuontimes->Draw();
   //photontimes->Draw();
-  htimeresid->Draw();
+  //htimeresid->Draw();
+  //hnumsteps->Draw();
   c1->Modified();
   c1->Update();
   
   TCanvas* c2 = new TCanvas("c2");
   //htrigt->Draw();
   //photontimes->Draw();
-  pointsetree->Draw("pointsetx:pointsety:pointsetz:pointsett","","colz");
+  //hphotindigits->Draw();
+  //hphotrelfirstphot->Draw();
+  //hdigitrelfirstphot->Draw();
+  hsmearing->Draw();
+  //hddelayvstdiff->Draw("colz");
+  //hnphotvstdiff->Draw("colz");
+  //htimeresidvsq->Draw("colz");
+  //pointsetree->Draw("pointsetx:pointsety:pointsetz:pointsett","","colz");
+  //htimeresidvsnsteps->Draw("colz");
   //hqvst->Draw("colz");
   //htvstdiff->Draw("colz");
   //tdiffbyphotstack->Draw();
